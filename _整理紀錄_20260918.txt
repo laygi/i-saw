@@ -1,0 +1,60 @@
+2026-09-18 濾鏡縮圖樣張
+source/濾鏡樣本_狗狗.jpg ← ~/Downloads/fxn 2025-10-08 103841.037.JPG（用 cp，原檔還留在 Downloads）
+assets/preset-sample.webp ← 由上面那張縮到 400×500、cwebp q94 產生
+
+2026-09-18 郵票框
+source/郵票匡.png ← ~/Downloads/郵票匡.png（用 cp，原檔還在 Downloads）
+assets/stamp-frame.webp ← 由上面那張 cwebp -q 94 -alpha_q 100 轉出，alpha 誤差 0
+source/郵票匡_去背.png ← 由 source/郵票匡.png 去掉紅色殘留後產生（script 在 CHANGELOG 第 32 章）
+assets/stamp-frame.webp ← 改由 源/郵票匡_去背.png 轉出（原本是沒去背的版本）
+
+2026-09-18 蕾絲邊框
+source/蕾絲邊框.png ← ~/Downloads/蕾絲.png（用 cp，原檔還在 Downloads）
+  ※ 檔名沒有用「蕾絲.png」是因為 source/ 裡已經有一個同名的（頁面上垂掛的那片蕾絲），不能蓋掉
+assets/lace-frame.webp ← 由上面那張 cwebp -q 92 -alpha_q 100 轉出，alpha 誤差 0
+
+2026-09-18 蕾絲兩格
+source/蕾絲邊框2.png ← ~/Downloads/蕾絲2.png（用 cp 後裁掉四周空白邊，1024x1536 → 702x1375）
+assets/lace2-frame.webp ← 由上面那張 cwebp -q 92 -alpha_q 100 轉出，alpha 誤差 0
+
+2026-09-18 蕾絲一格／兩格換新素材（覆蓋前一版）
+source/蕾絲邊框.png  ← ~/Downloads/蕾絲.png （新版，裁掉空白邊 1024x1536 → 913x1253）
+source/蕾絲邊框2.png ← ~/Downloads/蕾絲2.png（新版，裁掉空白邊 1024x1536 → 626x1356）
+assets/lace-frame.webp / lace2-frame.webp ← 分別由上面兩張轉出，alpha 誤差 0
+※ 前一版的 source/assets 已被覆蓋；原始檔都還在 ~/Downloads
+
+2026-09-18 12:53 蕾絲一格／兩格再更新一次（覆蓋 12:43 那版）
+source/蕾絲邊框.png  ← ~/Downloads/蕾絲.png （裁切後 913x1252，比例 0.7292）
+source/蕾絲邊框2.png ← ~/Downloads/蕾絲2.png（裁切後 626x1356，比例 0.4617）
+assets/lace-frame.webp  686KB → 336KB（新原檔本身就乾淨很多）
+assets/lace2-frame.webp 608KB（幾乎沒變）
+
+2026-09-18 星星對切濾鏡（暫用素材）
+tools/genstars.py          暫用星星遮罩的產生器（正式素材由 Lily 提供後即可丟棄）
+source/星星遮罩_暫用.png    由上面那支產生，1080x675
+assets/stars-mask.webp     由上面那張轉出，31KB
+※ 等 Lily 的正式遮罩圖進來，只要覆蓋 assets/stars-mask.webp，程式不用改
+
+2026-09-18 16:03 精裝記憶載體
+source/精裝記憶.png ← ~/Downloads/精裝記憶.png（用 cp，原檔還在 Downloads）
+assets/memory-frame.webp ← 由上面那張 cwebp -q 92 -alpha_q 100 轉出，alpha 誤差 0
+
+2026-09-18 16:16 favicon
+source/favicon_百合徽章.png ← ~/Downloads/favicon.png（用 cp，原檔還在 Downloads）
+assets/favicon-32.png / favicon-48.png / favicon-180.png ← 由上面那張縮出三個尺寸
+
+2026-09-18 16:23 favicon 更新（覆蓋 16:16 那版）
+source/favicon_百合徽章.png ← ~/Downloads/favicon.png（新版，572x572，覆蓋掉舊的 732x732）
+assets/favicon-32/48/180.png ← 重新縮出
+
+2026-09-18 16:27 favicon 再次更新（覆蓋 16:23 那版）
+source/favicon_百合徽章.png ← ~/Downloads/favicon.png（新版，551x572，非正方形但接近，直接縮成正方形）
+assets/favicon-32/48/180.png ← 重新縮出
+
+2026-09-18 18:04 敬請期待載體
+source/敬請期待.png ← ~/Downloads/coming soon_forlilymide.png（用 cp，原檔還在 Downloads）
+assets/soon-frame.webp ← 由上面那張 cwebp -q 92 -alpha_q 100 轉出，alpha 誤差 0
+
+2026-09-18 22:12 敬請期待 素材更新（覆蓋 18:04 那版）
+source/敬請期待.png ← ~/Downloads/coming soon_forlilymide.png（新版，同尺寸 1131x1772，窗位置沒變）
+assets/soon-frame.webp ← 重新轉出，alpha 誤差 0

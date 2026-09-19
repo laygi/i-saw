@@ -1,0 +1,23 @@
+2026-09-16  描圖紙原圖歸位
+（描圖紙已轉成 WebP 放在 assets/，PNG 原圖移到 source/ 保存，未刪除）
+
+source/tracing-paper-1.png  ←  assets/tracing-paper-1.png
+source/tracing-paper-2.png  ←  assets/tracing-paper-2.png
+source/tracing-paper-3.png  ←  assets/tracing-paper-3.png
+
+還原方式：把上面三個檔案搬回 assets/，並把 film_gallery.html 裡
+5 處 assets/tracing-paper-*.webp 改回 .png 即可。
+
+2026-09-16  「方寸之間」濾鏡的參考影片
+source/方寸之間.mov  ←  複製自 ~/Desktop/方寸之間.mov（桌面原檔未動）
+用途：濾鏡調校時的對照組，網站不會載入它。
+
+2026-09-16  「方寸之間」改用手繪取景器後的清理（已刪除）
+assets/取景匡.png          已刪除（已轉成 assets/finder.webp；原檔仍在 ~/Desktop/取景匡.png，MD5 相同）
+assets/finder-shade.svg    已刪除（Claude 畫的機身，已被 finder.webp 取代）
+assets/finder-spec.svg     已刪除（Claude 畫的高光，已被 finder.webp 取代）
+
+還原方式：取景匡.png 從桌面複製回來即可；兩個 SVG 已無用途。
+
+2026-09-16  「方寸之間」取景器換圖（第二版）
+assets/取景匡.png  已刪除（已轉成 assets/finder.webp，172 KB）

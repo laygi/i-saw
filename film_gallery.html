@@ -1,0 +1,2981 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film Gallery</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<style>
+  :root{--ar:0.8;--red:#ac242e;--red-deep:#5c131a;--paper:#ebe7dd;--paper-2:#e2ddd1;--ink:#141412;--rule:#1a1917;--muted:#6f6a60;
+    --hdh:54px;--padt:11px;--red-tex:.5;--mono:"SF Mono",Menlo,"Courier New",monospace;--num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;--sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--red);color:var(--ink);font-family:var(--sans);font-size:12px}
+  /* 參考圖的紅不是平塗：中上偏亮，往四周與底部漸暗 */
+  body{background-image:radial-gradient(ellipse 120% 95% at 46% 30%,
+    var(--red) 0%,#96202a 38%,#7a1a22 74%,#5c131a 100%)}
+  /* 紅底的紙材獨立成一層，才能用 opacity 單獨調濃淡
+     （background-blend-mode 沒有強度參數，米白面板則維持原本的做法） */
+  body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
+    mix-blend-mode:soft-light;opacity:var(--red-tex,.5);
+    background-image:var(--paper-tex);background-size:var(--paper-tex-size)}
+  .hd,.app{position:relative;z-index:2}   /* 操作區與頁首在雜訊之上 */
+  /* 最外圍一圈深紅，裡面整張是紙 */
+  body{padding:var(--padt) 22px 22px;min-height:100vh}
+  .app{display:grid;grid-template-columns:clamp(260px,23%,340px) 1fr clamp(300px,27%,400px);min-height:calc(100vh - 22px - var(--padt) - var(--hdh));background:var(--paper);border:0;
+    /* 自然陰影：多層疊加、模糊逐層加倍、透明度遞減，模擬真實光線衰減 */
+    box-shadow:
+      0 1px 1px   rgba(28,6,6,.07),
+      0 2px 4px   rgba(28,6,6,.06),
+      0 6px 10px  rgba(28,6,6,.055),
+      0 12px 22px rgba(28,6,6,.05),
+      0 24px 44px rgba(28,6,6,.045),
+      0 44px 80px rgba(28,6,6,.04)}
+  @media (max-width:860px){body{padding:12px}.app{grid-template-columns:1fr;min-height:calc(100vh - 24px - var(--hdh))}}
+
+  /* ============ 舞台 ============ */
+  .stage{position:relative;display:flex;align-items:center;justify-content:center;padding:28px;overflow:hidden;
+    background-color:var(--paper);
+    background-image:radial-gradient(rgba(0,0,0,.06) .6px,transparent .7px),var(--paper-tex);
+    background-size:14px 14px,var(--paper-tex-size);
+    background-blend-mode:multiply,var(--paper-tex-blend)}
+  /* 偽全螢幕：不依賴 Fullscreen API。實測有些瀏覽器／內嵌環境會直接忽略
+     requestFullscreen()，回傳的 promise 不成功也不失敗，按鈕就變成完全沒反應。
+     這層用 CSS 把舞台撐滿視窗，任何環境都有效；真全螢幕仍然照試，成功就順便去掉瀏覽器外框 */
+  /* 畫板＝成品 + 底下的素材條。兩者同寬，所以寬度算在 .board 上，
+     .frame 只要跟著撐滿即可。--barh 是素材條佔掉的高度，要從成品的高度預算裡扣掉 */
+  .board{--barh:74px;display:flex;flex-direction:column;min-width:0;
+    width:min(100%,calc((100vh - 98px - var(--barh) - var(--padt) - var(--hdh)) * var(--ar)));
+    max-width:100%}
+  .frame{
+    position:relative;container-type:size;overflow:hidden;isolation:isolate;background:#000;
+    aspect-ratio:var(--ar);
+    width:100%;
+    max-width:100%;
+    max-height:calc(100vh - 98px - var(--barh,0px) - var(--padt) - var(--hdh));
+    
+  }
+  /* 素材條：貼在成品正下方，只放縮圖與「＋」，右端一個清除 */
+  .stagebar{display:flex;align-items:center;gap:10px;height:var(--barh);padding-top:16px}
+  .stagebar .items{flex:1 1 auto;min-width:0;padding:0;border-bottom:0}
+  .barclear{flex:0 0 auto;align-self:center;width:auto;height:26px;padding:0 10px;cursor:pointer;
+    background:transparent;border:1px solid var(--hair);border-bottom:1px solid var(--hair);
+    color:var(--muted);text-align:center;
+    font:10px/24px var(--mono);letter-spacing:.12em;
+    transition:border-color .12s,color .12s,background-color .12s}
+  .barclear:hover{background:transparent;border-color:var(--ink);color:var(--ink)}
+  .frame img,.frame video,.thumb img,.thumb video{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;cursor:pointer;z-index:50;
+    color:var(--ink);font:13px/1.9 var(--mono);background:var(--paper);letter-spacing:.5px}
+  .placeholder::before{content:"";position:absolute;inset:14px;border:1px solid var(--rule)}
+  .placeholder small{display:block;font:11px/1.7 var(--mono);color:var(--muted)}
+  .frame.dragover .placeholder{background:var(--paper-2)}
+  .frame.dragover{outline:2px dashed var(--paper);outline-offset:-10px}
+  .caption{position:absolute;left:var(--x,50%);top:var(--y,90%);transform:translate(-50%,-50%);z-index:40;text-align:center;white-space:nowrap;
+    pointer-events:auto;cursor:move;user-select:none;touch-action:none;max-width:96%;
+    font:italic var(--w,700) calc(var(--s,4) * 1cqw) Georgia,"Songti TC",serif;color:var(--c,#e0a23a);text-shadow:0 0 12px rgba(0,0,0,.35);letter-spacing:.5px}
+  .caption.dragging{outline:1px dashed rgba(255,255,255,.6);outline-offset:4px}
+  .caption:empty{display:none}
+  .capblock{padding:6px 0 2px;border-bottom:var(--bw) solid var(--hair)}
+  .capblock .rowline{border-bottom:0;min-height:32px}
+  .capblock .del{color:var(--muted);cursor:pointer}
+  .capblock .del:hover{color:var(--ink)}
+
+  .slot{position:absolute;overflow:hidden;isolation:isolate;background:#000}
+  .slot+.slot .placeholder{display:none}
+  /* 會抖動的圖層要比畫面大一點，抖的時候才不會露出邊 */
+  .gate{position:absolute;inset:-3%;overflow:hidden;will-change:transform}
+
+  /* 共用顆粒：量測 Super 8 參考 = 純亮度雜訊（通道相關 .93）、sd ≈ 1.1%、顆粒約 0.3–0.4% 畫面寬、每張源格重新隨機
+     → 噴聲 alpha 轉成灰階（中心 .5，可同時變亮變暗）、overlay 疊色、尺寸用 cqw 綁畫面寬，JS 逐格位移時加 .js 關掉 CSS 動畫 */
+  .grain{position:absolute;inset:-60%;pointer-events:none;mix-blend-mode:overlay;z-index:30;opacity:var(--grain,.25);will-change:transform;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1'/><feComponentTransfer><feFuncR type='linear' slope='2.4' intercept='-.7'/><feFuncG type='linear' slope='2.4' intercept='-.7'/><feFuncB type='linear' slope='2.4' intercept='-.7'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size:50cqw 50cqw;
+    animation:grain .35s steps(5) infinite}
+  .grain.js{animation:none}
+  .grain.coarse{opacity:calc(var(--grain,.25)*.5);background-size:120cqw 120cqw;animation-duration:.5s;animation-direction:reverse}
+  @keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-5%,3%)}40%{transform:translate(4%,-6%)}60%{transform:translate(-3%,-2%)}80%{transform:translate(6%,4%)}100%{transform:translate(0,0)}}
+  .fx{position:absolute;inset:0;pointer-events:none}
+  .dust{position:absolute;inset:0;pointer-events:none;z-index:35}
+  /* 白點：參考 5×14 px / 530 → 1%×3% W 的直立小長條，+30% 亮，停 1–2 張源格 */
+  .speck{position:absolute;border-radius:50%;background:#fff;opacity:.8;filter:blur(.08cqw)}
+  /* 紅點：參考直徑 4–5% W、飽和紅 (255,60,60)、軟邊、停 0.17–1.1 s、慢慢漂 */
+  .speck.red{background:radial-gradient(circle,#ff5050 0 30%,rgba(255,60,60,.7) 55%,rgba(255,60,60,0) 75%);filter:blur(.15cqw);opacity:.9;transition:transform linear}
+  .speck.dark{background:#000;opacity:.7}
+  .scratch{position:absolute;top:0;bottom:0;width:.12cqw;background:rgba(255,255,255,.4)}
+  .scratch.dark{background:rgba(0,0,0,.6)}
+  .black{background:#000;opacity:var(--black-op,0);z-index:39}
+
+  /* ============ 放映機閃動 / 閃光 / 結尾淡出（全域層） ============ */
+  #flick{position:absolute;inset:0;pointer-events:none;z-index:42}
+  #flick>div{position:absolute;inset:0;opacity:0}
+  #flick .f-dark{background:#000}
+  #flick .f-light{background:#fff;mix-blend-mode:soft-light}
+  #fade{position:absolute;inset:0;pointer-events:none;z-index:58}
+  #fade>div{position:absolute;inset:0;opacity:0}
+  #fade .e-black{background:#000}
+  #fade .e-purple{background:linear-gradient(180deg,rgba(70,25,110,.75),rgba(40,15,80,.6));mix-blend-mode:normal}
+  #trans .t-over{background:#fff;inset:-4%}
+
+  /* ============ 換場景轉場層（只在多素材切換時出現，逐格硬切） ============ */
+  #trans{position:absolute;inset:0;pointer-events:none;z-index:60}
+  #trans>div{position:absolute;inset:-4%;display:none}
+  #trans .t-fill{background:#000}
+  /* 燒片畫格上的細直條紋，模擬底片曝光不均 */
+  #trans .t-fill::after{content:"";position:absolute;inset:0;opacity:.35;mix-blend-mode:multiply;
+    background:repeating-linear-gradient(90deg,rgba(0,0,0,0) 0 6cqw,rgba(0,0,0,.25) 6cqw 9cqw,rgba(255,255,255,.12) 9cqw 13cqw,rgba(0,0,0,0) 13cqw 21cqw)}
+  #trans .t-wipe{filter:blur(1.5cqw)}
+
+  /* ============ 預設 1：暖調光漏 ============ */
+  .p-leak .media{filter:sepia(var(--warm,.35)) saturate(1.25) contrast(1.06) brightness(.92)}
+  .p-leak .tint{background:linear-gradient(180deg,rgba(255,170,80,.18),rgba(120,20,0,.28));mix-blend-mode:multiply}
+  /* 漏光：固定在左緣（光從機身縫隙進來的位置），強度由 JS 逐格脈衝驅動。
+     不用 CSS 動畫，因為真實漏光的閃動是不規則的 */
+  .p-leak .leak{left:0;top:-25%;bottom:-25%;width:var(--lw,30%);
+    mix-blend-mode:screen;opacity:0;filter:blur(26px);
+    transform:translateY(var(--ly,0));
+    transition:opacity 60ms linear;
+    background:
+      radial-gradient(70% 42% at 0% 50%,rgba(255,250,230,.85) 0%,transparent 62%),
+      linear-gradient(90deg,var(--la,#ffb347) 0%,var(--lb,#ff5e3a) 42%,transparent 100%)}
+  .p-leak .leak.two{width:var(--lw2,16%);filter:blur(42px);
+    background:radial-gradient(60% 70% at 0% 50%,var(--lb,#ff5e3a) 0%,transparent 72%)}
+  .p-leak .edge{mix-blend-mode:screen;background:linear-gradient(90deg,rgba(255,200,90,.55),rgba(255,120,40,.2) 12%,transparent 30%);
+    animation:breathe 4.8s ease-in-out infinite alternate}   /* 左緣的底光，與脈衝無關 */
+  @keyframes breathe{from{opacity:.55}to{opacity:.95}}
+  .p-leak .vig{background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(20,5,0,.45) 85%,rgba(0,0,0,.8) 100%);opacity:var(--vig,1)}
+
+  /* ============ 預設 2：Super 8 ============
+     量測：亮部壓到 55–70%（p99 136–178）、暗部抬到 9–16% 且偏藍灰 (31,33,43)、中間調青綠 (98,142,118)、亮部黃 (191,180,101)、
+     飽和 .3–.4、邊緣 10–90% 寬 ≈ 1.3% W（σ≈.5% W）。閃爍由 JS 逐格給 --flick（sd 6.3%），不用 CSS 週期動畫。 */
+  .p-strip .media{filter:contrast(.62) brightness(.9) saturate(.95) brightness(var(--flick,1)) blur(calc(var(--soft,.25)*1cqw))}
+  .p-strip .fadeL{background:#1a2236;mix-blend-mode:lighten;opacity:var(--fade,.7)}            /* 暗部抬成藍灰 */
+  .p-strip .cast{mix-blend-mode:soft-light;opacity:.85;background:rgb(110,160,135)}             /* 中間調青綠 */
+  .p-strip .cast2{mix-blend-mode:multiply;opacity:.8;background:rgb(250,236,165)}               /* 亮部壓黃（減藍） */
+  /* 左邊漏光：量測外側 9% W 基準比內側亮 5–8%；每 ~0.3 s 一張源格（55 ms）脈衝到 +20%、R−G +25（洋紅紅）。右邊外側 10% 暗 10%。 */
+  .p-strip .edgeleak{mix-blend-mode:screen;opacity:calc(var(--eleak,.7)*.3);
+    background:linear-gradient(90deg,var(--la,#ff9678) 0%,transparent 13%)}
+  .p-strip .edgeleak.pulse{opacity:var(--eleak,.7);
+    background:linear-gradient(90deg,var(--lb,#ff506e) 0%,transparent 14%)}
+  .p-strip .edgeR{background:linear-gradient(270deg,rgba(0,0,0,.22),rgba(0,0,0,0) 12%)}
+
+  /* ============ 預設 3：8mm 放映機 ============
+     量測：飽和只有 .17–.23、亮部壓到 72–77%、黑位保留 (p1≈5%)、中間調中性偏冷 (111,125,145)、亮部略青；
+     邊緣 σ≈.2–.4% W；閃爍只有 0.6%（JS 給 --flick）；暗角不是大範圍黑，而是 3% W 寬、−18%、偏黃褐的窄邊。 */
+  .p-proj .media{filter:contrast(.85) brightness(.84) saturate(.6) brightness(var(--flick,1)) blur(calc(var(--soft,.3)*1cqw))}
+  .p-proj .warm{background:#9fb0bd;mix-blend-mode:soft-light;opacity:.5}
+  .p-proj .vig{box-shadow:inset 0 0 calc(var(--vig,.6)*10cqw) calc(var(--vig,.6)*.8cqw) rgba(42,28,10,.75)}
+  /* 塵點：參考 ≤1 顆/秒、0.3% W、停 1 格、多為暗點；尺寸 / 模糊都綁 cqw */
+  .mote{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(255,250,235,.95),rgba(255,250,235,0) 70%);pointer-events:none}
+  .mote.dark{background:radial-gradient(circle,rgba(30,20,10,.9),rgba(30,20,10,0) 70%)}
+  .hair{position:absolute;width:.1cqw;background:rgba(0,0,0,.55);transform-origin:top;pointer-events:none;filter:blur(.06cqw)}
+
+  /* ============ 預設 4：黑白老電影 ============
+     沒有參考影片；套用同樣原則：亮部壓縮、黑位抬高、閃爍逐格隨機（不用 CSS 週期）、顆粒 / 抖動綁畫面尺寸 */
+  .p-bw .media{filter:grayscale(1) contrast(1.05) brightness(.92) sepia(var(--tone,.25)) brightness(var(--flick,1)) blur(.12cqw)}
+  .p-bw .fadeL{background:#161616;mix-blend-mode:lighten;opacity:.9}
+  .p-bw .vig{background:radial-gradient(ellipse at 50% 50%,transparent 50%,rgba(0,0,0,.4) 82%,rgba(0,0,0,.75) 100%);opacity:var(--vig,1)}
+  .p-bw .grain{opacity:var(--grain,.4);mix-blend-mode:overlay}
+
+  /* ============ 預設 5：褪色暖調（第三支參考：幾乎無顆粒無閃動、亮部不到白、暗部抬到暖褐） ============ */
+  .p-faded .media{filter:contrast(.84) saturate(.82) sepia(.22) brightness(1.02) hue-rotate(-4deg)}
+  .p-faded .lift{background:rgb(104,74,66);mix-blend-mode:lighten;opacity:var(--lift,.58)}
+  .p-faded .cast{background:linear-gradient(180deg,rgba(214,168,196,.55) 0%,rgba(240,170,130,.55) 100%);mix-blend-mode:soft-light;opacity:var(--castop,.8)}
+  .p-faded .vig{background:radial-gradient(ellipse at 50% 50%,transparent 62%,rgba(60,30,20,.35) 100%);opacity:var(--vig,.5)}
+  #intro{position:absolute;inset:0;pointer-events:none;z-index:59;display:none}
+
+  /* ============ 預設 6：花田柔光（量測自參考影片 2026-09-15 02:51） ============
+     量測 745 格 176×109：亮度百分位 p1=0 p5=5 p50=87 p95=199 p99=219；
+     10.85% 像素低於 16（暗部壓死）、僅 0.07% 高於 240（亮部滾降、不到純白）；
+     飽和 .351；鄰接像素平均差 5.58（顆粒重）；R>G>B，亮部 212/198/178（暖） */
+  .p-bloom .media{filter:saturate(var(--sat,.85)) contrast(var(--con,1.22)) brightness(var(--exp,1.06))
+    blur(calc(var(--soft,.35)*1cqw))}
+  /* 亮部滾降 + 暖調：multiply 一層暖白，把最大值壓到約 R100% G93% B82%，與量測的亮部比例一致 */
+  .p-bloom .warmtint{mix-blend-mode:multiply;
+    background:linear-gradient(180deg,rgba(255,238,212,1) 0%,rgba(252,230,202,1) 100%);
+    opacity:var(--warm,.85)}
+  /* 光暈／暈光：素材複製一份，模糊提亮後用 screen 疊回去，亮處自然溢出。
+     原本用 backdrop-filter，但輸出用的 canvas 渲染器不支援 —— 畫板看得到、下載出來卻沒有 */
+  .p-bloom .bloom{mix-blend-mode:screen;opacity:calc(var(--glow,.5)*.55);overflow:hidden}
+  .p-bloom .bloom .media{filter:blur(calc(var(--glow,.5)*3cqw)) brightness(1.45) contrast(1.25) saturate(.75)}
+  /* 暗部壓死 */
+  .p-bloom .crush{mix-blend-mode:multiply;background:rgba(18,14,10,1);opacity:var(--crush,.18)}
+  .p-bloom .vig{background:radial-gradient(ellipse at 50% 48%,transparent 42%,rgba(12,8,4,.5) 78%,rgba(0,0,0,.88) 100%);
+    opacity:var(--vig,.8)}
+
+  /* ============ 預設 7：陽光褪色（量測自參考影片 2026-09-15 02:56） ============
+     48 格取樣：亮度 p1=41 p5=59 p50=147 p95=207 p99=218；低於 16 僅 0.05%（暗部抬起、不壓黑）
+     中位 RGB 149/152/87（黃綠）、暗部 44/65/25（綠色地板）、亮部 215/210/170
+     飽和 .376、鄰接差 9.03（比影片 1 更重） */
+  .p-sun .media{filter:saturate(var(--sat2,1.05)) contrast(var(--con2,.78)) brightness(var(--exp,1.28))
+    blur(calc(var(--soft,.3)*1cqw))}
+  /* 暗部抬升：screen 一層量測到的暗部色 (44,65,25)。
+     原本用 lighten 當「地板」，但媒體濾鏡 contrast(.78) brightness(1.28) 已經把最暗值抬到 68，
+     高於這個地板，所以只有源值 <12% 的像素會被影響 → 滑桿幾乎沒反應。
+     改成 screen：暗部抬最多、亮部幾乎不動，整條滑桿都有作用（0→1 時暗部 +45、中間調 +19、亮部 0） */
+  .p-sun .lift{mix-blend-mode:screen;background:rgb(44,65,25);opacity:var(--lift,.25)}
+  /* 黃綠色偏 + 亮部上限：multiply 一層淡黃綠，把藍色壓下來 */
+  .p-sun .cast{mix-blend-mode:multiply;background:rgb(242,238,196);opacity:var(--cast,.8)}
+  /* 霧化：低對比的來源，screen 一層暖白把整體推亮壓縮動態範圍 */
+  .p-sun .haze{mix-blend-mode:screen;
+    background:linear-gradient(170deg,rgba(255,250,228,1) 0%,rgba(236,240,214,1) 100%);
+    opacity:var(--haze,.16)}
+  .p-sun .vig{background:radial-gradient(ellipse at 50% 46%,transparent 55%,rgba(60,55,25,.28) 88%,rgba(40,38,14,.45) 100%);
+    opacity:var(--vig,.5)}
+
+
+  /* ============ 預設 8：方寸之間 ============
+     概念：從相機觀景窗裡看出去。
+     機身是 Lily 畫的一張 PNG（assets/finder.webp，1210×1594，有 alpha）。
+     量測：機身區域不透明度 253~254（完全擋住），中間是乾淨的透明洞，
+     洞在圖檔裡的位置 x 15.87~80.91%、y 35.01~65.24%，洞緣有 28~29px 的羽化。
+     圖檔長寬比 0.759，畫布是 0.800，用 fill 撐滿（橫向拉伸 5%，在這種柔焦物件上看不出來）。
+     取景窗的照片比洞大一圈，硬邊會被圖檔羽化的洞緣蓋住。
+     環境反射：把照片大幅模糊後用 soft-light 疊在最上層 ——
+     機身會染上當下景色的顏色（量測參考影片得到的特性），窗內則多一層很淡的暈光。
+     窗內調性 contrast .60 + brightness 1.12，實測 p1≈78 / p50≈170，與參考影片一致。
+     手持是慢速漂移不是抖動（見 handHold）。相機（機身＋窗）一起晃，
+     照片則由 .hold 反向抵銷掉，所以看起來是「景站著不動、相機在飄」——
+     洞會在靜止的照片上慢慢游移，像真的端著相機找構圖。
+     反向量的上限＝窗超出洞的那一圈＋照片放大溢出的部分，用 tanh 收邊。 */
+  .p-finder{background:#000}
+  .p-finder .rig{position:absolute;inset:0}
+
+  /* 1 取景窗：清楚的那一塊。素材直接 cover 這個窗（而不是先鋪滿整張畫布再切一塊出來
+     —— 那樣直式影片只會看到中間 17% 的高度，主體幾乎都被切掉） */
+  .p-finder .win{position:absolute;left:var(--wl);top:var(--wt);width:var(--ww);height:var(--wh);
+    overflow:hidden;border-radius:1.6cqw}
+  /* hold：抵銷手晃的那層。照片掛在它裡面，所以 .media 自己的 scale(--zoom) 不受影響 */
+  .p-finder .hold{position:absolute;inset:0}
+  .p-finder .win .media{filter:contrast(var(--wcon,.60)) brightness(var(--exp,1.12))
+    saturate(var(--wsat,.95)) blur(calc(var(--soft,.45)*1cqw));
+    transform:scale(var(--zoom,1));transform-origin:50% 50%}
+  .p-finder .win .haze{mix-blend-mode:screen;opacity:var(--haze,.08);
+    background:linear-gradient(168deg,rgba(255,252,240,1) 0%,rgba(226,234,240,1) 100%)}
+
+  /* 2 取景器本體：有 alpha 的圖，直接疊上去，窗的位置是透明的洞 */
+  .p-finder .finder{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;
+    pointer-events:none;filter:brightness(var(--fbri,1));
+    transform:scale(var(--fsc,1));transform-origin:50% 50%}
+
+  /* 3 環境反射：照片大幅模糊後疊在最上層。
+     用 color 混合 —— 只換色相與飽和度，保留圖上原本畫的明暗與金屬高光，
+     所以圖檔本來的暖黃／冷銀會直接被當下景色的顏色蓋掉 */
+  .p-finder .refl{position:absolute;inset:-8%;overflow:hidden;pointer-events:none;
+    mix-blend-mode:color;opacity:var(--refl,.7)}
+  .p-finder .refl .media{filter:blur(9cqw) saturate(1.3)}
+
+  /* ============ 星星對切 ============
+     畫面上下對切，兩半放同一個素材、各播各的。
+     同一張星星遮罩用兩次：上半「星星填上顏色蓋在照片上」，下半「整片顏色、星星處挖空露出照片」。
+     兩半的遮罩層尺寸一樣、也都用 cover，所以星星的位置上下完全對齊。
+
+     遮罩層是 <img>，src 是程式當場用 canvas 合成出來的 data URL。
+     為什麼不用 mask-image / clip-path：輸出影片的 canvas 渲染器兩個都不支援（見 README），
+     但它畫得出 <img> 與 object-fit，所以走這條預覽跟輸出才會一致。 */
+  /* 直式／方形畫面對半橫切；橫式（16:9 那類，寬≥高）改成對半直切 ——
+     用 @container 讀 .frame 自己的長寬比（它有 aspect-ratio:var(--ar)），
+     不用 JS 判斷，畫面比例一改就自動切換，不會漏掉「跟素材一樣」這種算出來的比例。
+     canvas 輸出讀的是最終算好的版面（offsetLeft/Width…），跟畫面比例怎麼決定的無關，
+     所以這裡切換完，預覽跟輸出影片會是同一個版面 */
+  .p-split .half{position:absolute;left:0;top:0;width:100%;height:50%;overflow:hidden}
+  .p-split .half.bot{top:50%}
+  @container (min-aspect-ratio:1/1){
+    .p-split .half{width:50%;height:100%}
+    .p-split .half.bot{top:0;left:50%}
+  }
+  .p-split .starlay{position:absolute;inset:0;z-index:20;pointer-events:none}
+  .p-split .media{filter:saturate(var(--sat,1)) contrast(var(--con,1.06)) brightness(var(--exp,1))}
+
+  /* ============ 郵票載體 ============
+     郵票是「載體」不是濾鏡，所以可以跟任何濾鏡疊。
+     它有兩格：第一格滿版（框外面的底圖，固定放第一張照片），第二格是票面的窗（輪播）。
+     兩格都走同一個濾鏡的 build()，所以框外面跟框裡面的色調是一致的 ——
+     底圖層如果自己另外寫 filter，會把濾鏡的 filter 整個蓋掉，顏色就分家了。
+     所以底圖只用 transform 放大 + 一層 ::after 壓暗，兩個輸出渲染器都畫得出來
+     （它支援 transform 與 ::after，但不支援「父層 filter 影響子層」—— 見 README） */
+  /* 底圖那格要用 .bgcell 認，不能用 :first-child ——
+     #frame 裡前面還有 flick / trans / fade / intro 四個固定層，格子永遠不是第一個孩子 */
+  .slot.bgcell .media{transform:scale(var(--sbzoom,1.3));transform-origin:50% 50%}
+  .slot.bgcell::after{content:"";position:absolute;inset:0;z-index:40;
+    background:rgba(10,8,6,var(--sbdim,.45));pointer-events:none}
+
+  /* ============ 預設 9：金色那天（量測自參考影片，884×634、6.7s、三個鏡頭） ============
+     · 亮部（L>205）平均 RGB 237/228/158 —— 藍色比紅色低 79。
+       兩支沒加工的對照影片量出來是 224/223/225 與 227/224/221（中性白，差 ±6），
+       所以「最亮不是白色、而是淺黃色」是這支最明確、也最容易複製的特徵
+     · 暖度隨亮度遞增：亮部 R−B +79、中間調 +25、暗部 +4 —— 不是整片罩黃
+     · 亮度 p1=6 p50=53 p95=225 p99=237 max=252；19.7% 低於 16、僅 0.54% 高於 240
+     · 貼著亮區的暗部比遠處亮 2.02 倍，平滑衰減約 14% 畫面寬（發光感；
+       對照組量到 1.00 與 1.54，但亮區佔比差太多，所以半徑當參數調而不是當定值） */
+  /* 灰階測試條搜出來的一組：入32→L7、入128→R−B 25（正好命中量測）、入248→L224 R−B47，
+     而且入200 還有 L208，不會太早削平（參考影片只有 0.54% 超過 240，是有肩部的滾降） */
+  .p-gold .media{filter:saturate(var(--sat,1.1)) contrast(var(--con,1.25)) brightness(var(--exp,1.1))
+    blur(calc(var(--soft,.18)*1cqw))}
+  /* 淺黃天花板：multiply 的絕對變化隨亮度遞增 —— 白色被拉到 255/248/178（R−B 77，命中量測的 79），
+     中間調只被拉 39，暗部幾乎不動。這正好複製「愈亮愈黃」而不是整片罩黃 */
+  .p-gold .ceil{mix-blend-mode:multiply;opacity:var(--gold,.9);
+    background:linear-gradient(168deg,rgb(255,248,176) 0%,rgb(255,244,162) 100%)}
+  /* 發光：疊在天花板之前，所以溢出來的光也會被染成金色 */
+  .p-gold .glow{mix-blend-mode:screen;opacity:var(--glowop,.5);overflow:hidden}
+  .p-gold .glow .media{filter:blur(calc(var(--grad,.55)*4cqw)) brightness(1.5) contrast(1.9)
+    sepia(.55) saturate(1.7)}
+  /* 壓黑：量測中位數只有 53，畫面大半是暗的，金色光斑才浮得出來 */
+  .p-gold .crush{mix-blend-mode:multiply;background:rgb(30,22,14);opacity:var(--crush,.04)}
+  .p-gold .vig{background:radial-gradient(ellipse at 50% 46%,transparent 40%,rgba(30,18,6,.46) 76%,rgba(6,4,0,.9) 100%);
+    opacity:var(--vig,.6)}
+
+  /* ============ 預設 10：霧裡微亮 ============
+     原本想做參考影片那種「隔著玻璃折射」的效果，用位移貼圖 + 方向性光束試了三版都不對 ——
+     那支影片的光條是橫掃整個畫面、跟內容無關的鏡頭內反射，
+     而「從畫面內容算出光條」的做法，光條永遠會黏在亮點上（疊幾個角度就變星芒）。
+     折射那套整個拿掉了，留下調校過程中意外好看的部分：低飽和、冷調、柔霧發光。 */
+  .p-cool .media{filter:saturate(var(--sat,.62)) contrast(var(--con,.96))
+    brightness(var(--exp,1.06)) blur(calc(var(--soft,.18)*1cqw))}
+  /* 柔霧發光：素材複製一份，模糊提亮後 screen 疊回（不用 backdrop-filter —— 輸出渲染器不支援） */
+  .p-cool .glow{mix-blend-mode:screen;opacity:var(--glowop,.5);overflow:hidden}
+  /* 模糊半徑要夠大 —— 半徑太小等於把畫面細節原封不動提亮，會被讀成雜訊而不是霧 */
+  .p-cool .glow .media{filter:blur(calc(var(--grad,.6)*9cqw)) brightness(1.3) saturate(.6)}
+  /* 冷調：multiply 一層淡青，把暖色壓掉 */
+  .p-cool .cool{mix-blend-mode:multiply;opacity:var(--cool,.3);
+    background:linear-gradient(160deg,rgb(232,244,246) 0%,rgb(216,234,240) 100%)}
+  /* 深度：柔霧會把整體提亮、黑被抬起來，畫面就扁了。
+     用 color-burn 把中／深部拉回來 —— 灰階實測（相對輸入的變化量）：
+       multiply   暗部 -3   中 -13  亮部 -25  ← 亮部被壓最多，方向相反
+       overlay    暗部 -1   中  -5  亮部  -2  ← 太弱
+       color-burn 暗部 -14  中 -10  亮部  -2  ← 暗部壓最多、亮部幾乎不動
+     疊在柔霧與冷調之後，作用在「已經被提亮」的結果上 */
+  .p-cool .depth{mix-blend-mode:color-burn;opacity:var(--depth,.35);
+    background:rgb(206,212,216)}
+  .p-cool .vig{background:radial-gradient(ellipse at 50% 48%,transparent 46%,rgba(20,28,32,.4) 80%,rgba(6,10,12,.86) 100%);
+    opacity:var(--vig,.5)}
+
+  /* ============ 「無」：照片影片原本的樣子，只留基礎微調 ============
+     不套任何色調濾鏡，純粹是曝光／飽和／對比／顆粒／暗角這幾個最基本的調整，
+     預設值全部是「沒有效果」（曝光1、飽和1、對比1、顆粒0、暗角0），
+     這樣才能單獨拿載體（郵票、蕾絲、精裝記憶…）疊照片本人的樣子，不被額外上色 */
+  .p-none .media{filter:brightness(var(--exp,1)) saturate(var(--sat,1)) contrast(var(--con,1))}
+  .p-none .vig{background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%);
+    opacity:var(--vig,0)}
+
+  /* 交叉淡入：新畫面疊在舊畫面之上淡入，兩者短暫重疊 */
+  .slot.leaving{pointer-events:none}
+  /* 淡入由 JS 明確驅動（見 nextScene 的 dissolve），確保起始值先套用再過渡 */
+
+  /* ============ 遮罩（載體） ============ */
+  .masklayer{position:absolute;inset:0;pointer-events:none;z-index:45;object-fit:fill;width:100%;height:100%}
+
+  /* ============ 面板：格線版 — 1px 格線切成兩欄大格子，內容靠左上，其餘留白 ============ */
+  :root{--grid:rgba(20,20,18,.18);--hair:rgba(20,20,18,.22);--bw:1px;--hover:rgba(20,20,18,.04)}
+  /* 紙質：取自 augustine-wong 的紙材照片，高通去掉大範圍明暗後做成無縫平鋪的
+     灰階小圖（2000px 取樣 → 360px tile，顯示 220px；41.6 KB）。用 soft-light 疊加，只影響明暗不改變底色 */
+  :root{
+    --paper-tex:url("assets/paper.webp");
+    --paper-tex-size:220px 220px;
+    --paper-tex-blend:soft-light}
+  .panel{background-color:var(--paper);background-image:var(--paper-tex);
+    background-size:var(--paper-tex-size);background-blend-mode:var(--paper-tex-blend);
+    color:var(--ink);overflow:auto;max-height:calc(100vh - 24px - var(--padt) - var(--hdh));padding:32px;border-left:1px solid var(--grid);
+    font:11px/1.5 var(--mono);letter-spacing:.04em}
+  .panel::-webkit-scrollbar{width:4px}.panel::-webkit-scrollbar-thumb{background:var(--hair)}
+  .panel *{box-sizing:border-box}
+  .panel [hidden]{display:none!important}
+  .panel button,.panel select,.panel input,.panel .item,.panel .sw{cursor:pointer;transition:background-color .12s,color .12s,border-color .12s}
+
+  /* 頁首：站在最外圍的深紅底上，紙張之外 */
+  .hd{display:flex;justify-content:space-between;align-items:center;gap:18px;
+    height:var(--hdh);padding:0 2px 7px;margin:0}
+  .hd-left{display:flex;align-items:center;gap:16px;flex:1 1 auto;min-width:0}
+  .hd h1,.hd .sub{white-space:nowrap}
+  .hd .sub{overflow:hidden;text-overflow:ellipsis}
+  .hd svg{display:block;width:10px;height:10px;color:var(--paper);align-self:center}
+  .hd h1,.hd .no{margin:0;font:italic 400 22px/1 Georgia,"Times New Roman","Songti TC",serif;letter-spacing:0;color:var(--paper)}
+  .hd .sub{margin:0;font:11px/1.5 var(--mono);color:rgba(235,231,221,.62);letter-spacing:.06em}
+  .hd h1{margin:0;line-height:0;flex:0 0 auto}
+  /* 圖檔已去掉烘焙的陰影並裁掉留白，所以邊框即布標本身，對齊好抓；
+     陰影改由 CSS 給，兩層才不會疊在一起 */
+  .hd .mark{display:block;height:34px;width:auto;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.30)) drop-shadow(0 5px 12px rgba(0,0,0,.22))}
+  /* 右側 Our Story：正體襯線，與左側斜體成對比 */
+  .hd-story{appearance:none;background:none;border:0;cursor:pointer;
+    display:inline-block;width:auto;height:auto;flex:0 0 auto;padding:2px 0;
+    text-transform:none;text-align:right;white-space:nowrap;
+    /* 與「Look what I saw today.」同一套等寬字 */
+    font:normal 300 13px/1 var(--mono);letter-spacing:.06em;
+    color:var(--paper);opacity:.82;transition:opacity .2s,border-color .2s;
+    border-bottom:1px solid rgba(235,231,221,.35)}
+  .hd-story:hover{opacity:1;border-bottom-color:var(--paper)}
+  @media (max-width:860px){.hd{padding:0 2px 12px}.hd .mark{height:30px}.hd .sub{display:none}.hd-story{font-size:12px}}
+
+  /* ============ 描圖紙 Our Story ============ */
+  /* 紙外的背景保持清晰，只用徑向漸層在中心壓出紙的陰影 */
+  .ov{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:4vh 4vw;
+    background:radial-gradient(ellipse 58% 54% at 50% 51%,
+      rgba(26,23,19,.32) 0%,rgba(26,23,19,.25) 38%,rgba(26,23,19,.12) 62%,rgba(26,23,19,.03) 80%,transparent 92%);
+    opacity:0;pointer-events:none;transition:opacity .26s ease}
+  .ov[data-open]{opacity:1;pointer-events:auto}
+
+  /* 紙的舞台：以第三張（攤平）的比例為基準 */
+  .paper{position:relative;width:min(780px,94vw);aspect-ratio:1536/1024;max-height:86vh;
+    transform:scale(.93) rotate(-4deg);
+    transition:transform .4s cubic-bezier(.22,.61,.36,1)}
+  .ov[data-open] .paper{transform:scale(1) rotate(-.5deg)}
+
+  /* 三張定格只負責交叉淡入淡出；縮放與旋轉交給 .paper 一次做完，
+     所以不會逐張跳動 */
+  .pf{position:absolute;left:50%;top:50%;width:auto;display:block;opacity:0;
+    transform:translate(-50%,-50%);
+    transition:opacity .16s linear;
+    filter:drop-shadow(0 16px 30px rgba(38,34,28,.32))}
+  .pf1,.pf2{height:70.7%}
+  .pf3{height:100%}
+  .pf.on{opacity:1}
+  .pf3.on{opacity:.8}          /* 完全攤平那張：80%，透出底下畫面 */
+
+  /* 模糊層：用第三張的 alpha 當遮罩，霧化只發生在紙的形狀內 */
+  .pmask{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .3s ease;
+    backdrop-filter:blur(6px) brightness(1.28) saturate(.32);
+    -webkit-backdrop-filter:blur(6px) brightness(1.28) saturate(.32);
+    -webkit-mask-image:url("assets/tracing-paper-3.webp");mask-image:url("assets/tracing-paper-3.webp");
+    -webkit-mask-size:contain;mask-size:contain;
+    -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+    -webkit-mask-position:center;mask-position:center}
+  .pmask.on{opacity:1}
+
+  /* 紙上的文字：限制在紙面內，超出可捲動 */
+  .story{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:52%;max-height:62%;overflow-y:auto;overscroll-behavior:contain;z-index:3;
+    /* 頭尾各留一段空白，讓第一行與最後一行不會落在漸層裡被吃掉 */
+    padding:24px 0;
+    opacity:0;transition:opacity .4s ease;pointer-events:none;
+    color:#4a453c;font:13.5px/2.25 "Songti TC","Georgia","Times New Roman",serif;
+    letter-spacing:.04em;text-align:justify;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
+    mask-image:linear-gradient(180deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+  .story.on{opacity:1;pointer-events:auto}   /* 第三張攤平後才由 JS 開啟 */
+  .story p{margin:0 0 1.5em}
+  .story p:last-child{margin-bottom:0}
+  .story::-webkit-scrollbar{width:3px}
+  .story::-webkit-scrollbar-thumb{background:rgba(74,69,60,.22);border-radius:2px}
+  .story::-webkit-scrollbar-track{background:transparent}
+  @media (max-width:860px){.story{width:64%;font-size:12px;line-height:2.1}}
+
+  .ovx{position:absolute;top:-34px;right:0;z-index:2;appearance:none;background:none;border:0;cursor:pointer;
+    display:inline-block;width:auto;height:auto;text-transform:none;text-align:right;padding:6px 0;
+    font:11px/1 var(--mono);letter-spacing:.14em;color:rgba(235,231,221,.7);transition:color .2s}
+  .ovx:hover{color:var(--paper)}
+  @media (max-width:860px){.paper{width:94vw}.ovx{top:-30px}}
+  @media (prefers-reduced-motion:reduce){.ov,.pf,.pmask,.paper{transition:none}}
+
+  /* ============ 輸出銀盒 ============ */
+  /* 收起時只露三分之一，hover 擺正並露出三分之二 */
+  .iron{position:fixed;right:0;bottom:0;width:340px;z-index:6;cursor:pointer;
+    transform-origin:100% 100%;
+    pointer-events:none;   /* 事件用幾何判定處理，見下方 onIron() */
+    transform:translate(13.87%,85.01%) rotate(9deg);   /* 收起：角度放平、只露盒蓋一角，不擋面板 */
+    filter:drop-shadow(0 10px 24px rgba(40,6,10,.40));
+    transition:transform .45s cubic-bezier(.22,.61,.36,1),filter .45s ease;
+    user-select:none;-webkit-user-drag:none}
+  .iron.hov,.iron.open{transform:translate(-6.7%,14%) rotate(0deg)}   /* 展開：露更多，陰影不變 */
+
+  /* hover 提示（tooltip）：滑到鐵盒上才出現，告訴使用者這是輸出按鈕。
+     深色反白 —— tooltip 的慣例，讓它讀起來是「暫時浮出來的說明」而不是可按的按鈕。
+     淺底加框線在這個介面裡代表按鈕或輸入欄位，會混淆。
+     不吃事件，也不跟著鐵盒轉，位置固定在鐵盒露出的那一角旁邊 */
+  .ironhint{position:fixed;right:250px;bottom:132px;z-index:6;pointer-events:none;
+    display:flex;align-items:baseline;gap:8px;padding:6px 11px;white-space:nowrap;
+    background:var(--ink);border:0;border-radius:2px;
+    box-shadow:0 8px 22px rgba(10,6,4,.34);
+    font:11.5px/1 var(--sans,inherit);letter-spacing:.06em;color:var(--paper);
+    opacity:0;transform:translate(8px,8px);
+    transition:opacity .2s ease,transform .2s cubic-bezier(.22,.61,.36,1)}
+  .ironhint span{font:9.5px/1 var(--mono);letter-spacing:.16em;color:rgba(235,231,221,.55)}
+  .iron.hov ~ .ironhint{opacity:1;transform:none}
+  .iron.open ~ .ironhint{opacity:0;transform:translate(8px,8px)}
+
+  html.iron-hot,html.iron-hot *{cursor:pointer}
+
+  /* 手機版的輸出鈕：桌機不出現（桌機是右下角的銀盒） */
+  .exportbar{display:none}
+  .expanel{position:fixed;right:24px;bottom:24px;z-index:7;width:236px;padding:16px 16px 12px;
+    background:var(--paper);border:1px solid var(--rule);
+    box-shadow:0 18px 44px rgba(30,8,10,.34);
+    opacity:0;transform:translateY(10px) scale(.98);pointer-events:none;
+    transition:opacity .3s ease,transform .3s cubic-bezier(.22,.61,.36,1)}
+  .expanel[data-open]{opacity:1;transform:none;pointer-events:auto}
+  /* 預覽圖：用輸出影片時同一套 canvas 渲染器畫的，所以看到什麼就會下載到什麼 */
+  .expanel .prevbox{margin:0 0 12px;background:#000;display:flex;justify-content:center;
+    align-items:center;min-height:60px}
+  .expanel .prevbox canvas{display:block;max-width:100%;max-height:206px}
+  .expanel h3{margin:0 0 10px;font:11px/1 var(--mono);font-weight:600;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+  .expanel .spec{margin:0 0 12px;display:grid;grid-template-columns:auto 1fr;gap:5px 10px;
+    font:11px/1.5 var(--mono);color:var(--ink);
+    border-top:var(--bw) solid var(--hair);padding-top:9px}
+  .expanel .spec dt{color:var(--muted);letter-spacing:.06em}
+  .expanel .spec dd{margin:0;text-align:right;font-family:var(--num);
+    font-variant-numeric:tabular-nums;font-size:12px}
+  /* ============ 按鈕 ============
+     primary  ：黑底，滑過轉主色紅
+     secondary：外框，滑過加深 */
+  .btn{display:block;width:100%;height:38px;margin:0;padding:0;
+    border-radius:0;text-align:center;text-transform:uppercase;cursor:pointer;
+    font:11px/36px var(--mono);letter-spacing:.16em;
+    transition:background-color .18s,color .18s,border-color .18s}
+  .expanel .btn+.btn{margin-top:8px}                    /* 只有堆疊時才需要間距 */
+  .btn-primary{background:var(--ink);color:var(--paper);border:1px solid var(--ink)}
+  .btn-primary:hover:not(:disabled){background:var(--red);border-color:var(--red)}
+  .btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--hair)}
+  .btn-secondary:hover:not(:disabled){border-color:var(--rule);color:var(--ink)}
+  .btn-text{background:transparent;border:0;border-bottom:var(--bw) solid var(--hair);
+    height:36px;line-height:34px;text-align:left;text-transform:none;letter-spacing:.06em;
+    color:var(--muted)}
+  .btn-text:hover:not(:disabled){color:var(--ink)}
+  .btn:disabled{opacity:.42;cursor:default}
+  /* 輸出中：那顆按鈕變成「取消輸出」，用紅框跟正常狀態分開 */
+  .btn.cancelling{background:transparent;color:var(--red);border-color:var(--red)}
+  .btn.cancelling:hover:not(:disabled){background:var(--red);color:var(--paper)}
+  .expanel .status{border-bottom:0;min-height:26px;padding-top:6px;color:var(--muted)}
+  @media (max-width:860px){.iron{width:46vw}.expanel{right:12px;bottom:12px}.ironhint{display:none}}
+
+  /* ============ 蕾絲裝飾 ============ */
+  /* 預設垂掛在頁面上方（只露出下緣）；點一下移到畫面中央並擺正一些 */
+  .lace{position:fixed;left:50%;top:0;width:480px;height:480px;z-index:4;
+    transform:translate(-48px,-398px) rotate(18deg);
+    cursor:pointer;user-select:none;-webkit-user-drag:none;
+    filter:drop-shadow(0 8px 18px rgba(50,8,12,.30));
+    transition:transform .62s cubic-bezier(.22,.61,.36,1),filter .62s ease}
+  .lace:hover:not(.open){transform:translate(-48px,-368px) rotate(18deg)}   /* 滑過多露一點 */
+  .lace.open{transform:translate(-240px,calc(50vh - 240px)) rotate(0deg);
+    filter:drop-shadow(0 18px 40px rgba(50,8,12,.38))}
+  /* 窄螢幕：縮小並往左移，避免蓋到右上角的 Our Story */
+  @media (max-width:1400px){
+    .lace{width:360px;height:360px;transform:translate(-145px,-300px) rotate(18deg)}
+    .lace:hover:not(.open){transform:translate(-145px,-277px) rotate(18deg)}
+    .lace.open{transform:translate(-180px,calc(50vh - 180px)) rotate(0deg)}}
+  @media (max-width:860px){
+    .lace{width:280px;height:280px;transform:translate(-172px,-236px) rotate(18deg)}
+    .lace:hover:not(.open){transform:translate(-172px,-218px) rotate(18deg)}
+    .lace.open{transform:translate(-140px,calc(50vh - 140px)) rotate(0deg)}}
+  @media (prefers-reduced-motion:reduce){.lace{transition:none}}
+
+  /* 格線：外框 + 兩欄；每欄由上往下疊格子，最後一格撐滿 */
+  .grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--grid)}
+  .col{display:flex;flex-direction:column;min-width:0}
+  .col+.col{border-left:1px solid var(--grid)}
+  .cell{padding:24px;border-bottom:1px solid var(--grid)}
+  .col .cell:last-child{border-bottom:0;flex:1}
+  @media (max-width:1280px){.panel{padding:24px 20px}.cell{padding:18px 14px}.hd{padding:0 4px 7px}}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}.col+.col{border-left:0}.col:first-child .cell:last-child{border-bottom:1px solid var(--grid)}}
+  @media (max-width:860px){.panel{border-left:0;border-top:1px solid var(--grid);max-height:none;padding:24px 16px}.cell{padding:20px 16px}}
+
+  /* 格子標題列：左中文、右英文小字；與第一列之間空 16px */
+  /* 區塊可摺疊：標題前的 + / − */
+  .cell>h2{cursor:pointer;user-select:none}
+  .cell>h2::before{content:"−";flex:none;width:13px;margin-right:2px;
+    font:12px/1 var(--mono);color:var(--muted);transition:color .15s}
+  .cell.collapsed>h2::before{content:"+"}
+  .cell>h2:hover::before{color:var(--ink)}
+  .cell.collapsed>:not(h2){display:none}
+  .cell.collapsed{flex:none}
+  .cell.collapsed>h2{margin-bottom:0}
+  .cell>h2{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;height:24px;
+    font:11px/1 var(--mono);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+  .cell>h2 span{color:var(--muted);margin-left:auto}
+  .cell>h2+*{border-top:var(--bw) solid var(--hair)}
+  /* 區塊最後一項不要下框線 —— 否則會和 .cell 自己的分隔線疊成兩條 */
+  .cell>:last-child{border-bottom:0}
+  .rowline:last-child{border-bottom:0}
+
+  /* 列：左標籤、右值，對齊同一條右邊界，底下一條髮絲線 */
+  .rowline{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:40px;padding:3px 0;border-bottom:var(--bw) solid var(--hair)}
+  .rowline:focus-within{border-bottom-color:var(--ink)}
+  /* 被濾鏡鎖住的設定列：仍看得到目前的值，但不能改 */
+  .rowline.locked .v{opacity:.42}
+  .rowline.locked .v::after{content:"▾";visibility:hidden}
+  select:disabled{cursor:default}
+  .k{flex:none;display:block;margin:0;font:11px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+  .rowline .v{flex:1;min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:8px;font:11px var(--mono);color:var(--ink)}
+  .rowline .v:has(.csel)::after{content:"▾";font-size:9px;color:var(--muted);margin-left:-4px}
+  .rowline.locked .v:has(.csel)::after{visibility:hidden}
+
+  /* 輸入：無框，只留字；可點高 36px */
+  input[type=text],select{-webkit-appearance:none;appearance:none;height:29px;margin:0;padding:0;border:0;border-radius:0;
+    /* 淺淺的底色，讓可輸入的欄位有明確範圍（無邊框） */
+    background:rgba(20,20,18,.05);padding:0 10px;
+    color:var(--ink);font:11px/29px var(--mono);letter-spacing:.04em;text-align:right;text-align-last:right;outline:none;
+    transition:background-color .15s}
+  input[type=text]:hover,select:hover{background:rgba(20,20,18,.075)}
+  input[type=text]:focus,select:focus{background:rgba(20,20,18,.095)}
+  input[type=text]{width:100%}
+  /* 全站下拉選單同寬（142px 可容納最長的「4:5 直式 1080×1350」）*/
+  select{width:var(--sel-w,142px);max-width:100%;text-overflow:ellipsis}
+  /* 例外：同一列有兩個選單時（字幕的顏色／粗細），兩者均分該列寬度、彼此同寬 */
+  .v select:has(~ select),.v select~select{width:auto;flex:1 1 0;min-width:0}
+  @media (max-width:1280px){:root{--sel-w:128px}}
+  option{font:inherit}
+
+  /* ============ 自製下拉選單 ============
+     原生 <select> 留在 DOM 裡（.value / .disabled / onchange 都照舊運作，
+     程式其他地方讀寫它完全不用改），只是視覺上藏起來，由 .csel 這組元件代勞。
+     清單用 position:fixed，才不會被面板的捲動區裁掉 */
+  .csel{position:relative;display:inline-flex;width:var(--sel-w,142px);max-width:100%}
+  .v select:has(~ .csel),.v .csel~.csel{width:auto;flex:1 1 0;min-width:0}
+  .csel>select{position:absolute;inset:0;opacity:0;pointer-events:none;width:100%}
+  .csel-btn{display:block;width:100%;height:29px;margin:0;padding:0 10px;border:0;border-radius:0;
+    background:rgba(20,20,18,.05);color:var(--ink);
+    font:11px/29px var(--mono);letter-spacing:.04em;text-align:left;cursor:pointer;
+    text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
+    transition:background-color .15s}
+  .csel-btn:hover{background:rgba(20,20,18,.075)}
+  .csel.open .csel-btn,.csel-btn:focus-visible{background:rgba(20,20,18,.095);outline:none}
+  .csel.disabled .csel-btn{cursor:default;opacity:.42}
+  .csel-list{position:fixed;z-index:40;width:max-content;
+    max-width:min(340px,calc(100vw - 16px));padding:3px 0;
+    background:var(--paper);border:1px solid var(--rule);
+    box-shadow:0 14px 34px rgba(30,8,10,.28);
+    max-height:min(340px,60vh);overflow-y:auto;overscroll-behavior:contain}
+  .csel-opt{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 11px;
+    border:0;background:none;color:var(--ink);cursor:pointer;
+    font:11px/30px var(--mono);letter-spacing:.04em;text-align:left;text-transform:none;
+    white-space:nowrap}
+  .csel-opt:hover{background:var(--hover)}
+  .csel-opt::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:transparent}
+  .csel-opt[aria-selected="true"]{color:var(--red)}
+  .csel-opt[aria-selected="true"]::before{background:var(--red)}
+  .csel-opt.cursor{background:var(--hover)}
+  input[type=text]::placeholder{color:var(--muted)}
+  input[type=file]{display:none}
+
+  /* 滑桿列 52px：標籤/數值一行 20px，上下各 8px，滑桿 16px */
+    /* 標籤、滑桿、數值同一列：用 display:contents 讓 .top 的標籤與數值
+     直接成為 .param 的 flex 項目，不必改 HTML 結構 */
+  .param{display:flex;align-items:center;gap:8px;padding:7px 0}
+    .param .top{display:contents}
+  /* 標籤與數值都壓到實測所需的最小寬度（最長標籤 70px、最寬數值 40px），
+     省下的空間全部給滑桿 */
+  .param .k{order:1;flex:0 0 72px;white-space:nowrap}
+  /* min-width:0 讓滑桿可被壓縮，否則會把右側數字擠出面板 */
+  .param input[type=range]{order:2;flex:1 1 auto;width:auto;min-width:0;margin:0}
+  @media (max-width:1280px){.param .k{flex-basis:70px}.param{gap:7px}}
+  .param .num{order:3;flex:0 0 40px;min-width:0}
+  .num{font:12px/1 var(--num);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+    letter-spacing:0;color:var(--ink);text-align:right;min-width:48px}
+  input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;margin:0 0 -1px;padding:0;background:transparent;outline:none}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;margin-top:-4.5px;border:0;border-radius:50%;background:var(--red)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--ink)}
+  input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:var(--red)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--ink)}
+
+  /* 色票（光漏色）：12px 方塊、髮絲邊；選中墨黑邊 */
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+  .sw{width:12px;height:12px;border:1px solid var(--hair);background:var(--ink)}
+  .sw:hover{border-color:var(--muted)}
+  .sw.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--paper)}
+
+  /* 開關：方形，沿用面板既有的底色與格線色 */
+  .toggle{position:relative;flex:none;width:38px;height:18px;padding:0;margin:0;
+    background:rgba(20,20,18,.05);border:1px solid var(--hair);border-radius:0;
+    cursor:pointer;transition:background-color .15s,border-color .15s}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;
+    background:var(--muted);
+    transition:transform .2s cubic-bezier(.22,.61,.36,1),background-color .2s}
+  .toggle:hover{background:rgba(20,20,18,.08)}
+  .toggle[aria-checked="true"]{border-color:var(--rule)}
+  .toggle[aria-checked="true"]::after{transform:translateX(18px);background:var(--red)}
+  /* 字幕顏色：色票排成一列，最後一格是自訂色（斜線圖示） */
+  .sws{display:flex;gap:6px;align-items:center}
+  .sws .sw{width:14px;height:14px}
+  .sw-custom.sw-empty{background:conic-gradient(#e0a23a,#8fd0b8,#8a1414,#f0b8c8,#e0a23a)}
+  .sws input[type=color]{position:absolute;width:0;height:0;opacity:0;pointer-events:none}
+
+  /* 自訂取色器：取代 macOS 系統面板，沿用紙張與格線的調性 */
+  .cpick{position:fixed;z-index:400;width:190px;padding:10px;background:var(--paper);
+    border:1px solid var(--rule);box-shadow:0 14px 34px rgba(30,8,10,.30);
+    font:11px var(--mono);color:var(--ink)}
+  .cpick .sv{position:relative;height:112px;cursor:crosshair;border:1px solid var(--hair)}
+  .cpick .sv b{position:absolute;width:11px;height:11px;border:1.5px solid #fff;border-radius:50%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.45);transform:translate(-50%,-50%);pointer-events:none}
+  .cpick .hue{position:relative;height:10px;margin-top:9px;cursor:ew-resize;border:1px solid var(--hair);
+    background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+  .cpick .hue b{position:absolute;top:-3px;width:4px;height:14px;background:#fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translateX(-50%);pointer-events:none}
+  .cpick .bot{display:flex;align-items:center;gap:8px;margin-top:9px}
+  .cpick .prev{flex:none;width:22px;height:22px;border:1px solid var(--hair)}
+  .cpick input{flex:1;min-width:0;height:24px;padding:0 8px;border:0;outline:none;
+    background:rgba(20,20,18,.05);font:11px/24px var(--mono);letter-spacing:.06em;
+    text-align:left;text-transform:uppercase;color:var(--ink)}
+  input[type=color]{-webkit-appearance:none;appearance:none;flex:none;width:12px;height:12px;margin:0;padding:0;border:1px solid var(--hair);border-radius:0;background:transparent}
+  input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+  input[type=color]::-webkit-color-swatch{border:0;border-radius:0}
+  input[type=color]::-moz-color-swatch{border:0}
+
+  /* 動作：整列可點的一行文字，夾在髮絲線之間；hover 極淺灰底 */
+  button{-webkit-appearance:none;appearance:none;display:block;width:100%;height:36px;margin:0;padding:0;border:0;border-radius:0;
+    border-bottom:var(--bw) solid var(--hair);background:transparent;color:var(--ink);
+    font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;text-align:left}
+  button:hover{background:var(--hover)}
+  button:focus-visible{outline:1px solid var(--ink);outline-offset:-1px}
+  button.primary{height:44px}
+
+  /* 效果清單：兩欄縮圖卡片 —— 上面是套好濾鏡的樣張、下面是名稱（修圖軟體的排法）。
+     樣張不是預先算好的圖檔，是拿同一張照片、當場跑一次該濾鏡的 build() 出來的，
+     所以濾鏡改了縮圖就跟著改，不會有「縮圖跟實際效果對不上」的問題 */
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px;padding:12px 0 4px}
+  .preset{display:block;width:100%;height:auto;min-height:0;padding:0;border:0;
+    background:transparent;color:var(--ink);text-align:left;text-transform:none;letter-spacing:.04em}
+  .preset:hover{background:transparent}
+  /* 樣張框：鎖 4:5，跟預設輸出比例一致 */
+  .pv{position:relative;display:block;aspect-ratio:4/5;overflow:hidden;background:#000;
+    border:1px solid var(--hair);transition:border-color .12s,box-shadow .12s}
+  .preset:hover .pv{border-color:var(--muted)}
+  .preset:focus-visible .pv{border-color:var(--ink)}
+  .preset.on .pv{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+  /* 濾鏡實際長出來的那層。container-type 一定要有 —— 濾鏡內部全用 cqw 當單位 */
+  .thumb{position:absolute;inset:0;container-type:size;overflow:hidden;isolation:isolate;background:#000}
+  /* 說明：壓在樣張下緣，滑過才浮出來，不會把格線撐開 */
+  .preset .cap{position:absolute;left:0;right:0;bottom:0;z-index:60;padding:14px 7px 6px;
+    opacity:0;pointer-events:none;
+    background:linear-gradient(to top,rgba(18,12,8,.88),rgba(18,12,8,.55) 55%,rgba(18,12,8,0));
+    color:#efe9dd;font:9.5px/1.45 var(--mono);letter-spacing:0;
+    transition:opacity .16s ease}
+  .preset:hover .cap,.preset:focus-visible .cap{opacity:1}
+  .preset b{display:block;margin-top:6px;font:10px/1.5 var(--mono);font-weight:400;
+    text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+  .preset.on b{color:var(--red)}
+  @media (prefers-reduced-motion:reduce){.preset .cap{transition:none}}
+  /* 一路兩欄到手機版為止。面板窄的時候縮圖會小到 90px 左右，但兩欄看得到比較、
+     一欄反而變成一張超大圖 + 要一直捲，更難挑 */
+  @media (max-width:1280px){.presets{gap:12px 8px}}
+
+  /* 素材縮圖：56px、髮絲邊；選中墨黑框；叉叉 hover 才出現 */
+  .items{display:block;padding:0 0 12px;border-bottom:var(--bw) solid var(--hair)}
+  .items:empty{display:none}
+  /* 最後一格：點了就選檔案 */
+  /* 「＋」外面包一層 sticky 容器承載漸層 —— .item 有 overflow:hidden，
+     漸層做在 .item 上會被裁掉 */
+  /* 「＋」釘在右端。左內距必須是 0 —— 否則它會跟 flex 的 gap 疊加，
+     變成「縮圖之間 8px、縮圖到＋ 16px」，一張素材的時候特別明顯 */
+  .items .addwrap{position:sticky;right:0;z-index:2;flex:0 0 auto;
+    display:flex;align-items:center;padding-left:0;background:var(--paper)}
+  .item.add{display:grid;place-items:center;cursor:pointer;border-style:dashed;
+    color:var(--muted);font:17px/1 var(--mono);transition:border-color .12s,color .12s;
+    background:var(--paper)}
+  .item.add:hover{border-color:var(--ink);color:var(--ink)}
+  .items:empty{display:none}
+  /* 單排、可橫向捲動；「＋」釘在右端，縮圖會從它底下滑過去 */
+  .items .list{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+    scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+  .items .list::-webkit-scrollbar{display:none}
+  .items .item{flex:0 0 56px}
+  .item{position:relative;width:56px;height:56px;overflow:hidden;border:1px solid var(--hair);background:var(--paper-2)}
+  .item:hover{border-color:var(--muted)}
+  .item.on{border-color:var(--ink)}
+  .item img,.item video{width:100%;height:100%;object-fit:cover;display:block}
+  .item .x{position:absolute;top:0;right:0;width:16px;height:16px;text-align:center;background:var(--paper);color:var(--ink);font:11px/16px var(--mono);opacity:0;transition:opacity .12s}
+  .item:hover .x{opacity:1}
+  .item .vid{position:absolute;left:3px;bottom:1px;font:9px/1.4 var(--mono);color:#fff;text-shadow:0 0 3px #000}
+
+  /* 狀態、備註、頁尾 */
+  .status{display:flex;align-items:center;min-height:36px;font:11px/1.5 var(--mono);color:var(--ink);border-bottom:var(--bw) solid var(--hair)}
+  .status:empty{display:none}
+  .hint p{margin:0 0 8px;font:10px/1.7 var(--mono);letter-spacing:.02em;color:var(--muted)}
+  .hint>h2+p{border-top:0}
+  .stamp{margin-top:20px;height:36px;display:flex;justify-content:space-between;align-items:center;
+    font:11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .stamp i{display:block;width:6px;height:6px;border-radius:50%;background:var(--ink)}
+  .cell p.hint{margin:12px 0 0;font-size:10px;line-height:1.7;color:var(--muted,#7d7461)}
+  /* 三欄：左選、中畫板、右調 */
+  .panel .grid{grid-template-columns:1fr}
+  .panel-l{border-left:0;border-right:1px solid var(--grid)}
+  .panel-r{border-left:1px solid var(--grid);
+    /* 底部留白：右下角是銀盒的位置，避免控制項被它蓋住 */
+    padding-bottom:118px}
+  .hd-r{justify-content:flex-end}
+  .hd-r .no{margin-left:auto}
+  @media (max-width:860px){.panel-l{border-right:0;border-bottom:1px solid var(--grid)}.panel-r{border-left:0;border-top:1px solid var(--grid)}}
+  .panel-l .hd h1{white-space:nowrap;font-size:20px}
+  .panel-l .hd .sub{white-space:nowrap}
+  .panel-l .hd-left{flex-wrap:nowrap;min-width:0;overflow:hidden}
+  .hd{min-height:26px}
+  .panel-l .hd h1{line-height:26px;margin:0}
+  /* 整頁不捲動，只有左右操作欄可以捲 */
+  html,body{height:100%;overflow:hidden}
+  .app{height:calc(100vh - 22px - var(--padt) - var(--hdh));min-height:0}
+  .panel{height:100%;max-height:none;overflow-y:auto;overflow-x:hidden}
+  .stage{height:100%;overflow:hidden}
+  @media (max-width:860px){html,body{overflow:auto}.app{height:auto}.panel{height:auto}.stage{height:auto}
+    .board{width:100%}.frame{max-height:none}}
+
+  /* ============ 手機（≤860px）：三段式 ============
+     上：主畫板 + 素材，固定不動
+     中：濾鏡縮圖，一排左右滑
+     下：設定，只有這一段上下捲 —— 所以捲的時候畫板永遠看得到
+     放在最後面，是為了蓋掉前面那些「把三欄攤平成一欄」的舊規則。
+     高度用 dvh 不用 vh：手機網址列縮起來的時候 vh 不會變，畫面會被切掉 */
+  @media (max-width:860px){
+    html,body{height:100%;overflow:hidden}
+    /* body 改成直向 flex，就不用去猜頁首到底多高（它會隨字級變）。
+       其他 body 的孩子（蕾絲、Our Story、銀盒、輸出面板）都是 position:fixed，不受影響 */
+    body{display:flex;flex-direction:column;padding:8px 10px 10px;min-height:0}
+    .hd{flex:none;padding:0 2px 8px}
+    .app{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:auto;
+      width:100%;max-width:100%;grid-template-columns:none}
+    /* flex 項目預設 min-width:auto，會被裡面最寬的東西（滑桿、下拉選單）撐開，
+       整個 app 就比螢幕寬、畫板跟著偏掉。每一層都要放行才收得回來 */
+    .app>*,.panel .grid,.panel .col,.panel .cell{min-width:0;max-width:100%}
+    .rowline .v{min-width:0}
+    .param input[type=range]{width:100%;min-width:0}
+
+    /* ---- 上：主畫板 + 素材（固定） ----
+       手機上素材改成直的一排、放在畫板左邊。放下面的話會吃掉畫板的高度，
+       但手機最缺的就是高度；放左邊吃的是寬度，而 4:5 的畫板本來就用不完整個寬度 */
+    .stage{order:1;flex:none;height:auto;padding:12px 12px 12px;overflow:visible}
+    .board{--barw:56px;--gapw:10px;
+      flex-direction:row;align-items:stretch;gap:var(--gapw);
+      width:min(100%,calc(42dvh * var(--ar) + var(--barw) + var(--gapw)))}
+    /* 畫板佔掉素材欄以外的全部寬度，高度由 aspect-ratio 自己長出來，
+       所以螢幕再窄也只是等比縮小，不會被壓扁 */
+    .frame{flex:1 1 auto;width:auto;max-height:42dvh}
+    /* order:-1 —— DOM 上素材在畫板後面（桌機是排在畫板下方），手機要它排到左邊 */
+    .stagebar{order:-1;flex:0 0 var(--barw);flex-direction:column;align-items:stretch;
+      gap:8px;height:auto;padding:0}
+    .stagebar .items{flex:1 1 auto;min-height:0;padding:0;border:0}
+    .stagebar .items .list{flex-direction:column;gap:8px;height:100%;
+      overflow-x:hidden;overflow-y:auto;padding:0}
+    .stagebar .item{flex:0 0 52px}
+    .stagebar .item,.stagebar .item.add{width:52px;height:52px}
+    /* 「＋」改釘在直排的最下面（原本是橫排、釘在最右邊） */
+    .stagebar .addwrap{position:sticky;top:auto;right:auto;bottom:0;padding-left:0}
+    .barclear{flex:0 0 auto;width:100%;height:24px;padding:0;font-size:9px;line-height:22px;
+      letter-spacing:.06em}
+
+    /* ---- 中：濾鏡橫向選擇（固定） ---- */
+    .panel-l{order:2;flex:none;height:auto;max-height:none;overflow:visible;
+      padding:0;border:0;border-top:1px solid var(--grid)}
+    .panel-l .grid{border:0}
+    .panel-l .cell{padding:10px 12px 12px;border-bottom:0}
+    .panel-l .cell>h2{height:18px;margin:0 0 8px;font-size:11px}
+    .panel-l .cell>h2+*{border-top:0}
+    /* 一排橫捲。捲動條藏起來，但保留慣性捲動 */
+    .presets{display:flex;grid-template-columns:none;gap:8px;padding:0;
+      overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+      scrollbar-width:none;-ms-overflow-style:none}
+    .presets::-webkit-scrollbar{display:none}
+    .preset{flex:0 0 66px;width:66px}
+    .preset b{margin-top:4px;font-size:9px;letter-spacing:.02em;text-align:center;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .preset .cap{display:none}                 /* 手機沒有 hover，字幕條沒意義 */
+
+    /* ---- 下：設定（只有這一段會捲） ---- */
+    .panel-r{order:3;flex:1 1 auto;min-height:0;height:auto;max-height:none;
+      overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+      padding:0;border:0;border-top:1px solid var(--grid)}
+    .panel-r .grid{border:0}
+    .panel-r .col{display:flex;flex-direction:column}
+    .panel-r .cell{padding:16px 14px}
+    /* 剛選完濾鏡最想動的是「微調」，所以把它排到最上面 */
+    #cellParams{order:-1}
+
+    /* 選單在手機上不用固定寬，讓它自己撐 */
+    :root{--sel-w:auto}
+
+    /* ---- 輸出：手機收掉銀盒，改成釘在最下面的一顆按鈕 ----
+       銀盒要 hover 才展開、而且是靠幾何判定點擊的，手機沒有 hover，
+       只會變成「一個看不懂要幹嘛、又很難按的裝飾」 */
+    .iron,.ironhint{display:none!important}
+    .exportbar{display:flex;align-items:center;justify-content:center;gap:9px;
+      position:fixed;left:10px;right:10px;bottom:10px;z-index:8;width:auto;height:52px;
+      margin:0;padding:0;border:1px solid var(--ink);border-radius:0;
+      background:var(--ink);color:var(--paper);
+      font:12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;text-align:center;
+      box-shadow:0 8px 24px rgba(30,8,10,.34)}
+    .exportbar span{font-size:9.5px;letter-spacing:.22em;opacity:.55}
+    /* 手機沒有 hover，:hover 會在點完之後殘留成反白，所以壓掉它、只留按下去的回饋 */
+    .exportbar:hover{background:var(--ink)}
+    .exportbar:active,.exportbar[data-open]{background:var(--red);border-color:var(--red)}
+    /* 輸出面板改成貼著左右、浮在按鈕上方 */
+    .expanel{left:12px;right:12px;bottom:72px;width:auto}
+    /* 設定區最後要留白，不然最下面那排會被輸出鈕蓋住、點不到 */
+    .panel-r{padding-bottom:84px}
+  }
+</style>
+</head>
+<body>
+
+<header class="hd">
+  <div class="hd-left"><h1><img class="mark" src="assets/logo@2x.webp" alt="I SAW"></h1><p class="sub">Look what I saw today.</p></div>
+  <button class="hd-story" id="storyBtn" aria-haspopup="dialog" aria-expanded="false">Our Story</button>
+</header>
+
+<img class="iron" id="iron" src="assets/iron.webp" alt="">
+<!-- 手機版的輸出鈕。桌機隱藏 —— 桌機用的是右下角那個銀盒（要 hover 才展開，手機沒有 hover） -->
+<button class="exportbar" id="exportBar" type="button">輸出影片 <span>Export</span></button>
+<div class="ironhint" aria-hidden="true">輸出影片<span>EXPORT</span></div>
+
+<div class="expanel" id="expanel" role="dialog" aria-label="輸出">
+  <h3>輸出</h3>
+  <div class="prevbox"><canvas id="prev"></canvas></div>
+  <dl class="spec" id="spec"></dl>
+  <button class="btn btn-primary" id="rec">下載影片</button>
+  <button class="btn btn-secondary" id="recImg">下載圖片</button>
+  <div class="status" id="status"></div>
+</div>
+
+<img class="lace" id="lace" src="assets/lace@2x.webp" alt="" aria-hidden="true">
+
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="Our Story">
+  <div class="paper">
+    <button class="ovx" id="ovX" aria-label="關閉">CLOSE ×</button>
+    <div class="pmask" id="pmask"></div>
+    <img class="pf pf1" id="pf1" src="assets/tracing-paper-1.webp" alt="">
+    <img class="pf pf2" id="pf2" src="assets/tracing-paper-2.webp" alt="">
+    <img class="pf pf3" id="pf3" src="assets/tracing-paper-3.webp" alt="">
+    <div class="story" id="story">
+      <p>照片可以記錄發生了什麼，<br>卻不一定能留下，那一刻是什麼感覺。</p>
+      <p>數位影像變得越來越清晰，光線、表情、風景，<br>每一個細節，都可以被如實地保存下來。</p>
+      <p>可是，記憶從來沒有那麼清楚，它會褪色，會發亮，<br>會模糊一些邊界，也會悄悄改變顏色。</p>
+      <p>有些記憶是溫暖的，有些朦朧、有些浪漫得不像真的；<br>有些熱烈，有些則安靜得讓人想一直待在裡面。</p>
+      <p>這也是我們喜歡底片的原因。</p>
+      <p>顆粒、失焦、漏光、不那麼準確的色彩，<br>並不只是讓我們看見「那一刻長什麼樣子」，</p>
+      <p>它們反而讓我們更靠近——<br>那一刻，感覺起來是什麼樣子。</p>
+      <p>I SAW 想留下的，就是這樣的記憶。</p>
+      <p>朦朧的、浪漫的、熱烈的、放鬆的，<br>或任何只屬於你的感受。</p>
+      <p>因為有時候，一段記憶最真實的樣子，<br>不一定是最清晰的樣子。</p>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+<aside class="panel panel-l">
+  <div class="grid">
+  <div class="col">
+
+
+
+<section class="cell">
+      <h2>效果 <span>preset</span></h2>
+      <div class="presets" id="presets"></div>
+    </section>
+  </div>
+  </div>
+</aside>
+<div class="stage" id="stage">
+  <div class="board">
+    <div class="frame" id="frame">
+      <div id="flick"><div class="f-dark"></div><div class="f-light"></div></div>
+      <div id="trans"><div class="t-fill"></div><div class="t-wipe"></div><div class="t-over"></div></div>
+      <div id="fade"><div class="e-black"></div><div class="e-purple"></div></div>
+      <div id="intro"></div>
+    </div>
+    <!-- 素材列：只有素材本身，設定留在左欄 -->
+    <div class="stagebar">
+      <input type="file" id="file" accept="image/*,video/*" multiple>
+      <div class="items" id="items"></div>
+      <button class="barclear" id="clear" title="清除全部素材">清除</button>
+    </div>
+  </div>
+</div>
+
+<aside class="panel panel-r">
+  <div class="grid">
+  <div class="col">
+    <section class="cell">
+      <h2>規格 <span>format</span></h2>
+      <div class="rowline"><label class="k" for="aspect">比例</label><div class="v">
+        <select id="aspect">
+          <option value="0.8">4:5 直式 1080×1350</option>
+          <option value="0.5625">9:16 限動 1080×1920</option>
+          <option value="1">1:1 方形 1080×1080</option>
+          <option value="1.7778">16:9 橫式 1920×1080</option>
+          <option value="auto">跟素材一樣</option>
+        </select></div></div>
+      <div class="rowline"><label class="k" for="maskSel">載體</label><div class="v">
+        <select id="maskSel">
+          <option value="">無</option>
+          <option value="1" selected>觀景窗一格</option>
+          <option value="2">觀景窗兩格</option>
+          <option value="3">觀景窗三格</option>
+          <option value="w">觀景窗4:3</option>
+          <option value="stamp">郵票</option>
+          <option value="lace">蕾絲一格</option>
+          <option value="lace2">蕾絲兩格</option>
+          <option value="memory">精裝記憶</option>
+          <option value="soon">敬請期待</option>
+          <option value="custom">自訂：上傳透明 PNG / SVG</option>
+        </select>
+        <input type="file" id="maskFile" accept="image/png,image/webp,image/svg+xml"></div></div>
+    </section>
+
+    <section class="cell" id="cellParams">
+      <h2>微調 <span>parameters</span></h2>
+      <div id="params"></div>
+    </section>
+
+    <section class="cell">
+      <h2>字幕 <span>caption</span></h2>
+      <div id="captions"></div>
+      <button class="btn btn-text" id="addCaption">新增字幕</button>
+    </section>
+
+    <section class="cell">
+      <h2>放映 <span>projector</span></h2>
+      <div class="rowline param"><div class="top"><label class="k" for="dwell">素材停留</label><span class="num" id="vDwell">4 秒</span></div><input type="range" id="dwell" min=".5" max="12" step=".5" value="4"></div>
+      <div class="rowline param"><div class="top"><label class="k" for="flicker">閃動</label><span class="num" id="vFlicker">0.2</span></div><input type="range" id="flicker" min="0" max="2" step=".1" value="0.2"></div>
+            <div class="rowline"><label class="k" for="introStyle">入場</label><div class="v">
+        <select id="introStyle"><option value="">直接開始</option><option value="leak" selected>漏光入場</option></select></div></div>
+      <div class="rowline"><label class="k" for="transStyle">換場</label><div class="v">
+        <select id="transStyle">
+          <option value="" selected>跟著濾鏡</option>
+          <option value="dissolve">交叉淡入</option>
+          <option value="burn">漏光燒片</option>
+          <option value="black">跳黑一格</option>
+          <option value="cut">直接硬切</option>
+        </select></div></div>
+      <div class="rowline"><label class="k" for="endStyle">結尾</label><div class="v">
+        <select id="endStyle"><option value="black">逐格淡出到黑</option><option value="leak" selected>漏光停格</option></select></div></div>
+      <div class="rowline param"><div class="top"><label class="k" for="fadeSecs">淡出到黑長度</label><span class="num" id="vFadeSecs">2 秒</span></div><input type="range" id="fadeSecs" min=".5" max="6" step=".5" value="2"></div>
+      <div class="rowline"><label class="k" for="autoFade">輸出時加上結尾</label><div class="v">
+        <button class="toggle" id="autoFade" role="switch" aria-checked="true" aria-label="輸出時加上結尾"></button></div></div>
+    </section>
+
+  </div>
+  </div>
+  </div>
+</aside>
+</div>
+
+<script>
+/* ================= 狀態 ================= */
+const $=s=>document.querySelector(s);
+const frame=$('#frame'), stage=$('#stage'), paramsBox=$('#params'), presetsBox=$('#presets'), itemsBox=$('#items'), trans=$('#trans');
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const state={items:[],index:0,dwell:4,preset:'leak',params:{},captions:[{text:'',color:'#e0a23a',weight:700,size:4,x:50,y:90}]};
+let current=null, mediaEls=[], sceneTimer=null, switching=false;
+const cur=()=>state.items[state.index];
+
+/* ================= 素材 ================= */
+function addFiles(files){
+  [...files].forEach(file=>{
+    if(!file||!(file.type.startsWith('image/')||file.type.startsWith('video/')))return;
+    const it={src:URL.createObjectURL(file),kind:file.type.startsWith('video/')?'video':'image',natAR:0.8,name:file.name};
+    const probe=it.kind==='video'?document.createElement('video'):new Image();
+    probe.onloadedmetadata=probe.onload=()=>{it.natAR=it.kind==='video'?probe.videoWidth/probe.videoHeight:probe.naturalWidth/probe.naturalHeight;if(cur()===it)applyAspect()};
+    probe.src=it.src;
+    state.items.push(it);
+  });
+  if(state.index>=state.items.length)state.index=0;
+  clampIndex();
+  renderItems();build();
+}
+function removeItem(i){
+  URL.revokeObjectURL(state.items[i].src);state.items.splice(i,1);
+  if(state.index>=state.items.length)state.index=Math.max(0,state.items.length-1);
+  clampIndex();
+  renderItems();build();
+}
+/* 只更新「目前是哪一格」，不重建 DOM。
+   素材沒有增減時一律走這條 —— renderItems() 會把整排砍掉重建，
+   橫向捲動位置跟著歸零，捲到右邊看後面的素材時每次換場都被拉回最左邊 */
+function markCurrent(){
+  const list=itemsBox.querySelector('.list'); if(!list)return false;
+  const cells=[...list.querySelectorAll('.item:not(.add)')];
+  if(cells.length!==state.items.length)return false;
+  cells.forEach((c,i)=>c.classList.toggle('on',i===state.index));
+  return true;
+}
+function renderItems(){
+  const prev=itemsBox.querySelector('.list');
+  const keepScroll=prev?prev.scrollLeft:0;      /* 真的要重建時，至少把捲動位置留著 */
+  itemsBox.innerHTML='';
+  const list=el('list',itemsBox);
+  state.items.forEach((it,i)=>{
+    const d=document.createElement('div');d.className='item'+(i===state.index?' on':'');d.title=it.name||'';
+    const m=it.kind==='video'?document.createElement('video'):new Image();m.src=it.src;m.muted=true;d.appendChild(m);
+    if(it.kind==='video'){const v=document.createElement('span');v.className='vid';v.textContent='▶';d.appendChild(v)}
+    const x=document.createElement('span');x.className='x';x.textContent='×';x.onclick=e=>{e.stopPropagation();removeItem(i)};d.appendChild(x);
+    d.onclick=()=>{state.index=i;if(!markCurrent())renderItems();build()};
+    list.appendChild(d);
+  });
+  /* 最後一格永遠是「＋」，沒有素材時就只有這一格 */
+  const wrap=document.createElement('div');wrap.className='addwrap';
+  const add=document.createElement('div');
+  add.className='item add';add.textContent='+';add.title='加入照片 / 影片';
+  add.onclick=()=>$('#file').click();
+  wrap.appendChild(add);list.appendChild(wrap);
+  if(keepScroll)list.scrollLeft=keepScroll;
+}
+function makeMedia(it,cls=''){
+  if(!it){const d=document.createElement('div');d.className='placeholder';d.innerHTML='把照片或影片拖進來<br>或點一下選擇檔案<small>可以一次放多個，會自動輪播<br>也可以直接 ⌘V 貼上照片</small>';d.onclick=()=>$('#file').click();return d}
+  let el;
+  if(it.kind==='video'){
+    el=document.createElement('video');el.muted=true;el.playsInline=true;el.autoplay=true;el.src=it.src;
+    el.loop=state.items.length<2;
+    if(state.items.length>=2)el.addEventListener('ended',()=>nextScene());   /* 播完就換 */
+    el.play().catch(()=>{});
+  }else{el=new Image();el.src=it.src}
+  el.className='media '+cls;mediaEls.push(el);return el;
+}
+function applyAspect(){const v=$('#aspect').value;document.documentElement.style.setProperty('--ar',v==='auto'?(cur()?.natAR||0.8):v)}
+$('#aspect').onchange=()=>{applyAspect();build()};
+$('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('#clear').onclick=()=>{state.items.forEach(i=>URL.revokeObjectURL(i.src));state.items=[];state.index=0;renderItems();build()};
+$('#dwell').oninput=e=>{state.dwell=+e.target.value;$('#vDwell').textContent=e.target.value+' 秒';scheduleScene()};
+['dragenter','dragover'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.add('dragover')}));
+['dragleave','drop'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.remove('dragover')}));
+frame.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+document.addEventListener('paste',e=>{const fs=[...e.clipboardData.items].filter(i=>i.type.startsWith('image/')||i.type.startsWith('video/')).map(i=>i.getAsFile());if(fs.length)addFiles(fs)});
+
+/* ================= 換場景 ================= */
+function scheduleScene(){
+  clearTimeout(sceneTimer);
+  if(state.items.length<2||!cur())return;
+  /* 照片停留 dwell 秒；影片播完就換（見下方 ended 事件），
+     但若影片很長，最多停到 dwell 的 2 倍就強制換場 */
+  const secs=cur().kind==='video'?state.dwell*2:state.dwell;
+  sceneTimer=setTimeout(nextScene,secs*1000);
+}
+/* 郵票框：第 0 張固定鋪在框外面當底圖，輪播只在第 1 張之後跑。
+   firstIndex() = 輪播從第幾張開始；stepIndex() = 下一張是第幾張。
+   其他情況 firstIndex 一律是 0，行為跟以前完全一樣 */
+function firstIndex(){
+  const n=state.items.length;
+  const F=FRAMES[maskState.id];
+  const hasBg=(F&&F.mode!=='cover')||PRESETS[state.preset]?.bgFirst;
+  return (hasBg && n>1) ? 1 : 0;
+}
+function stepIndex(i){
+  const n=state.items.length; if(n<1)return 0;
+  const f=firstIndex();
+  let x=i+1; if(x>=n||x<f)x=f;
+  return x;
+}
+/* 把 state.index 拉回合法範圍。
+   郵票框時 firstIndex() 是 1 —— 如果索引停在 0，前景（票面的窗）會跟背景同一張。
+   增減素材時各處只有做「超出長度就歸 0」，歸 0 就正好踩到這個雷，所以統一在這裡收 */
+function clampIndex(){
+  const n=state.items.length;
+  if(!n){state.index=0;return}
+  const f=firstIndex();
+  if(state.index>=n||state.index<f)state.index=f;
+}
+function nextScene(){
+  if(switching||state.items.length<2||proj.ended)return;
+  switching=true;
+  const type=proj.transStyle||PRESETS[state.preset].transition;
+  if(type==='cut'){   /* 純硬切：參考影片 3 兩個切點前後 ΔL ≤0.4，什麼都不加 */
+    const nx=state.items[stepIndex(state.index)];
+    if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
+    state.index=stepIndex(state.index);if(!markCurrent())renderItems();build();
+    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)setTimeout(()=>startFade(),300);
+    setTimeout(()=>switching=false,150);return;
+  }
+  if(type==='dissolve'){   /* 交叉淡入：新畫面淡入時與舊畫面重疊，沒有任何遮片或黑格 */
+    const nx=state.items[stepIndex(state.index)];
+    if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
+    const ms=Math.round((PRESETS[state.preset].p?.fade??.9)*1000);
+    state.index=stepIndex(state.index);if(!markCurrent())renderItems();
+    dissolving=true;build();dissolving=false;
+
+    const ins=[...frame.querySelectorAll('.slot.entering')];
+    ins.forEach(n=>{n.style.opacity='0';n.style.willChange='opacity'});
+
+    /* 等新素材可以繪製再開始淡入，否則會先淡入一片空白（最多等 600ms） */
+    const ready=()=>[...frame.querySelectorAll('.slot.entering video.media,.slot.entering img.media')]
+      .every(e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0));
+    const t0=performance.now();
+    const start=()=>{
+      if(!ready()&&performance.now()-t0<600){requestAnimationFrame(start);return}
+      void frame.offsetWidth;                       // 強制重排，讓起始值生效
+      requestAnimationFrame(()=>{
+        ins.forEach(n=>{n.style.transition=`opacity ${ms}ms cubic-bezier(.4,0,.5,1)`;n.style.opacity='1'});
+        /* 計時從「淡入真正開始」起算，不是從呼叫 nextScene 起算 */
+        setTimeout(()=>{
+          frame.querySelectorAll('.slot.leaving').forEach(n=>n.remove());
+          frame.querySelectorAll('.slot.entering').forEach(n=>{
+            n.classList.remove('entering');
+            n.style.transition='';n.style.opacity='';n.style.willChange='';
+          });
+          switching=false;
+          if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)startFade();
+        },ms+80);
+      });
+    };
+    start();
+    return;
+  }
+  const fill=trans.querySelector('.t-fill'), wipe=trans.querySelector('.t-wipe');
+  const F=1000/30;                                   // 一格 = 33ms
+  const g=(l,c,r)=>`linear-gradient(90deg,${l} 0%,${c} 50%,${r} 100%)`;
+  const showFill=bg=>{fill.style.background=bg;fill.style.display='block'};
+  const hideFill=()=>fill.style.display='none';
+  const showWipe=bg=>{wipe.style.background=bg;wipe.style.display='block'};
+  const hideWipe=()=>wipe.style.display='none';
+  const swap=()=>{const nx=state.items[stepIndex(state.index)];
+    if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
+    state.index=stepIndex(state.index);if(!markCurrent())renderItems();build();
+    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)setTimeout(()=>startFade(),300)};
+  const rndi=(a,b)=>Math.floor(rnd(a,b+1));
+
+  /* 逐格腳本：[格數, 動作] */
+  const steps=[];
+  const push=(n,fn)=>steps.push([n,fn]);
+  /* 1. 斜角遮片把舊畫面切掉（1 格），接黑 2 格 */
+  push(1,()=>showWipe('linear-gradient(-45deg,#000 0 42%,rgba(0,0,0,.8) 62%,rgba(0,0,0,.35) 100%)'));
+  push(2,()=>{hideWipe();showFill('#000')});
+
+  if(type==='burn'){
+    /* 2. 燒片 8 格：色值取自參考影片每一格的左/中/右平均 */
+    const hue=Math.round(rnd(-8,10));fill.style.filter=`hue-rotate(${hue}deg)`;
+    [['#190000','#0e0000','#0c0000'],['#960e00','#890100','#560000'],['#da7e02','#d16e00','#cd6200'],['#f2e8b6','#f2e2b6','#f0c585'],
+     ['#efad40','#f2ca67','#f2e69d'],['#ac2700','#d46906','#de820b'],['#c85325','#b94004','#9c1300'],['#120000','#400000','#5e0000']]
+     .forEach(c=>push(1,()=>showFill(g(...c))));
+    push(rndi(2,5),()=>{fill.style.filter='';showFill('#000');swap()});
+    }else{
+    /* 黑白：純黑 5～7 格 */
+    push(rndi(5,7),()=>{showFill('#000');swap()});
+  }
+  /* 3. 斜角揭開 2 格：先露一個角，再剩一道斜影 */
+  push(1,()=>{hideFill();showWipe('linear-gradient(135deg,transparent 0 4%,rgba(0,0,0,.95) 12%)')});
+  push(1,()=>showWipe('linear-gradient(135deg,transparent 0 40%,rgba(0,0,0,.8) 58%,rgba(0,0,0,.45) 100%)'));
+  push(1,()=>hideWipe());
+  /* 4. 新場景頭 6 格過曝再回穩（量自參考：120→118→111→109→93） */
+  const over=trans.querySelector('.t-over');
+  [.38,.32,.22,.15,.08,.03].forEach(o=>push(1,()=>{over.style.opacity=o;over.style.display='block'}));
+  push(1,()=>{over.style.display='none';over.style.opacity=0});
+
+  let t=0;
+  steps.forEach(([n,fn])=>{setTimeout(fn,t);t+=n*F});
+  setTimeout(()=>switching=false,t+300);
+}
+
+/* ================= 字幕：多個、可拖曳、可調粗細大小 ================= */
+const CAPTION_COLORS=[['#e0a23a','金黃'],['#f2ead8','米白'],['#ffffff','純白'],['#8a1414','深紅'],['#ff7a1f','橘'],['#141412','墨黑'],['#f0b8c8','淡粉'],['#8fd0b8','青綠']];
+const CAPTION_WEIGHTS=[[300,'細'],[400,'一般'],[700,'粗'],[900,'特粗']];
+function renderCaptionsPanel(){
+  const box=$('#captions');box.innerHTML='';
+  state.captions.forEach((c,i)=>{
+    const blk=el('capblock',box);
+    const row=(label,...nodes)=>{const r=el('rowline',blk);const k=el('k',r,'label');k.textContent=label;const v=el('v',r);nodes.forEach(n=>n&&v.appendChild(n));return r};
+    const t=document.createElement('input');t.type='text';t.value=c.text;t.placeholder='輸入可拖曳的文字';t.oninput=()=>{c.text=t.value;applyCaptions()};
+    const del=document.createElement('span');del.className='del';del.textContent='×';del.title='刪除這個字幕';del.onclick=()=>{state.captions.splice(i,1);if(!state.captions.length)state.captions.push({text:'',color:'#e0a23a',weight:700,size:4,x:50,y:90});renderCaptionsPanel();applyCaptions()};
+    row(state.captions.length>1?`文字 ${i+1}`:'文字',t,del);
+    /* 顏色：一格一格的色票，最後一格點開系統選色器 */
+    const swBox=document.createElement('div');swBox.className='row sws';
+    const custom=document.createElement('input');custom.type='color';custom.value=c.color;
+    const mark=()=>[...swBox.children].forEach(x=>
+      x.classList.toggle('on', x.dataset.v===c.color || (x.dataset.v==='custom'&&!CAPTION_COLORS.some(([v])=>v===c.color))));
+    CAPTION_COLORS.forEach(([v,n])=>{
+      const b=document.createElement('span');b.className='sw';b.dataset.v=v;b.title=n;b.style.background=v;
+      b.onclick=()=>{c.color=v;custom.value=v;mark();applyCaptions()};
+      swBox.appendChild(b);
+    });
+    const more=document.createElement('span');more.className='sw sw-custom';more.dataset.v='custom';
+    /* 自訂色會記在這一格：選過之後就顯示該顏色，再點一次可直接套用並繼續微調 */
+    if(!c.customColor && !CAPTION_COLORS.some(([v])=>v===c.color)) c.customColor=c.color;
+    const paintMore=()=>{
+      if(c.customColor){more.style.background=c.customColor;more.classList.remove('sw-empty');more.title='自訂色 '+c.customColor.toUpperCase()}
+      else{more.style.background='';more.classList.add('sw-empty');more.title='自訂顏色…'}
+    };
+    paintMore();
+    more.onclick=()=>{
+      if(c.customColor && c.color!==c.customColor){c.color=c.customColor;mark();applyCaptions()}
+      ColorPick.open(more, c.customColor||c.color, v=>{
+        c.color=v;c.customColor=v;paintMore();mark();applyCaptions();
+      });
+    };
+    custom.oninput=()=>{c.color=custom.value;mark();applyCaptions()};
+    swBox.appendChild(more);swBox.appendChild(custom);
+    mark();
+
+    const w=document.createElement('select');CAPTION_WEIGHTS.forEach(([v,n])=>{const o=document.createElement('option');o.value=v;o.textContent=n;w.appendChild(o)});w.value=c.weight;w.onchange=()=>{c.weight=+w.value;applyCaptions()};
+    row('顏色',swBox);
+    row('粗細',w);
+    enhanceSelect(w);
+    const sz=document.createElement('input');sz.type='range';sz.min=1.5;sz.max=10;sz.step=.25;sz.value=c.size;
+    const num=document.createElement('span');num.className='num';num.textContent=c.size;
+    const r=el('rowline param',blk);const top=el('top',r);const k=el('k',top,'label');k.textContent='大小';top.appendChild(num);r.appendChild(sz);
+    sz.oninput=()=>{c.size=+sz.value;num.textContent=sz.value;applyCaptions()};
+  });
+}
+function applyCaptions(){
+  frame.querySelectorAll('.caption').forEach(n=>n.remove());
+  state.captions.forEach((c,i)=>{
+    const n=el('caption',frame);n.textContent=c.text;n.dataset.i=i;
+    n.style.setProperty('--x',c.x+'%');n.style.setProperty('--y',c.y+'%');n.style.setProperty('--c',c.color);n.style.setProperty('--w',c.weight);n.style.setProperty('--s',c.size);
+    n.onpointerdown=e=>{
+      e.preventDefault();n.setPointerCapture(e.pointerId);n.classList.add('dragging');
+      const R=frame.getBoundingClientRect(),sx=e.clientX,sy=e.clientY,ox=c.x,oy=c.y;
+      n.onpointermove=ev=>{c.x=Math.min(100,Math.max(0,ox+(ev.clientX-sx)/R.width*100));c.y=Math.min(100,Math.max(0,oy+(ev.clientY-sy)/R.height*100));
+        n.style.setProperty('--x',c.x+'%');n.style.setProperty('--y',c.y+'%')};
+      n.onpointerup=n.onpointercancel=()=>{n.classList.remove('dragging');n.onpointermove=null};
+    };
+  });
+}
+$('#addCaption').onclick=()=>{state.captions.push({text:'',color:'#f2ead8',weight:400,size:3,x:50,y:50+state.captions.length*8});renderCaptionsPanel();applyCaptions();const last=$('#captions .capblock:last-child input[type=text]');last&&last.focus()};
+
+/* ================= 放映機：閃動 / 漏光閃光 / 結尾淡出 ================= */
+/* 數據來自參考影片逐格亮度：每格 ±8% 鋸齒（3～4 格一循環）、每 3～5 秒一格 -20%、每 4～8 秒一格 +15%；
+   結尾 2 秒亮度 57→21 且穿插 2～3 格偏紫 */
+/* autoFade：輸出影片時要不要在最後加上結尾（預設要）。
+   exporting：只有在輸出的時候才會真的走到結尾 —— 畫板上永遠一直輪播，方便邊看邊調 */
+const proj={flicker:.2,fadeSecs:2,autoFade:true,exporting:false,ended:false,fading:false,
+  introStyle:'leak',endStyle:'leak',transStyle:''};
+const fl={dark:$('#flick .f-dark'),light:$('#flick .f-light')};
+let fk=0,nextDip=rnd(70,120),nextSpike=rnd(100,190);
+setInterval(()=>{
+  fk++;const a=proj.flicker;
+  let m=1+a*(0.05*Math.sin(fk*2.1)+0.03*Math.sin(fk*0.7)+rnd(-.02,.02));
+  if(--nextDip<=0){m=1-0.2*a;nextDip=rnd(70,120)}
+  if(--nextSpike<=0){m=1+0.15*a;nextSpike=rnd(100,190)}
+  fl.dark.style.opacity=m<1?Math.min(.6,(1-m)*1.1).toFixed(3):0;
+  fl.light.style.opacity=m>1?Math.min(.9,(m-1)*2.2).toFixed(3):0;
+},1000/24);
+/* 漏光入場 / 結尾：逐格腳本，色值取自參考影片 3（遮罩 Agent 量測），每格 33ms 硬切 */
+const LEAK_BAND='linear-gradient(90deg, rgb(75,0,2) 0%, rgb(59,1,1) 4.2%, rgb(38,0,0) 7.5%, rgb(14,0,0) 10%, #000 11.7%)';
+const INTRO=[
+  [2,'rgb(132,38,2)'],
+  [2,'radial-gradient(ellipse 5% 12% at 7% 60%, rgba(230,213,214,.95) 40%, rgba(230,213,214,0) 100%), '+LEAK_BAND],
+  [17,LEAK_BAND],
+  [2,'radial-gradient(ellipse 10% 14% at 0% 50%, rgb(130,15,18) 0%, rgba(130,15,18,0) 100%), '+LEAK_BAND],
+  [2,'radial-gradient(ellipse 12% 16% at 0% 50%, rgb(173,7,11) 0%, rgba(173,7,11,0) 100%), '+LEAK_BAND],
+  [1,'radial-gradient(ellipse 10% 28% at 0% 14%, rgba(131,20,49,.9) 0%, rgba(101,39,74,0) 100%), radial-gradient(ellipse 11% 15% at 0% 50%, rgb(162,6,9) 0%, rgba(162,6,9,0) 100%), '+LEAK_BAND],
+  [1,'linear-gradient(90deg, rgb(104,0,2) 0%, rgb(76,0,0) 5%, rgb(46,0,2) 8%, rgb(18,0,0) 11%, #000 13%)'],
+  [2,'linear-gradient(90deg, rgba(252,98,95,.85) 0%, rgba(252,98,95,0) 18%), linear-gradient(180deg, rgba(150,40,30,.78) 0%, rgba(150,40,30,.78) 55%, rgba(200,150,150,.8) 60%, rgba(182,170,168,.82) 100%)'],
+  [1,'linear-gradient(180deg, rgba(208,149,162,.9) 0%, rgba(238,155,165,.9) 32%, rgba(228,93,79,.85) 50%, rgba(253,245,240,.95) 65%, rgba(253,245,240,.95) 100%)'],
+  [0,null]
+];
+const OUTRO=[
+  [1,'linear-gradient(180deg, rgba(237,158,125,.95) 0%, rgba(254,153,111,.97) 4%, rgba(252,144,98,.97) 60%, rgba(195,96,66,.85) 68%, rgba(195,96,66,.85) 100%)'],
+  [1,'linear-gradient(180deg, rgba(176,83,50,.93) 0%, rgba(175,77,36,.93) 60%, rgba(157,59,24,.9) 68%, rgba(157,59,24,.9) 100%)'],
+  [19,'rgb(132,38,2)']
+];
+function playScript(node,script,done){
+  node.style.display='block';let i=0;
+  (function step(){
+    if(i>=script.length){done&&done();return}
+    const [n,bg]=script[i++];
+    if(bg)node.style.background=bg;else{node.style.background='transparent';node.style.display='none'}
+    if(n>0)setTimeout(step,n*1000/30);else step();
+  })();
+}
+let introPlayed=false;
+function playIntro(){
+  if(proj.introStyle!=='leak'){$('#intro').style.display='none';return}
+  playScript($('#intro'),INTRO,()=>{$('#intro').style.display='none'});
+}
+function startFade(onDone){
+  if(proj.fading||proj.ended)return;proj.fading=true;
+  if(proj.endStyle==='leak'){
+    /* 漏光停格：1 格鮭橘 → 1 格橘 → 停在深橘褐（參考影片就停在這裡不變黑） */
+    const lay=$('#fade .e-black');lay.style.opacity=1;
+    playScript(lay,OUTRO,()=>{lay.style.background='rgb(132,38,2)';lay.style.display='block';proj.ended=true;proj.fading=false;
+      clearTimeout(sceneTimer);mediaEls.forEach(m=>m.tagName==='VIDEO'&&m.pause());onDone&&onDone()});
+    return;
+  }
+  const blk=$('#fade .e-black'),pur=$('#fade .e-purple');
+  const frames=Math.round(proj.fadeSecs*24);const purpleAt=new Set([Math.floor(frames*rnd(.2,.4)),Math.floor(frames*rnd(.55,.75)),Math.floor(frames*rnd(.8,.95))]);
+  let i=0;const iv=setInterval(()=>{
+    i++;const k=i/frames;
+    blk.style.opacity=Math.min(1,Math.pow(k,1.4)*1.05).toFixed(3);          // 逐格變暗，末端加速到全黑
+    pur.style.opacity=(purpleAt.has(i)||purpleAt.has(i-1))?.55:0;
+    if(i>=frames){clearInterval(iv);blk.style.opacity=1;pur.style.opacity=0;proj.ended=true;proj.fading=false;
+      clearTimeout(sceneTimer);mediaEls.forEach(m=>m.tagName==='VIDEO'&&m.pause());onDone&&onDone()}
+  },1000/24);
+}
+function resumeFromEnd(){proj.ended=false;const lay=$('#fade .e-black');lay.style.opacity=0;lay.style.background='#000';lay.style.display='';state.index=firstIndex();renderItems();build();playIntro()}
+$('#introStyle').onchange=e=>{
+  proj.introStyle=e.target.value;
+  /* 選完就預覽：把入場層還原再重播一次（「直接開始」則直接隱藏，本來就沒有效果） */
+  const lay=$('#intro');
+  lay.style.display=''; lay.style.background=''; lay.style.opacity='';
+  playIntro();
+};
+$('#transStyle').onchange=e=>{
+  proj.transStyle=e.target.value;
+  /* 選完就預覽：直接換下一張，讓她立刻看到這個換場長什麼樣 */
+  if(proj.fading||proj.ended||state.items.length<2)return;
+  clearTimeout(sceneTimer); nextScene();
+};
+$('#endStyle').onchange=e=>{
+  proj.endStyle=e.target.value;
+  /* 選完就預覽：先讓畫面正常播一下，再進結尾；播完自動回復，不會卡在結束畫面 */
+  if(proj.fading||proj.ended)return;
+  setTimeout(()=>startFade(()=>setTimeout(resumeFromEnd,900)),700);
+};
+$('#flicker').oninput=e=>{proj.flicker=+e.target.value;$('#vFlicker').textContent=e.target.value};
+$('#fadeSecs').oninput=e=>{proj.fadeSecs=+e.target.value;$('#vFadeSecs').textContent=e.target.value+' 秒'};
+$('#autoFade').onclick=e=>{proj.autoFade=!proj.autoFade;e.currentTarget.setAttribute('aria-checked',String(proj.autoFade))};
+
+/* ================= 共用小工具 ================= */
+const el=(cls,parent,tag='div')=>{const d=document.createElement(tag);d.className=cls;parent.appendChild(d);return d};
+/* 濾鏡的參數是寫成 CSS 變數掛在畫面容器上。平常是主畫面 #frame，
+   建濾鏡縮圖時暫時改指到縮圖的盒子 —— 否則十個濾鏡會互相蓋掉主畫面的變數 */
+let varTarget=frame;
+const setVar=(k,v,node=null)=>(node||varTarget).style.setProperty('--'+k,v);
+function timers(){const list=[];return{
+  every:(ms,fn)=>{list.push(['i',setInterval(fn,ms)])},
+  after:(ms,fn)=>{const id=setTimeout(fn,ms);list.push(['t',id]);return id},
+  raf:fn=>{let on=true;const loop=t=>{if(!on)return;fn(t);requestAnimationFrame(loop)};requestAnimationFrame(loop);list.push(['r',()=>on=false])},
+  clear:()=>list.forEach(([k,v])=>k==='i'?clearInterval(v):k==='t'?clearTimeout(v):v())
+}}
+/* 逐格 tick：以 hz 步進呼叫 fn（參考 Super 8 量到 17.6 次/秒 = 18 fps 步進；8mm 每格都變 = 30） */
+function tick(T,hz,fn){let last=0;T.raf(t=>{if(t-last<1000/hz-4)return;last=t;fn()})}
+/* 畫面抖動：單位是畫面寬高百分比（cqw / cqh），畫面尺寸改變也一樣
+   ax / ay：每格隨機位移（rnd(-1,1)×，%W / %H）；hold：位置慣性（AR 係數）；kick / kickSize：每格出現大踢動的機率與大小（%W）；rot：旋轉（度）
+   量測：Super 8 每張源格 0.03–0.1% H、0.02% W、無旋轉無滑動；8mm 水平 0.25% W rms、每秒 3–5 次 0.5–1% W 踢動、垂直 <.05% H、旋轉 .03° */
+function weave(node,T,{amp=()=>1,hz=30,ax=.06,ay=.15,hold=.9,kick=0,kickSize=.9,rot=0}={}){
+  let x=0,y=0,r=0;
+  tick(T,hz,()=>{
+    const a=amp();
+    x=x*hold+rnd(-1,1)*ax*a; y=y*hold+rnd(-1,1)*ay*a; r=r*hold+rnd(-1,1)*rot*a;
+    if(kick&&Math.random()<kick)x+=(Math.random()<.5?-1:1)*rnd(.6,1)*kickSize*a;
+    node.style.transform=`translate(${x.toFixed(3)}cqw,${y.toFixed(3)}cqh) rotate(${r.toFixed(3)}deg)`;
+  });
+}
+/* 閃爍：每格亮度隨機跳，sd 由 sd() 給（Super 8 量到 6.3%、單步最大 15%；8mm 0.6%），memory 是慣性 */
+function flicker(T,{hz=18,sd=()=>.063,memory=.3}={}){
+  let v=0;const k=Math.sqrt(1-memory*memory)/.577;
+  tick(T,hz,()=>{v=v*memory+rnd(-1,1)*sd()*k;setVar('flick',Math.max(.5,1+v).toFixed(3))});
+}
+/* 顆粒逐格換位（配合 18 / 30 Hz 步進，位移是圖層自身寬高 %） */
+function grainTick(nodes,T,hz){nodes.forEach(n=>n.classList.add('js'));tick(T,hz,()=>nodes.forEach(n=>n.style.transform=`translate(${rnd(-22,22).toFixed(1)}%,${rnd(-22,22).toFixed(1)}%)`))}
+/* 光暈層：把素材複製一份、模糊並只留下亮部，再用 screen 疊回去。
+   不能用 backdrop-filter —— 輸出用的 canvas 渲染器不支援它，
+   畫板上看得到、下載出來卻會不見（花田時光原本就踩到這個坑）。
+   用 cloneNode 而不是再呼叫一次 makeMedia，才不會讓影片的 ended 事件被註冊兩次。 */
+function bloomLayer(parent,src,cls){
+  const box=el('fx '+cls,parent);
+  const copy=src.cloneNode(false);
+  copy.className=src.className;
+  if(copy.tagName==='VIDEO'){copy.loop=true;copy.muted=true;copy.playsInline=true;copy.autoplay=true;
+    copy.play().catch(()=>{});mediaEls.push(copy)}
+  box.appendChild(copy);
+  return box;
+}
+/* 手持漂移。
+   第一版用三條正弦波疊加 —— 平滑好看，但完美週期看起來像裝在滑軌上，沒有手感。
+   真實的手是「慢慢飄 → 偶爾修正 → 一直有細微顫抖」，所以改成兩層雜訊疊加：
+   · 漂移：彈簧-阻尼的隨機遊走。彈簧把它拉回中心、阻尼避免震盪、雜訊持續推它 → 不規則的慢速游移
+   · 顫抖：一階低通的白雜訊 → 手的微顫，讓速度不會是平滑的
+   · 修正：偶爾把累積的偏移拉回一點（人察覺到鏡頭歪了會下意識修）
+   常數是拿參考影片的統計搜出來的（288 組）：
+   位置 sd 1.2%、每 0.1 秒位移中位 0.22、p90 0.55（皆為畫面寬的百分比）
+   → 搜到的這組模擬值是 1.29 / 0.22 / 0.55 */
+function handHold(node,T,{amp=()=>1,hz=30,onMove=null}={}){
+  const K=4.5, C=.9, PUSH=42, TREM=.18, HOLD=.5, dt=1/hz;
+  let dx=0,dy=0,vx=0,vy=0,tx=0,ty=0,rot=0,vr=0;
+  tick(T,hz,()=>{
+    const a=amp();
+    vx+=(-K*dx - C*vx + rnd(-1,1)*PUSH)*dt;
+    vy+=(-K*dy - C*vy + rnd(-1,1)*PUSH*.82)*dt;
+    if(Math.random()<.012){vx-=dx*rnd(1.7,2.8); vy-=dy*rnd(1.4,2.4)}   /* 修正 */
+    dx+=vx*dt; dy+=vy*dt;
+    tx=tx*HOLD+rnd(-1,1)*TREM; ty=ty*HOLD+rnd(-1,1)*TREM*.85;          /* 顫抖 */
+    vr+=(-3.2*rot - 1.9*vr + dx*1.1)*dt; rot+=vr*dt;                    /* 旋轉跟著水平漂移，慢半拍 */
+    const mx=(dx+tx)*a, my=(dy+ty)*a, mr=rot*a*.2;
+    node.style.transform=`translate(${mx.toFixed(3)}cqw,${my.toFixed(3)}cqw) rotate(${mr.toFixed(3)}deg)`;
+    if(onMove)onMove(mx,my,mr);      /* 給需要反向抵銷的層用（方寸之間的照片） */
+  });
+}
+/* 塵點層：rate=每秒白點數、red=每秒紅點數、dark=暗點比例、scratches=每秒刮痕數；尺寸 cqw、壽命依 hz 一格為單位
+   量測 Super 8：白點 2.1/秒、1%×3% W 直立長條、停 1–2 格；紅點 0.7/秒、直徑 4–5% W、停 0.17–1.1 s、每格漂 1–3 px */
+function dustLayer(parent,T,{rate=2,red=0,dark=0,scratches=.3,hz=18}={}){
+  const box=el('dust',parent),F=1000/hz;
+  const speck=(cls,w,h,life)=>{const s=el('speck '+cls,box);s.style.cssText+=`left:${rnd(2,98)}%;top:${rnd(2,98)}%;width:${w}cqw;height:${h}cqw`;T.after(life,()=>s.remove());return s};
+  T.every(F,()=>{
+    if(Math.random()<rate/hz){const w=rnd(.5,1.2);speck(dark&&Math.random()<dark?'dark':'',w,w*rnd(1,3),F*Math.ceil(rnd(1,2.5)))}
+    if(red&&Math.random()<red/hz){const life=rnd(170,1100),d=rnd(4,5.5),s=speck('red',d,d,life);
+      s.style.transitionDuration=life+'ms';requestAnimationFrame(()=>s.style.transform=`translate(${rnd(-2.5,2.5)}cqw,${rnd(-2.5,2.5)}cqw)`)}
+    if(scratches&&Math.random()<scratches/hz){const s=el('scratch'+(dark&&Math.random()<.5?' dark':''),box);
+      s.style.cssText+=`left:${rnd(3,97)}%;top:${rnd(0,50)}%;bottom:${rnd(0,40)}%;opacity:${rnd(.15,.45)}`;T.after(F*Math.ceil(rnd(1,3)),()=>s.remove())}
+  });
+  return box;
+}
+
+/* ================= 預設定義 ================= */
+const PRESETS={
+  leak:{name:'時間光漏',desc:'橘紅光從左緣不規則地閃進來，暖色褪色',transition:'burn',
+    params:[
+      ['rate','漏光頻率',.2,4,.1,1.1,'次/秒'],['leak','光漏強度',0,1,.05,.85],['depth','滲入深度',.2,1.6,.05,.75],
+      ['grain','顆粒',0,.6,.02,.12],['warm','暖色褪色',0,1,.05,.35],['vig','暗角',0,1,.05,.7],
+      ['color','光漏色',[['#ffb347','#ff5e3a','橘紅'],['#ffd27a','#ff8c3a','金黃'],['#ff6b6b','#c2185b','玫紅'],
+        ['#ffc3a0','#ff6f91','粉橘'],['#e9ec8a','#7fc24a','黃綠'],['#f3b6e2','#8f5fd0','粉紫']]]
+    ],
+    build(p,T,root,item){
+      root.appendChild(makeMedia(item));
+      const made={};
+      ['tint','edge','leak','leak two','vig'].forEach(c=>{made[c]=el('fx '+c,root)});
+      el('grain',root);
+      const self=this;
+      /* 漏光脈衝：不規則地閃一下就退，偶爾來一次大的。
+         每次的深度、垂直位置、明滅速度都重新亂數，才不會有規律感 */
+      const pulse=(node,scale,varName)=>{
+        const fire=()=>{
+          const P=self.p, big=Math.random()<.16;
+          const peak=(big?rnd(.72,1):rnd(.22,.58))*P.leak*scale;
+          const rise=rnd(25,70), hold=rnd(15,80), fall=rnd(70,190);
+          node.style.setProperty(varName,(P.depth*(big?rnd(34,52):rnd(15,30)))+'%');
+          node.style.setProperty('--ly',rnd(-18,18)+'%');
+          node.style.transition=`opacity ${rise}ms ease-out`;
+          node.style.opacity=peak.toFixed(3);
+          T.after(rise+hold,()=>{node.style.transition=`opacity ${fall}ms ease-in`;node.style.opacity=0});
+          /* 下一次的間隔：頻率越高間隔越短，但保留隨機性 */
+          const gap=rnd(260,1500)/Math.max(.2,P.rate);
+          T.after(rise+hold+fall+gap,fire);
+        };
+        T.after(rnd(80,700),fire);
+      };
+      pulse(made['leak'],1,'--lw');
+      pulse(made['leak two'],.55,'--lw2');
+      this.update(p);
+    },
+    update(p){this.p=p;setVar('leak',p.leak);setVar('grain',p.grain);setVar('warm',p.warm);setVar('vig',p.vig);setVar('la',p.color[0]);setVar('lb',p.color[1])}
+  },
+
+  strip:{name:'Super 8',desc:'18 fps 步進、青綠褪色、逐格閃爍與左邊漏光脈衝',transition:'burn',
+    /* 預設值 = 參考影片量測：抖動 .3（=每張源格 0.03–0.1% H）、顆粒 .1（overlay 增益約 .2 → sd≈1.1–2%）、閃爍 .6（sd 6.3%）、柔焦 .25 cqw */
+    params:[['shake','抖動',0,3,.1,.3],['grain','顆粒',0,.7,.02,.1],['flick','閃爍',0,1,.05,.6],['fade','褪色程度',0,1,.05,.7],['eleak','左邊漏光',0,1,.05,.7],['soft','柔焦',0,1,.05,.25],
+      ['color','光漏色',[['#ff9678','#ff506e','鮭橘'],['#ffb347','#ff5e3a','橘紅'],['#ffd27a','#ff8c3a','金黃'],['#ff6b6b','#c2185b','玫紅'],['#e9ec8a','#7fc24a','黃綠'],['#f3b6e2','#8f5fd0','粉紫']]]],
+    build(p,T,root,item){
+      const gate=el('gate',root);gate.appendChild(makeMedia(item));
+      ['fadeL','cast','cast2','edgeR'].forEach(x=>el('fx '+x,gate));
+      const leak=el('fx edgeleak',gate);
+      const g=el('grain',root);
+      dustLayer(root,T,{rate:2,red:0,scratches:.3,hz:18});
+      const HZ=18;
+      weave(gate,T,{amp:()=>this.p.shake/.3,hz:HZ,ax:.06,ay:.15});
+      flicker(T,{hz:HZ,sd:()=>.105*this.p.flick});
+      grainTick([g],T,HZ);
+      /* 左邊漏光脈衝：每張源格 1/5.5 機率亮一格（量測 30 個取樣 12 次脈衝 ≈ 每 0.3 s 一次） */
+      tick(T,HZ,()=>leak.classList.toggle('pulse',Math.random()<1/5.5));
+      this.update(p);
+    },
+    update(p){this.p=p;setVar('grain',p.grain);setVar('fade',p.fade);setVar('eleak',p.eleak);setVar('soft',p.soft);setVar('la',p.color[0]);setVar('lb',p.color[1])}
+  },
+
+  proj:{name:'8mm 放映機',desc:'左右顫抖、低飽和柔焦、窄暖邊、偶爾塵點',transition:'burn',
+    /* 預設值 = 參考影片量測：顫抖 .3（=水平 .25% W rms + 每秒 3–5 次踢動）、塵點 .4（≈1 顆/秒）、柔焦 .3 cqw、顆粒 .06（看不見）、閃爍 .15（≈0.9%）、暗角 .6（3% W 窄邊） */
+    params:[['shake','顫抖',0,3,.1,.3],['motes','塵點數量',0,3,.1,.4],['soft','柔焦',0,1.5,.05,.3],['grain','顆粒',0,.6,.02,.06],['flick','閃爍',0,1,.05,.15],['vig','暗角',0,1,.05,.6]],
+    build(p,T,root,item){
+      const gate=el('gate',root);gate.appendChild(makeMedia(item));
+      el('fx warm',gate);
+      const g=el('grain',gate);
+      const motes=el('dust',gate);
+      el('fx vig',root);
+      const HZ=30;
+      weave(gate,T,{amp:()=>this.p.shake/.3,hz:HZ,ax:.32,ay:.08,kick:.17,kickSize:.8,rot:.02});
+      flicker(T,{hz:HZ,sd:()=>.06*this.p.flick,memory:.5});
+      grainTick([g],T,HZ);
+      /* 模糊塵點：量測 ≤1 顆/秒、0.3% W、停 1 格、七成是暗點；motes=.4 時約 1.2 顆/秒 */
+      tick(T,HZ,()=>{
+        if(Math.random()<this.p.motes*.1){
+          const m=el('mote'+(Math.random()<.7?' dark':''),motes),sz=rnd(.3,1.2);
+          m.style.cssText=`left:${rnd(0,100)}%;top:${rnd(0,100)}%;width:${sz}cqw;height:${sz*rnd(1,2)}cqw;filter:blur(${rnd(.05,.25)}cqw);opacity:${rnd(.4,.9)}`;
+          T.after(1000/HZ*Math.ceil(rnd(1,3)),()=>m.remove());
+        }
+        if(Math.random()<this.p.motes*.006){const h=el('hair',motes);h.style.cssText=`left:${rnd(5,95)}%;top:${rnd(-5,60)}%;height:${rnd(8,30)}%;transform:rotate(${rnd(-40,40)}deg)`;T.after(rnd(80,400),()=>h.remove())}
+      });
+      this.update(p);
+    },
+    update(p){this.p=p;setVar('grain',p.grain);setVar('soft',p.soft);setVar('vig',p.vig)}
+  },
+
+  bw:{name:'黑白老電影',desc:'默片質感、刮痕、逐格閃爍',transition:'black',
+    /* 沒有參考影片；抖動以垂直為主（默片片門）、閃爍逐格隨機 sd≈9%、卡頓感控制步進格率（0→24 Hz、1→12 Hz） */
+    params:[['tone','偏褐色',0,1,.05,.25],['grain','顆粒',0,.8,.02,.22],['shake','跳動',0,3,.1,.3],['flick','閃爍',0,1,.05,.6],['scratch','刮痕',0,3,.1,1.5],['fps','卡頓感',0,1,.05,.5],['vig','暗角',0,1,.05,.8]],
+    build(p,T,root,item){
+      const gate=el('gate',root);gate.appendChild(makeMedia(item));
+      el('fx fadeL',gate);
+      const g1=el('grain',gate),g2=el('grain coarse',gate);
+      const HZ=24-12*p.fps;
+      const dust=dustLayer(gate,T,{rate:3,red:0,dark:.5,scratches:.6,hz:HZ});
+      el('fx vig',root);
+      weave(gate,T,{amp:()=>this.p.shake/.3,hz:HZ,ax:.08,ay:.3,hold:.85,kick:.03,kickSize:.5});
+      flicker(T,{hz:HZ,sd:()=>.15*this.p.flick,memory:.2});
+      grainTick([g1,g2],T,HZ);
+      /* 長刮痕：會停留幾格並慢慢滑 */
+      tick(T,HZ,()=>{
+        if(Math.random()<this.p.scratch*.8/HZ){
+          const s=el('scratch'+(Math.random()<.5?' dark':''),dust);let x=rnd(3,97);s.style.left=x+'%';s.style.opacity=rnd(.2,.6);s.style.width=rnd(.08,.25)+'cqw';
+          const life=rnd(150,900),start=performance.now();
+          const mv=()=>{if(performance.now()-start>life){s.remove();return}x+=rnd(-.25,.25);s.style.left=x+'%';setTimeout(mv,1000/HZ)};mv();
+        }
+      });
+      /* 卡頓：影片偶爾凍一下（單一素材不做任何跳黑閃格） */
+      T.every(400,()=>{
+        if(Math.random()<this.p.fps*.35){const vs=mediaEls.filter(m=>m.tagName==='VIDEO');vs.forEach(v=>v.pause());T.after(rnd(60,160),()=>vs.forEach(v=>v.play().catch(()=>{})))}
+      });
+      this.update(p);
+    },
+    update(p){this.p=p;setVar('grain',p.grain);setVar('tone',p.tone);setVar('vig',p.vig)}
+  }
+};
+
+PRESETS.sun={name:'陽光褪色',desc:'暗部抬起不壓黑、動態範圍壓縮、黃綠色偏與霧化',transition:'dissolve',
+  /* 量測（參考影片 2026-09-15 02:56，48 格取樣）：
+     L p1=41 p5=59 p50=147 p95=207 p99=218；<16 僅 0.05%
+     中位 RGB 149/152/87、暗部 44/65/25、亮部 215/210/170；飽和 .376、鄰接差 9.03 */
+  params:[['exp','曝光',.9,1.6,.02,1.28],['lift','暗部抬升',0,1,.05,.25],['cast','黃綠色偏',0,1,.05,.8],
+    ['haze','霧化',0,.5,.02,.16],['soft','柔焦',0,1,.05,.3],['grain','顆粒',0,.8,.02,.14],
+    ['vig','暗角',0,1,.05,.5],['fade','淡入長度',.3,2.5,.1,.8,'s']],
+  build(p,T,root,item){
+    const gate=el('gate',root);gate.appendChild(makeMedia(item));
+    el('fx lift',gate);
+    el('fx cast',gate);
+    el('fx haze',gate);
+    const g1=el('grain',gate),g2=el('grain coarse',gate);
+    el('fx vig',root);
+    grainTick([g1,g2],T,22);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('lift',p.lift);setVar('cast',p.cast);setVar('haze',p.haze);
+    setVar('soft',p.soft);setVar('grain',p.grain);setVar('vig',p.vig);
+    setVar('sat2',1.05);setVar('con2',.78);}
+};
+
+PRESETS.bloom={name:'花田時光',desc:'亮部滾降不到純白、暗部壓死、暖調、重顆粒與柔焦光暈',transition:'dissolve',
+  /* 量測（參考影片 2026-09-15 02:51，745 格）：
+     L 百分位 p5=5 p50=87 p95=199 p99=219；<16 佔 10.85%、>240 僅 0.07%
+     飽和 .351；鄰接差 5.58；亮部 RGB 212/198/178 */
+  params:[['exp','曝光',.8,1.4,.02,1.20],['warm','暖調',0,1,.05,.90],['glow','光暈',0,1,.05,.60],
+    ['soft','柔焦',0,1,.05,.35],['grain','顆粒',0,.8,.02,.20],['crush','暗部壓死',0,.5,.02,.12],
+    ['vig','暗角',0,1,.05,.45],['fade','淡入長度',.3,2.5,.1,.9,'s']],
+  build(p,T,root,item){
+    const gate=el('gate',root);const m0=makeMedia(item);gate.appendChild(m0);
+    el('fx warmtint',gate);
+    bloomLayer(gate,m0,'bloom');
+    el('fx crush',gate);
+    const g1=el('grain',gate),g2=el('grain coarse',gate);
+    el('fx vig',root);
+    grainTick([g1,g2],T,20);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('warm',p.warm);setVar('glow',p.glow);
+    setVar('soft',p.soft);setVar('grain',p.grain);setVar('crush',p.crush);setVar('vig',p.vig);
+    setVar('sat',1.35);setVar('con',1.20);}
+};
+
+PRESETS.none={name:'無',desc:'不套色調，照片影片原本的樣子；留曝光／飽和／對比／顆粒／暗角可以調',transition:'dissolve',
+  params:[['exp','曝光',.5,1.8,.02,1],['sat','飽和',0,2,.05,1],['con','對比',.5,1.8,.02,1],
+    ['grain','顆粒',0,.6,.02,0],['vig','暗角',0,1,.05,0],['fade','淡入長度',.3,2.5,.1,.6,'s']],
+  build(p,T,root,item){
+    root.appendChild(makeMedia(item));
+    const g=el('grain',root);
+    el('fx vig',root);
+    grainTick([g],T,22);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('sat',p.sat);setVar('con',p.con);
+    setVar('grain',p.grain);setVar('vig',p.vig);}
+};
+
+PRESETS.faded={name:'褪色暖調',desc:'亮部不到白、暗部抬成暖褐、粉紫到桃橘的色偏；沒有顆粒閃動',transition:'cut',
+  /* 量測（參考影片 3）：亮部 p99 149–184、暗部 (96,67,60)、飽和 .16–.31、顆粒 sd<.6、|ΔL| 中位 .1 */
+  params:[['lift','暗部抬升',0,1,.05,.58],['castop','色偏',0,1,.05,.8],['vig','暗角',0,1,.05,.5]],
+  build(p,T,root,item){
+    root.appendChild(makeMedia(item));
+    ['lift','cast','vig'].forEach(c=>el('fx '+c,root));
+    this.update(p);
+  },
+  update(p){this.p=p;setVar('lift',p.lift);setVar('castop',p.castop);setVar('vig',p.vig)}
+};
+PRESETS.gold={name:'金色那天',desc:'最亮不是白色而是淺黃、暖度隨亮度遞增、亮處柔柔地發光',transition:'dissolve',
+  params:[['exp','曝光',.8,1.5,.02,1.1],['gold','金色調',0,1,.05,.9],
+    ['glowop','發光強度',0,1,.05,.5],['grad','發光範圍',.15,1.2,.05,.55],
+    ['crush','壓黑',0,.4,.02,.04],['grain','顆粒',0,.8,.02,.16],
+    ['vig','暗角',0,1,.05,.6],['fade','淡入長度',.3,2.5,.1,1,'s']],
+  build(p,T,root,item){
+    const gate=el('gate',root);const m0=makeMedia(item);gate.appendChild(m0);
+    bloomLayer(gate,m0,'glow');
+    el('fx ceil',gate);
+    el('fx crush',gate);
+    const g1=el('grain',gate),g2=el('grain coarse',gate);
+    el('fx vig',root);
+    grainTick([g1,g2],T,20);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('gold',p.gold);setVar('glowop',p.glowop);setVar('grad',p.grad);
+    setVar('crush',p.crush);setVar('grain',p.grain);setVar('vig',p.vig);
+    setVar('sat',1.1);setVar('con',1.25);}
+};
+
+PRESETS.cool={name:'霧裡微亮',desc:'低飽和冷調、柔霧發光，暗部用深度拉回來',transition:'dissolve',
+  params:[['glowop','柔霧',0,1,.05,.5],['grad','柔霧範圍',.2,1.4,.05,.6],
+    ['depth','深度',0,1,.02,.35],['cool','冷調',0,.6,.02,.3],
+    ['sat','飽和',0,1.2,.05,.62],['exp','曝光',.8,1.4,.02,1.06],
+    ['vig','暗角',0,1,.05,.5],['fade','淡入長度',.3,2.5,.1,1,'s']],
+  build(p,T,root,item){
+    const gate=el('gate',root);const m0=makeMedia(item);gate.appendChild(m0);
+    bloomLayer(gate,m0,'glow');
+    el('fx cool',gate);
+    el('fx depth',gate);
+    /* 這個濾鏡不加顆粒層 —— 動態顆粒每秒重新隨機 18 次，跟「柔霧」的訴求直接打架 */
+    el('fx vig',root);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('glowop',p.glowop);setVar('grad',p.grad);setVar('depth',p.depth);setVar('cool',p.cool);
+    setVar('sat',p.sat);setVar('exp',p.exp);setVar('vig',p.vig);
+    /* color-burn 單獨拉到底會把最暗處壓成 0（實測 32→0，層次沒了）。
+       超過預設值 0.35 之後同時帶一點對比，中間調才會繼續加深而不是只把暗部壓死。
+       0.35 以下維持 .96 不變，所以原本調好的樣子不受影響 */
+    setVar('con',(.96+Math.max(0,p.depth-.35)*.30).toFixed(3));}
+};
+
+/* 選到這個濾鏡時會鎖住「比例」與「載體」：觀景窗本身就是框，再疊載體會打架 */
+PRESETS.finder={name:'方寸之間',desc:'從觀景窗裡看出去；機身反射景色的環境光、低對比霧面、取景器慢漂（照片不跟著晃）',
+  transition:'dissolve', lock:{aspect:'0.8',mask:''},
+  /* 取景窗在 assets/finder.webp 裡的位置（佔圖檔 %），量測自 alpha 通道。
+     預設「取景器大小」1.15 會把整張圖放大，窗跟著長到寬 74.7% × 高 34.8%，
+     對上參考照片量到的 73% × 35%。裁掉的外圈 6.5% 全是不透明的暗部，不會露出破綻 */
+  hole:[15.87,80.91,35.01,65.24],
+  params:[['size','取景器大小',.88,1.35,.01,1.15],['zoom','照片放大',1,2.2,.05,1.1],
+    ['soft','照片柔焦',0,1.6,.05,.5],['fbri','機身亮度',.6,1.4,.02,1],
+    ['refl','環境反射',0,1,.05,.7],['hand','手持晃動',0,2,.1,1],
+    ['haze','霧化',0,.5,.02,.08],['exp','曝光',.85,1.35,.02,1.12],
+    ['fade','淡入長度',.3,2.5,.1,1,'s']],
+  build(p,T,root,item){
+    const rig=el('rig',root);
+    const win=el('win',rig);
+    const hold=el('hold',win);        /* 專門承載「抵銷手晃」的那層 */
+    const win0=makeMedia(item);
+    hold.appendChild(win0);
+    el('fx haze',win);
+    const fd=document.createElement('img');
+    fd.className='finder';fd.src='assets/finder.webp';fd.alt='';rig.appendChild(fd);
+    /* 環境反射用素材的複製品。用 cloneNode 而不是再呼叫一次 makeMedia，
+       是為了不要讓影片的 ended 事件被註冊兩次（會連跳兩張素材） */
+    const refl=el('refl',rig), copy=win0.cloneNode(false);
+    copy.className=win0.className;
+    if(copy.tagName==='VIDEO'){copy.loop=true;copy.muted=true;copy.playsInline=true;copy.autoplay=true;
+      copy.play().catch(()=>{});mediaEls.push(copy)}
+    refl.appendChild(copy);
+    /* 相機（機身＋取景窗）照舊一起晃 —— 洞跟窗的對位是量出來的，不能拆開。
+       照片改成反向位移，抵銷掉相機的晃動，看起來就是「景站著不動、相機在飄」。
+       反向量要收在「窗比洞大的那一圈」裡面，不然窗緣會從洞裡露出來，
+       所以用 tanh 軟性收邊：小幅度幾乎原樣抵銷，晃很大時才開始跟著帶一點。 */
+    handHold(rig,T,{amp:()=>this.p.hand,onMove:(mx,my,mr)=>{
+      const sc=this.p.size, zo=this.p.zoom;
+      /* 餘裕 = 窗超出洞的那一圈 + 照片放大溢出的部分（單位都換成 cqw＝畫面寬的 %）。
+         比例被鎖在 4:5，所以縱向的「% 高」換成 cqw 要乘 1.25 */
+      const bx=(4.6*sc + (zo-1)/2*74.24*sc)*.8;
+      const by=(3.8*sc + (zo-1)/2*37.83*sc)*1.25*.8;
+      const ox=bx*Math.tanh(mx/bx), oy=by*Math.tanh(my/by);
+      hold.style.transform=`translate(${(-ox).toFixed(3)}cqw,${(-oy).toFixed(3)}cqw) `
+        +`rotate(${(-mr).toFixed(3)}deg)`;
+    }});
+    this.update(p);
+  },
+  update(p){this.p=p;
+    /* 窗的位置由圖檔的洞決定；「取景器大小」是把整張圖等比縮放，窗跟著走 */
+    const sc=p.size, C=50, mp=v=>C+(v-C)*sc;
+    const x0=mp(this.hole[0]), x1=mp(this.hole[1]), y0=mp(this.hole[2]), y1=mp(this.hole[3]);
+    /* 窗要比洞大一圈，而且要大到「照片的硬邊落在圖檔完全不透明的地方」才看不見。
+       量測 assets/finder.webp：從洞緣算起，alpha 要 43~49px 才爬到 250
+       （橫向 3.8% 寬、縱向 3.1% 高），所以外擴量跟著放大倍率走，再加一點餘裕 */
+    const padx=4.6*sc, pady=3.8*sc;
+    const wl=x0-padx, ww=(x1-x0)+padx*2, wt=y0-pady, wh=(y1-y0)+pady*2;
+    setVar('fsc',sc.toFixed(4));
+    setVar('wl',wl.toFixed(2)+'%');setVar('ww',ww.toFixed(2)+'%');
+    setVar('wt',wt.toFixed(2)+'%');setVar('wh',wh.toFixed(2)+'%');
+    setVar('zoom',p.zoom);setVar('soft',p.soft);
+    setVar('fbri',p.fbri);setVar('refl',p.refl);
+    setVar('haze',p.haze);setVar('exp',p.exp);}
+};
+
+
+/* ================= 星星對切 =================
+   三個素材：照片／影片 + 一個顏色 + 一張星星遮罩（assets/stars-mask.webp，只讀它的透明度）。
+   遮罩用 canvas 合成成兩張圖再當 <img> 用：
+     ink  = 只留下星星的地方填顏色、其餘透明   → 蓋在上半的照片上
+     hole = 整片顏色、星星的地方挖掉           → 蓋在下半，照片只從星星露出來
+   合成結果依「顏色 + 模式」快取，拉滑桿不會每次重畫。 */
+const STAR_SRC='assets/stars-mask.webp';
+let starImg=null, starReady=null;
+const starCache=new Map();
+function loadStarMask(){
+  if(starReady)return starReady;
+  starReady=new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{starImg=im;res(im)};
+    im.onerror=()=>res(null);
+    im.src=STAR_SRC;
+  });
+  return starReady;
+}
+/* landscape=true 時把遮罩整張旋轉 90 度再合成。
+   遮罩原圖是寬扁形（1.6），直式/方形對切出來的格子也是寬扁形，貼合得剛好；
+   橫式（16:9 那類）對切出來的格子卻是瘦高形（寬高比約 0.89），
+   object-fit:cover 硬塞的話只看得到遮罩中間 55.5% 的寬度、兩側星星全被裁掉。
+   把遮罩轉 90 度，長寬比變成 0.625（比格子還瘦），cover 改成裁上下、寬度 100% 都看得到，
+   星星本身有旋轉對稱（十角星），轉 90 度不會看起來歪掉，只是整組換個方向散開 */
+function starLayerURL(color,mode,landscape){
+  if(!starImg)return '';
+  const key=mode+'|'+color+'|'+(landscape?1:0);
+  if(starCache.has(key))return starCache.get(key);
+  const iw=starImg.naturalWidth, ih=starImg.naturalHeight;
+  const c=document.createElement('canvas');
+  c.width=landscape?ih:iw; c.height=landscape?iw:ih;
+  const x=c.getContext('2d');
+  x.fillStyle=color; x.fillRect(0,0,c.width,c.height);
+  /* destination-in：只留下遮罩不透明的地方 → 星星本身
+     destination-out：把遮罩不透明的地方挖掉 → 星星以外的整片 */
+  x.globalCompositeOperation = mode==='ink' ? 'destination-in' : 'destination-out';
+  if(landscape){
+    x.translate(c.width/2,c.height/2); x.rotate(Math.PI/2);
+    x.drawImage(starImg,-iw/2,-ih/2);
+  }else{
+    x.drawImage(starImg,0,0);
+  }
+  const url=c.toDataURL('image/png');
+  starCache.set(key,url);
+  return url;
+}
+/* 鎖住載體：這個濾鏡自己就是在切版面，再疊一個框會打架。比例不鎖，換什麼比例都行 */
+PRESETS.split={name:'今天的小星星',desc:'上下對切、同一組星星：上半實心、下半挖空露出畫面',transition:'cut',
+  lock:{mask:''}, flickerDefault:0,   /* 整片色塊配全域閃動會忽明忽暗很干擾，第一次選到就關掉 */
+  params:[
+    ['color','顏色',[['#f2e3a3','#f2e3a3','奶油黃'],['#a8ab45','#a8ab45','橄欖綠'],
+      ['#e8d5c4','#e8d5c4','裸粉'],['#7fa6a0','#7fa6a0','霧青'],
+      ['#e3714f','#e3714f','磚橘'],['#2b2a26','#2b2a26','墨黑'],
+      ['#f4f1e8','#f4f1e8','米白'],['#c2567d','#c2567d','桃紅']]],
+    ['exp','曝光',.8,1.4,.02,1],['sat','飽和',0,1.6,.05,1],['con','對比',.8,1.5,.02,1.06],
+    ['grain','顆粒',0,.6,.02,.08],['fade','淡入長度',.3,2.5,.1,.6,'s']],
+  build(p,T,root,item){
+    const top=el('half top',root), bot=el('half bot',root);
+    /* 上下放同一個素材、各播各的。第二份用 cloneNode —— 影片的 ended 只能註冊一次，
+       註冊兩次會連跳兩張（跟方寸之間、郵票同一個坑） */
+    const m0=makeMedia(item); top.appendChild(m0);
+    const m1=m0.cloneNode(false); m1.className=m0.className;
+    if(m1.tagName==='VIDEO'){m1.muted=true;m1.playsInline=true;m1.autoplay=true;m1.loop=m0.loop;
+      m1.play().catch(()=>{});mediaEls.push(m1)}
+    bot.appendChild(m1);
+    const inkL=document.createElement('img'); inkL.className='starlay'; inkL.alt='';
+    const holeL=document.createElement('img'); holeL.className='starlay'; holeL.alt='';
+    top.appendChild(inkL); bot.appendChild(holeL);
+    this.layers={ink:inkL,hole:holeL};
+    const g=el('grain',root);
+    grainTick([g],T,22);
+    /* 遮罩圖是非同步載入的，載好再補上 */
+    loadStarMask().then(()=>this.paint(this.p||p));
+    this.update(p);
+  },
+  paint(p){
+    if(!this.layers||!starImg)return;
+    const col=Array.isArray(p.color)?p.color[0]:p.color;
+    /* 跟切版面用的 @container (min-aspect-ratio:1/1) 同一個門檻 —— 
+       版面切成左右的時候，遮罩也要轉成瘦高形，兩邊才會一起換 */
+    const landscape=currentAR()>=1;
+    this.layers.ink.src=starLayerURL(col,'ink',landscape);
+    this.layers.hole.src=starLayerURL(col,'hole',landscape);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('sat',p.sat);setVar('con',p.con);setVar('grain',p.grain);
+    this.paint(p);}
+};
+
+/* ================= 遮罩（載體） ================= */
+/* 遮罩改用外部 SVG（每個 1–2 KB，原本 base64 PNG 各約 850 KB）
+   檔名 masks/mask-<格數>cell-<比例>.svg，依當前「比例」自動對應 */
+const MASK_RATIO=[['0.8','4x5'],['0.5625','9x16'],['1.7778','16x9'],['1','1x1']];
+const MASK_SLOTS={"1-4x5":[[0,0,100,100]],"2-4x5":[[5.6,2.2,88.8,46.0],[5.6,50.9,88.8,46.0]],"3-4x5":[[19.81,2.15,60.37,29.93],[19.81,35.04,60.37,29.93],[19.81,67.93,60.37,29.93]],"w-4x5":[[4.63,22.48,90.74,55.04]],"1-9x16":[[4.63,18.31,90.74,63.39]],"2-9x16":[[5.65,18.35,88.7,30.6],[5.65,51.04,88.7,30.6]],"3-9x16":[[5.65,2.01,88.7,30.6],[5.65,34.7,88.7,30.6],[5.65,67.39,88.7,30.6]],"w-9x16":[[4.63,30.65,90.74,38.7]],"1-16x9":[[18.31,4.63,63.39,90.74]],"2-16x9":[[1.51,24.1,47.45,51.8],[51.04,24.1,47.45,51.8]],"3-16x9":[[1.51,32.91,30.94,34.19],[34.53,32.91,30.94,34.19],[67.55,32.91,30.94,34.19]],"w-16x9":[[16.25,4.63,67.5,90.74]],"1-1x1":[[4.63,22.19,90.74,55.63]],"2-1x1":[[13.1,2.69,73.8,45.46],[13.1,51.85,73.8,45.46]],"3-1x1":[[26.76,2.69,46.48,29.07],[26.76,35.46,46.48,29.07],[26.76,68.24,46.48,29.07]],"w-1x1":[[4.63,15.6,90.74,68.8]]};
+/* ============ 圖框類的載體（郵票、蕾絲…） ============
+   共同的規則：一張透明 PNG 疊在最上層，**維持自己的長寬比、不跟著畫面比例被拉**；
+   兩格 —— 第一格滿版（框外面的底圖，固定放第一張素材），第二格是框中間的窗（第二張之後輪播）。
+   要再加新的框，就在這張表加一列，其他程式都不用動。
+
+   ar    圖檔自己的長寬比（寬/高）
+   scale 框在畫面上佔多大（較短的那一邊的比例）
+   dim   框外面那張底圖要壓暗多少（0 = 不壓暗）
+   wins  量圖檔 alpha 得到的透明窗，每個是 [x0,x1,y0,y1]（佔圖檔 %）。
+         可以有很多個窗（例如上下兩格的蕾絲），照順序輪播。
+         四周各外擴了一點，讓照片的硬邊壓在不透明的框底下看不見 */
+const FRAMES={
+  stamp:{src:'assets/stamp-frame.webp', ar:1102/1428, scale:.70, dim:0,
+    wins:[[13.43,86.93,10.40,89.32]]},
+  lace: {src:'assets/lace-frame.webp',  ar: 913/1252, scale:.66, dim:0,
+    wins:[[13.88,86.12,13.62,85.82]]},
+  lace2:{src:'assets/lace2-frame.webp', ar: 626/1356, scale:.66, dim:0,
+    wins:[[19.17,81.47, 9.87,47.80],[19.17,81.47,50.06,89.54]]},
+  /* 精裝記憶：跟前面三個不一樣 —— 這張本身就是滿版設計（整張不透明，只挖一個窗），
+     不需要另一張底圖補周圍。mode:'cover' 讓它永遠鋪滿整個畫面、超出的部分裁掉
+     （跟 object-fit:cover 一樣的邏輯），而不是縮小置中露出底圖。
+     win 的位置因此要跟著「裁掉了多少」重新換算，見 coverWinSlot() */
+  memory:{src:'assets/memory-frame.webp', ar:1131/1772, mode:'cover',
+    win:[27.06,72.86,30.25,68.85]},
+  /* 敬請期待（Lily 專屬）：跟精裝記憶同一張畫布尺寸、同一套做法，
+     但「窗」不是挖空的洞，是一張半透明的米卡（alpha 約 65%，不是 0）——
+     照片會透過去，但永遠帶著卡片本身的米色跟裡面印的「coming soon」字，
+     這是設計本來就要的效果，不是要修掉的瑕疵。
+     窗外還多一層純不透明的白色框邊，量測時要避開，不然量到的窗會偏大 */
+  soon:{src:'assets/soon-frame.webp', ar:1131/1772, mode:'cover',
+    win:[24.53,75.47,28.88,71.07]}
+};
+const frameMask=()=>FRAMES[maskState.id]||null;
+function currentAR(){
+  const v=$('#aspect').value;
+  return (v==='auto' ? (cur()?.natAR||.8) : +v) || .8;
+}
+/* 框在畫面上的方框（佔畫面 %）。兩個方向都取 min(1,…)，
+   誰先撐到 scale 就以誰為準，另一邊自然縮 —— 框不會被拉扁也不會爆出畫面 */
+function frameBox(){
+  const F=frameMask(); if(!F)return null;
+  const ar=currentAR();
+  const wf=F.scale*Math.min(1,F.ar/ar);
+  const hf=F.scale*Math.min(1,ar/F.ar);
+  return {l:(1-wf)*50, t:(1-hf)*50, w:wf*100, h:hf*100};
+}
+/* cover 模式（精裝記憶）：框圖用 object-fit:cover 鋪滿整個畫面，
+   跟畫面比例不一樣的地方會被裁掉（不是縮小置中）。
+   窗的位置因此要跟著「實際裁掉了多少」重新換算 ——
+   算法跟 object-fit:cover 的裁切公式一樣：圖比畫面寬就裁左右、比畫面窄就裁上下 */
+function coverWinSlot(F){
+  const iar=F.ar, car=currentAR();
+  let cx0=0,cx1=1,cy0=0,cy1=1;
+  if(iar>car){ const vw=car/iar; cx0=(1-vw)/2; cx1=cx0+vw }
+  else{ const vh=iar/car; cy0=(1-vh)/2; cy1=cy0+vh }
+  const map=(v,a0,a1)=>(v/100-a0)/(a1-a0)*100;
+  const clamp=v=>Math.max(0,Math.min(100,v));
+  const x0=clamp(map(F.win[0],cx0,cx1)), x1=clamp(map(F.win[1],cx0,cx1));
+  const y0=clamp(map(F.win[2],cy0,cy1)), y1=clamp(map(F.win[3],cy0,cy1));
+  return [+x0.toFixed(2), +y0.toFixed(2), +Math.max(0,x1-x0).toFixed(2), +Math.max(0,y1-y0).toFixed(2)];
+}
+/* 槽位跟著上面那個方框走。第 0 格永遠是滿版的底圖，後面才是框上的窗
+   （cover 模式沒有底圖那格，本身就滿版，直接是單槽位） */
+function frameSlots(){
+  const F=frameMask(); if(!F)return null;
+  if(F.mode==='cover')return [coverWinSlot(F)];
+  const b=frameBox(); if(!b)return null;
+  const r=v=>+v.toFixed(2);
+  return [[0,0,100,100], ...F.wins.map(w=>[
+    r(b.l+w[0]*b.w/100), r(b.t+w[2]*b.h/100),
+    r((w[1]-w[0])*b.w/100), r((w[3]-w[2])*b.h/100)])];
+}
+/* 在「輪播範圍」內取第 k 張（範圍是 firstIndex()..最後一張，也就是扣掉底圖那張） */
+function cycItem(k){
+  const n=state.items.length; if(!n)return null;
+  const f=firstIndex(), m=n-f;
+  return m>0 ? state.items[f+((k-f)%m+m)%m] : state.items[0];
+}
+function maskKey(){
+  const v=$('#aspect').value;
+  const hit=MASK_RATIO.find(r=>r[0]===v);
+  if(hit)return hit[1];
+  const ar=cur()?.natAR||0.8;                 /* 「跟素材一樣」→ 取最接近的比例 */
+  let best=MASK_RATIO[0],d=1e9;
+  for(const[val,key]of MASK_RATIO){const e=Math.abs(+val-ar);if(e<d){d=e;best=[val,key]}}
+  return best[1];
+}
+const maskState={id:'1',customSrc:null};
+function applyMask(){
+  frame.querySelectorAll('.masklayer').forEach(n=>n.remove());
+  const id=maskState.id;if(!id)return;
+  const src=id==='custom'?maskState.customSrc
+    :FRAMES[id]?FRAMES[id].src
+    :`masks/mask-${id}cell-${maskKey()}.svg`;
+  if(!src)return;
+  const im=new Image();im.className='masklayer';im.src=src;
+  if(FRAMES[id]&&FRAMES[id].mode==='cover'){
+    /* 滿版鋪滿，裁切交給 object-fit:cover（預覽跟輸出的 canvas 渲染器都支援，見 paintMedia） */
+    im.style.cssText='left:0;top:0;right:auto;bottom:auto;width:100%;height:100%';
+    im.style.objectFit='cover';
+  }else if(FRAMES[id]){
+    /* 圖框不是滿版：縮到自己的 scale、置中，而且維持自己的長寬比（不跟著畫面比例被拉） */
+    const b=frameBox();
+    im.style.cssText=`left:${b.l.toFixed(3)}%;top:${b.t.toFixed(3)}%;right:auto;bottom:auto;`
+      +`width:${b.w.toFixed(3)}%;height:${b.h.toFixed(3)}%`}
+  frame.appendChild(im);
+}
+$('#maskSel').onchange=e=>{
+  maskState.id=e.target.value;
+  if(maskState.id==='custom'&&!maskState.customSrc){$('#maskFile').click()}
+  clampIndex();   /* 郵票框：底圖那張不要同時出現在窗裡 */
+  /* 各比例都有對應的遮罩檔，不再強制切回 4:5 */
+  build();
+};
+$('#maskFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(maskState.customSrc)URL.revokeObjectURL(maskState.customSrc);maskState.customSrc=URL.createObjectURL(f);maskState.id='custom';$('#maskSel').value='custom';applyMask()};
+
+/* ================= 建構 / UI ================= */
+let dissolving=false;
+function build(){
+  if(current){current.T.clear()}
+  mediaEls=[];
+  [...frame.children].forEach(c=>{
+    if(['trans','flick','fade','intro'].includes(c.id))return;
+    /* 交叉淡入時保留舊的 slot，讓新舊畫面重疊 */
+    if(dissolving&&c.classList.contains('slot')){c.classList.add('leaving');return}
+    c.remove();
+  });
+  frame.className='frame';frame.style.cssText='';
+  clampIndex();          /* 最後一道保險：任何路徑進到 build() 索引都一定是合法的 */
+  const P=PRESETS[state.preset];
+  const T=timers();
+  P.p=state.params[state.preset];
+  frame.classList.add('p-'+state.preset);
+  if(frameMask())frame.classList.add('mask-frame');
+  /* 槽位：遮罩 1 是上下兩格，各放一個素材；其他情況一格滿版 */
+  /* 槽位幾何 [left%, top%, width%, height%]，與遮罩 SVG 同一份幾何算出，不會對不上 */
+  const cells=(frameMask() ? frameSlots()
+    : maskState.id&&maskState.id!=='custom' ? MASK_SLOTS[maskState.id+'-'+maskKey()]
+    : null)||[[0,0,100,100]];
+  const n=state.items.length;
+  cells.forEach((c,i)=>{
+    /* 圖框的第一格 = 框外面的底圖 —— 只有「底圖+窗」這種才有（cover 模式沒有，本身就滿版） */
+    const FM=frameMask();
+    const bgcell=!!FM&&FM.mode!=='cover'&&i===0;
+    const root=el('slot'+(dissolving?' entering':'')+(bgcell?' bgcell':''),frame);
+    root.style.cssText=`left:${c[0]}%;top:${c[1]}%;width:${c[2]}%;height:${c[3]}%`;
+    /* 壓暗的程度每個框自己決定（蕾絲 0 = 不壓暗，郵票 .45）。CSS 的 ::after 讀這個變數。
+       一定要寫在 cssText 後面 —— cssText 是整段覆蓋，寫前面會被洗掉。
+       值也一定要是字串，傳數字 WebKit 會直接忽略 */
+    if(bgcell)root.style.setProperty('--sbdim',String(FM.dim ?? .45));
+    /* 圖框：第一格固定放第一張（框外面的底圖），第二格才是輪播的那張。
+       cover 模式（精裝記憶）沒有底圖格，就一格，照一般規則跑（跟目前索引一起換）。
+       其他載體照舊：從目前這張往後依序填格子 */
+    const item=!n?null
+      : FM ? (FM.mode==='cover' ? state.items[state.index] : (i===0?state.items[0]:cycItem(state.index+i-1)))
+      : state.items[(state.index+i)%n];
+    P.build(P.p,T,root,item);
+  });
+  current={T};
+  applyMask();applyAspect();applyCaptions();scheduleScene();
+}
+/* 有些濾鏡自帶固定的輸出規格（例如「方寸之間」的觀景窗就是框，比例也必須是 4:5）。
+   鎖定時把使用者原本的選擇記起來，切走的時候原封不動還回去 */
+/* 「比例」與「載體」可以分開鎖：
+     方寸之間  lock:{aspect:'0.8', mask:''}  → 兩個都鎖（觀景窗本身就是框，比例也是固定的）
+     星星對切  lock:{mask:''}                → 只鎖載體，比例照樣可以換
+   作法是先把上一個濾鏡鎖住的東西原封不動還回去，再套這個濾鏡的鎖。
+   lockSaved 只記「這次真的有鎖的那幾項」，沒鎖的項目不會被動到 */
+let lockSaved=null;
+function applyPresetLock(id){
+  const asp=$('#aspect'), msk=$('#maskSel'), L=PRESETS[id].lock;
+  const row=n=>n.closest('.rowline');
+  if(lockSaved){
+    if(lockSaved.aspect!==undefined){
+      asp.value=lockSaved.aspect; asp.disabled=false; row(asp).classList.remove('locked');
+    }
+    if(lockSaved.mask!==undefined){
+      msk.value=lockSaved.mask; maskState.id=lockSaved.mask;
+      msk.disabled=false; row(msk).classList.remove('locked');
+    }
+    lockSaved=null;
+  }
+  if(!L)return;
+  lockSaved={};
+  if(L.aspect!==undefined){
+    lockSaved.aspect=asp.value;
+    asp.value=L.aspect; asp.disabled=true; row(asp).classList.add('locked');
+  }
+  if(L.mask!==undefined){
+    lockSaved.mask=maskState.id;
+    msk.value=L.mask; maskState.id=L.mask; msk.disabled=true; row(msk).classList.add('locked');
+  }
+}
+function selectPreset(id){
+  state.preset=id;
+  applyPresetLock(id);
+  clampIndex();
+  const firstVisit=!state.params[id];    /* 這個濾鏡第一次被選到，還沒存過參數 */
+  if(firstVisit)state.params[id]=Object.fromEntries(PRESETS[id].params.map(([k,,min,max,step,def])=>[k,Array.isArray(min)?min[0]:def]));
+  /* 「閃動」是放映機的全域設定，不是某個濾鏡自己的參數，所以不能放進 state.params。
+     只有第一次選到這個濾鏡時才套用它的預設值 —— 如果之後手動調過，切走再切回來要保留調過的值，
+     不會每次點都被拉回去 */
+  if(firstVisit&&PRESETS[id].flickerDefault!==undefined){
+    proj.flicker=PRESETS[id].flickerDefault;
+    $('#flicker').value=proj.flicker;$('#vFlicker').textContent=proj.flicker;
+  }
+  [...presetsBox.children].forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  renderParams();build();
+}
+function renderParams(){
+  const P=PRESETS[state.preset],p=state.params[state.preset];paramsBox.innerHTML='';
+  P.params.forEach(([k,label,min,max,step,def,unit])=>{
+    if(Array.isArray(min)){
+      /* 色票：一列，標籤左、色塊右 */
+      const row=el('rowline',paramsBox);const lb=el('k',row,'label');lb.textContent=label;
+      const v=el('v',row);const sw=el('row',v);
+      min.forEach(([a,b,name])=>{const s=el('sw'+(p[k][0]===a?' on':''),sw);s.title=name;s.style.background=`linear-gradient(135deg,${a},${b})`;
+        s.onclick=()=>{p[k]=[a,b];[...sw.children].forEach(x=>x.classList.remove('on'));s.classList.add('on');P.update(p)}});
+      return;
+    }
+    /* 滑桿：兩行 — 標籤左 / 數值右，滑桿獨立一行撐滿 */
+    const row=el('rowline param',paramsBox);
+    const top=el('top',row);const lb=el('k',top,'label');lb.textContent=label;const num=el('num',top,'span');
+    const inp=el('',row,'input');inp.type='range';inp.min=min;inp.max=max;inp.step=step;inp.value=p[k];
+    inp.id='p-'+k;lb.htmlFor=inp.id;
+    const show=()=>num.textContent=(step>=1?p[k]:(+p[k]).toFixed(2).replace(/\.?0+$/,''))+(unit?' '+unit:'');show();
+    inp.oninput=()=>{p[k]=+inp.value;show();P.update(p)};
+  });
+}
+/* 濾鏡在清單上的擺放順序。跟 PRESETS 的定義順序分開，要調順序改這裡就好。
+   沒列到的會自動接在後面，所以之後新增濾鏡不會憑空消失 */
+const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','split','finder','bw'];
+const presetIds=[...new Set([...PRESET_ORDER.filter(id=>PRESETS[id]),...Object.keys(PRESETS)])];
+presetIds.forEach(id=>{
+  const P=PRESETS[id];
+  const b=el('preset',presetsBox,'button');b.type='button';b.dataset.id=id;
+  b.innerHTML=`<span class="pv"><span class="thumb"></span><span class="cap">${P.desc}</span></span><b>${P.name}</b>`;
+  b.onclick=()=>selectPreset(id);
+});
+
+/* 濾鏡縮圖：拿同一張樣張照片，把每個濾鏡的 build() 真的跑一次，
+   跑完立刻 clear 掉計時器 —— 只留「建好的那一格」，所以是靜止的樣張、不吃 CPU。
+   好處是縮圖永遠等於實際效果；壞處是純靠計時器才看得到的東西（漏光閃一下、
+   刮痕、塵點）不會出現在縮圖裡，只會看到該濾鏡的底色調。 */
+const PRESET_SAMPLE={src:'assets/preset-sample.webp',kind:'image',natAR:.8,name:'sample'};
+function buildPresetThumbs(){
+  const keepMedia=mediaEls, keepTarget=varTarget;
+  [...presetsBox.children].forEach(btn=>{
+    const id=btn.dataset.id, P=PRESETS[id], box=btn.querySelector('.thumb');
+    box.className='thumb p-'+id;
+    /* 用該濾鏡的預設值，不跟著使用者在「微調」裡改的參數走 */
+    const p=Object.fromEntries(P.params.map(([k,,min,max,step,def])=>[k,Array.isArray(min)?min[0]:def]));
+    const T=timers();
+    mediaEls=[];varTarget=box;
+    try{P.build(p,T,box,PRESET_SAMPLE)}catch(e){console.warn('縮圖建立失敗',id,e)}
+    T.clear();
+  });
+  /* 還原：mediaEls 是輸出時要等的素材清單，不能混進縮圖的圖；
+     varTarget 要指回主畫面，不然之後拉滑桿會寫到最後一個縮圖上 */
+  mediaEls=keepMedia;varTarget=keepTarget;
+}
+buildPresetThumbs();
+
+renderCaptionsPanel();
+selectPreset('leak');
+
+/* ================= 預設素材：兩支內嵌影片（720×1280 H.264） ================= */
+/* 預設素材：直接引用資料夾內的檔案。
+   原本以 base64 內嵌，佔了 7.9 MB；改成引用後 HTML 大幅瘦身，
+   用 http 或直接開檔（file://）都能讀到，因為是同目錄的相對路徑 */
+const DEFAULT_VIDEOS=['media/default-1.mov','media/default-2.mov'];
+
+(function loadDefaults(){
+  if(state.items.length)return;
+  let left=DEFAULT_VIDEOS.length;
+  const done=()=>{if(--left===0){renderItems();build();setTimeout(playIntro,300)}};
+  DEFAULT_VIDEOS.forEach(name=>{
+    const it={src:encodeURI(name),kind:'video',natAR:9/16,name:name.split('/').pop()};
+    state.items.push(it);
+    /* 長寬比從影片 metadata 讀，不寫死 */
+    const probe=document.createElement('video');
+    probe.preload='metadata';probe.muted=true;
+    probe.onloadedmetadata=()=>{
+      if(probe.videoWidth&&probe.videoHeight)it.natAR=probe.videoWidth/probe.videoHeight;
+      if(isFinite(probe.duration))it.dur=probe.duration;      /* 匯出長度要用 */
+      done();
+    };
+    probe.onerror=done;
+    probe.src=it.src;
+  });
+})();
+
+/* ================= 輸出銀盒 ================= */
+(()=>{
+  const iron=$('#iron'), panel=$('#expanel'), spec=$('#spec');
+  const fill=()=>{
+    const v=$('#aspect').value;
+    const size={'0.8':'1080×1350','0.5625':'1080×1920','1':'1080×1080','1.7778':'1920×1080'}[v]||'跟素材一樣';
+    const secs=state.items.reduce((a,it)=>a+(it.kind==='video'?Math.min(state.dwell*2, it.dur||state.dwell*2):state.dwell),0);
+    const rows=[['尺寸',size],['長度',secs.toFixed(1)+' 秒'],['素材',state.items.length+' 個'],['格式','MP4']];
+    spec.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  };
+  let prevTimer=null;
+  const open=v=>{
+    panel.toggleAttribute('data-open',v);
+    iron.classList.toggle('open',v);
+    /* 手機的輸出鈕跟著面板亮暗。寫在 open() 裡面而不是按鈕的 click，
+       這樣「點面板外面關掉」的時候按鈕狀態也會跟著還原 */
+    const bar0=document.getElementById('exportBar');
+    if(bar0)bar0.toggleAttribute('data-open',v);
+    clearInterval(prevTimer); prevTimer=null;
+    if(v){
+      fill();
+      const cv=$('#prev');
+      const tick=()=>{ if(drawPreview&&panel.hasAttribute('data-open'))drawPreview(cv) };
+      tick();
+      prevTimer=setInterval(tick,220);          /* 面板開著時讓預覽跟著動 */
+    }
+  };
+
+  /* 用幾何判定游標是否落在銀盒的橢圓上 —— 不放任何元素攔截事件，
+     所以底下的面板控制項永遠可以正常操作 */
+  const onIron=(px,py)=>{
+    const w=iron.offsetWidth, h=iron.offsetHeight;
+    if(!w||!h)return false;
+    const ox=innerWidth, oy=innerHeight;                 /* transform-origin 在右下角 */
+    let p;
+    try{ p=new DOMMatrix(getComputedStyle(iron).transform).inverse()
+           .transformPoint(new DOMPoint(px-ox,py-oy)); }catch(e){ return false }
+    const lx=p.x+ox, ly=p.y+oy;                          /* 還原成未變形的座標 */
+    const cx=ox-w/2, cy=oy-h/2;
+    const nx=(lx-cx)/(w*.49), ny=(ly-cy)/(h*.47);
+    return nx*nx+ny*ny<=1;
+  };
+  let hot=false;
+  addEventListener('pointermove',e=>{
+    const on=onIron(e.clientX,e.clientY);
+    if(on===hot)return;
+    hot=on;
+    document.documentElement.classList.toggle('iron-hot',on);
+    if(!panel.hasAttribute('data-open')) iron.classList.toggle('hov',on);
+  },{passive:true});
+  /* 銀盒是 pointer-events:none（才不會擋住底下的面板），所以事件其實是打在底下的元件上。
+     必須在「捕獲階段」就攔下來，否則點銀盒會同時觸發底下的下拉選單或輸入框 —— 
+     原生 select 是在 pointerdown 就展開的，光擋 click 來不及 */
+  /* 浮在銀盒上方、而且本來就該收得到點擊的東西。
+     銀盒的判定是純幾何的（不看實際疊了什麼），所以這些要先排除，
+     否則展開在銀盒上方的下拉清單會點不到 */
+  const ABOVE='.csel-list,.expanel,#exportBar';
+  const swallow=e=>{
+    const t=e.target instanceof Element?e.target:null;
+    if(t&&t.closest(ABOVE))return false;
+    if(!onIron(e.clientX,e.clientY))return false;
+    e.preventDefault();e.stopPropagation();
+    if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+    return true;
+  };
+  addEventListener('mousedown',swallow,true);
+  addEventListener('click',e=>{
+    if(swallow(e))open(!panel.hasAttribute('data-open'));
+  },true);
+  addEventListener('pointerdown',e=>{
+    if(swallow(e))return;
+    const t=e.target instanceof Node?e.target:null;   /* target 不一定是元素 */
+    /* 點在輸出鈕上不算「點到外面」—— 否則 pointerdown 先關掉、click 又打開，變成關不掉 */
+    const onBar=t instanceof Element && t.closest('#exportBar');
+    if(panel.hasAttribute('data-open')&&!onBar&&(!t||!panel.contains(t))){
+      open(false);iron.classList.remove('hov');
+    }
+  },true);
+  /* 手機版的輸出鈕：跟銀盒共用同一個 open()，面板、預覽、下載流程完全一樣 */
+  const bar=$('#exportBar');
+  if(bar)bar.addEventListener('click',()=>open(!panel.hasAttribute('data-open')));
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.hasAttribute('data-open'))open(false)});
+})();
+
+/* ================= 自製下拉選單 =================
+   原生 <select> 不移除也不改行為 —— 它照舊持有 value、disabled、onchange，
+   所以程式其他地方（applyPresetLock、maskKey、outSize…）完全不用動。
+   這裡只是把它視覺上藏起來，另外畫一顆按鈕與一張清單，選完寫回 select 再 dispatch change。 */
+const CSEL_OPEN=[];                       /* 目前展開中的清單，開新的就把舊的收掉 */
+function enhanceSelect(sel){
+  if(sel.dataset.csel)return; sel.dataset.csel='1';
+  const wrap=document.createElement('div');wrap.className='csel';
+  sel.parentNode.insertBefore(wrap,sel);wrap.appendChild(sel);
+  const btn=document.createElement('button');btn.type='button';btn.className='csel-btn';
+  btn.setAttribute('aria-haspopup','listbox');btn.setAttribute('aria-expanded','false');
+  wrap.appendChild(btn);
+  const list=document.createElement('div');list.className='csel-list';list.setAttribute('role','listbox');
+  list.hidden=true;document.body.appendChild(list);
+  let cursor=-1;
+
+  const opts=()=>[...sel.options];
+  const sync=()=>{btn.textContent=sel.options[sel.selectedIndex]?.textContent||'';
+    wrap.classList.toggle('disabled',sel.disabled);btn.disabled=sel.disabled};
+
+  const place=()=>{
+    const r=wrap.getBoundingClientRect();
+    /* 寬度貼合最長的那一項（不再被按鈕寬度綁死，文字才不會被切掉），
+       但至少跟按鈕一樣寬 */
+    list.style.minWidth=r.width+'px';
+    const w=list.offsetWidth, h=list.offsetHeight;
+    /* 按鈕文字齊左，清單也對齊按鈕左緣；超出畫面就往內夾 */
+    list.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
+    /* 下方放不下就往上開 */
+    list.style.top=(r.bottom+h+8<=innerHeight?r.bottom+2:Math.max(8,r.top-h-2))+'px';
+  };
+  const render=()=>{
+    list.innerHTML='';
+    opts().forEach((o,i)=>{
+      const b=document.createElement('button');b.type='button';b.className='csel-opt';
+      b.setAttribute('role','option');b.setAttribute('aria-selected',String(i===sel.selectedIndex));
+      b.classList.toggle('cursor',i===cursor);
+      b.textContent=o.textContent;
+      b.onclick=()=>{pick(i)};
+      list.appendChild(b);
+    });
+  };
+  const close=()=>{list.hidden=true;wrap.classList.remove('open');btn.setAttribute('aria-expanded','false');
+    const i=CSEL_OPEN.indexOf(close);if(i>=0)CSEL_OPEN.splice(i,1)};
+  const openList=()=>{
+    if(sel.disabled)return;
+    CSEL_OPEN.slice().forEach(fn=>fn());          /* 一次只開一張清單 */
+    cursor=sel.selectedIndex;render();list.hidden=false;wrap.classList.add('open');
+    btn.setAttribute('aria-expanded','true');place();CSEL_OPEN.push(close);
+  };
+  const pick=i=>{
+    if(i<0||i>=sel.options.length)return;
+    const changed=i!==sel.selectedIndex;
+    sel.selectedIndex=i;sync();close();btn.focus();
+    if(changed)sel.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+
+  btn.onclick=e=>{e.stopPropagation();list.hidden?openList():close()};
+  btn.onkeydown=e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();
+      if(list.hidden){openList();return}
+      cursor=Math.max(0,Math.min(sel.options.length-1,cursor+(e.key==='ArrowDown'?1:-1)));render();
+    }else if(e.key==='Enter'||e.key===' '){e.preventDefault();list.hidden?openList():pick(cursor);}
+    else if(e.key==='Escape'&&!list.hidden){e.preventDefault();close()}
+  };
+  addEventListener('pointerdown',e=>{
+    if(list.hidden)return;
+    const t=e.target instanceof Node?e.target:null;   /* target 不一定是元素（例如事件打在 window 上）*/
+    if(!t||(!list.contains(t)&&t!==btn))close();
+  },true);
+  addEventListener('scroll',()=>{if(!list.hidden)close()},true);
+  addEventListener('resize',()=>{if(!list.hidden)close()});
+  /* 程式端改了 value / disabled（例如濾鏡鎖定）也要跟著更新顯示 */
+  new MutationObserver(sync).observe(sel,{attributes:true,attributeFilter:['disabled','value']});
+  sel.addEventListener('change',sync);
+  sync();
+  return {sync};
+}
+/* 讓程式端 sel.value=x 之後也會更新按鈕文字（原生 select 改 value 不會發 change） */
+const _selValue=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value');
+Object.defineProperty(HTMLSelectElement.prototype,'value',{
+  get(){return _selValue.get.call(this)},
+  set(v){_selValue.set.call(this,v);
+    if(this.dataset.csel){const b=this.parentNode.querySelector('.csel-btn');
+      if(b)b.textContent=this.options[this.selectedIndex]?.textContent||''}}
+});
+document.querySelectorAll('aside select, .expanel select').forEach(enhanceSelect);
+
+/* ================= 區塊摺疊 ================= */
+(()=>{
+  const KEY='isaw.collapsed';
+  const DEFAULT_COLLAPSED=['字幕'];          /* 預設收起的區塊 */
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+  const set=new Set(Array.isArray(saved)?saved:DEFAULT_COLLAPSED);
+  document.querySelectorAll('.cell').forEach(cell=>{
+    const h=cell.querySelector(':scope>h2'); if(!h)return;
+    const name=h.firstChild.textContent.trim();
+    if(set.has(name))cell.classList.add('collapsed');
+    h.setAttribute('role','button');
+    h.tabIndex=0;
+    const upd=()=>h.setAttribute('aria-expanded', String(!cell.classList.contains('collapsed')));
+    upd();
+    const toggle=()=>{
+      cell.classList.toggle('collapsed');
+      cell.classList.contains('collapsed')?set.add(name):set.delete(name);
+      upd();
+      try{localStorage.setItem(KEY, JSON.stringify([...set]))}catch(e){}
+    };
+    h.onclick=toggle;
+    h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle()}};
+  });
+})();
+
+/* ================= 自訂取色器 ================= */
+const ColorPick=(()=>{
+  const hex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+  const hsv2rgb=(h,s,v)=>{const f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};
+    return [f(5)*255,f(3)*255,f(1)*255]};
+  const rgb2hsv=(r,g,b)=>{r/=255;g/=255;b/=255;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+    let h=0; if(d){ h = mx===r?((g-b)/d+(g<b?6:0)) : mx===g?((b-r)/d+2) : ((r-g)/d+4); h*=60 }
+    return [h, mx?d/mx:0, mx]};
+  const parse=v=>{const m=/^#?([0-9a-f]{6})$/i.exec(v.trim());if(!m)return null;
+    const n=parseInt(m[1],16);return [n>>16&255,n>>8&255,n&255]};
+  let cur=null;
+  function close(){ if(cur){cur.el.remove();removeEventListener('keydown',cur.key,true);removeEventListener('pointerdown',cur.out,true);cur=null} }
+  function open(anchor,initial,onChange){
+    close();
+    const rgb=parse(initial)||[255,255,255];
+    let [h,sat,val]=rgb2hsv(...rgb);
+    const el=document.createElement('div');el.className='cpick';
+    el.innerHTML='<div class="sv"><b></b></div><div class="hue"><b></b></div>'+
+      '<div class="bot"><span class="prev"></span><input type="text" spellcheck="false"></div>';
+    document.body.appendChild(el);
+    const sv=el.querySelector('.sv'), svDot=sv.querySelector('b');
+    const hue=el.querySelector('.hue'), hueDot=hue.querySelector('b');
+    const prev=el.querySelector('.prev'), inp=el.querySelector('input');
+    const paint=(fire=true)=>{
+      const c=hex(...hsv2rgb(h,sat,val));
+      sv.style.background=`linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,hsl(${h} 100% 50%))`;
+      svDot.style.left=sat*100+'%'; svDot.style.top=(1-val)*100+'%';
+      hueDot.style.left=h/360*100+'%';
+      prev.style.background=c; if(document.activeElement!==inp) inp.value=c;
+      if(fire) onChange(c);
+    };
+    const drag=(node,fn)=>{
+      const move=e=>{const r=node.getBoundingClientRect();
+        fn(Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),
+           Math.min(1,Math.max(0,(e.clientY-r.top)/r.height)));paint()};
+      node.addEventListener('pointerdown',e=>{node.setPointerCapture(e.pointerId);move(e);
+        const mv=ev=>move(ev), up=()=>{node.removeEventListener('pointermove',mv);removeEventListener('pointerup',up)};
+        node.addEventListener('pointermove',mv);addEventListener('pointerup',up)});
+    };
+    drag(sv,(x,y)=>{sat=x;val=1-y});
+    drag(hue,x=>{h=x*360});
+    inp.oninput=()=>{const p=parse(inp.value);if(p){[h,sat,val]=rgb2hsv(...p);paint()}};
+    paint(false);
+    /* 定位：貼在色票下方，超出視窗就往上翻 */
+    const a=anchor.getBoundingClientRect(), w=190, hh=el.offsetHeight;
+    let x=Math.min(innerWidth-w-8, Math.max(8, a.left+a.width/2-w/2));
+    let y=a.bottom+8; if(y+hh>innerHeight-8) y=Math.max(8,a.top-hh-8);
+    el.style.left=x+'px'; el.style.top=y+'px';
+    const key=e=>{if(e.key==='Escape'){e.stopPropagation();close()}};
+    const out=e=>{if(!el.contains(e.target)&&e.target!==anchor)close()};
+    addEventListener('keydown',key,true); addEventListener('pointerdown',out,true);
+    cur={el,key,out};
+  }
+  return {open,close};
+})();
+
+/* ================= 蕾絲：點一下移到畫面中央 ================= */
+$('#lace').onclick=e=>e.currentTarget.classList.toggle('open');
+
+/* ================= Our Story 描圖紙 ================= */
+(()=>{
+  const ov=$('#ov'),btn=$('#storyBtn'),mask=$('#pmask'),story=$('#story');
+  const f=[$('#pf1'),$('#pf2'),$('#pf3')];
+  const slow=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  let timers=[];
+  const clear=()=>{timers.forEach(clearTimeout);timers=[]};
+  const at=(ms,fn)=>timers.push(setTimeout(fn,ms));
+  const show=i=>{f.forEach((el,n)=>el.classList.toggle('on',n===i))};
+
+  function open(){
+    clear();
+    ov.setAttribute('data-open','');
+    btn.setAttribute('aria-expanded','true');
+    if(slow){show(2);mask.classList.add('on');story.classList.add('on');$('#ovX').focus();return}
+    show(-1);mask.classList.remove('on');story.classList.remove('on');
+    at(10 ,()=>show(0));                              // 紙團
+    at(110,()=>show(1));                              // 攤到一半
+    at(250,()=>{show(2);mask.classList.add('on')});   // 完全攤平
+    at(430,()=>story.classList.add('on'));            // 紙攤平後文字才浮現
+    at(300,()=>$('#ovX').focus());
+  }
+  function close(){
+    clear();
+    story.classList.remove('on');                     // 文字先收
+    mask.classList.remove('on');
+    if(slow){show(-1);ov.removeAttribute('data-open');btn.setAttribute('aria-expanded','false');btn.focus();return}
+    show(1);                                          // 反向收回
+    at(90,()=>show(0));
+    at(190,()=>{show(-1);ov.removeAttribute('data-open');btn.setAttribute('aria-expanded','false');btn.focus()});
+  }
+  btn.onclick=open;
+  $('#ovX').onclick=close;
+  ov.onclick=e=>{if(e.target===ov)close()};
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&ov.hasAttribute('data-open'))close()});
+})();
+
+/* 面板的預覽圖由匯出模組提供（它才有 canvas 渲染器）。
+   兩邊是不同的 IIFE，所以用這個變數當交接點，不掛在 window 上。 */
+let drawPreview=null;
+
+/* ================= 輸出 ================= */
+/* ================= 匯出影片：canvas 重繪，不需螢幕錄影權限 =================
+   通用渲染器：遞迴走訪 #frame 整棵 DOM，解析每個元素的 computed style
+   （漸層／純色／背景圖／inset 陰影／圓角／transform／filter／blend／文字／偽元素），
+   依 z-index 排序畫到 canvas。因為讀的是「當下」的樣式，閃爍相位、光漏位置、
+   換場時機都與畫面完全同步；日後改 CSS 或加新圖層，匯出也會自動跟上。 */
+(()=>{
+  const SIZES={'0.8':[1080,1350],'0.5625':[1080,1920],'1':[1080,1080],'1.7778':[1920,1080]};
+  const FRAME=$('#frame');
+  const cs=(el,ps)=>getComputedStyle(el,ps||undefined);
+  /* ---------- CSS 值解析工具 ---------- */
+  const splitTop=str=>{const o=[];let d=0,c='';for(const ch of str){
+    if(ch==='(')d++;if(ch===')')d--;
+    if(ch===','&&d===0){o.push(c.trim());c='';continue}c+=ch}
+    if(c.trim())o.push(c.trim());return o};
+  const isColor=t=>/^(rgb|hsl|#|transparent|currentcolor)/i.test(t);
+  /* computed style 的 px 值要隨輸出解析度放大 */
+  const scalePx=(v,k)=>v.replace(/(-?[\d.]+)px/g,(_,n)=>(parseFloat(n)*k)+'px');
+
+  function parseStops(parts,lineLen,k){
+    const st=parts.map(p=>{
+      const m=/^(.*?)\s+(-?[\d.]+)(%|px)\s*$/.exec(p);
+      if(!m)return{c:p.trim(),pos:null};
+      const v=parseFloat(m[2]);
+      return{c:m[1].trim(),pos:m[3]==='px'?(lineLen?v*k/lineLen:0):v/100};
+    });
+    if(!st.length)return st;
+    if(st[0].pos==null)st[0].pos=0;
+    if(st[st.length-1].pos==null)st[st.length-1].pos=1;
+    for(let i=1;i<st.length-1;i++)if(st[i].pos==null){
+      let j=i;while(j<st.length&&st[j].pos==null)j++;
+      const a=st[i-1].pos,bb=st[j].pos;
+      for(let q=i;q<j;q++)st[q].pos=a+(bb-a)*(q-i+1)/(j-i+1);
+    }
+    return st;
+  }
+  const DIRS={'to top':0,'to right':90,'to bottom':180,'to left':270,
+    'to top right':45,'to right top':45,'to bottom right':135,'to right bottom':135,
+    'to bottom left':225,'to left bottom':225,'to top left':315,'to left top':315};
+
+  function fillLinear(ctx,spec,b,k,repeating){
+    const parts=splitTop(spec);let ang=180,i=0;
+    if(/^-?[\d.]+deg$/.test(parts[0])){ang=parseFloat(parts[0]);i=1}
+    else if(/^to /.test(parts[0])){ang=DIRS[parts[0]]??180;i=1}
+    const A=ang*Math.PI/180;
+    const L=Math.abs(b.w*Math.sin(A))+Math.abs(b.h*Math.cos(A));
+    if(!(L>0))return;
+    const st=parseStops(parts.slice(i),L/k,k);
+    if(!st.length)return;
+    const cx=b.x+b.w/2,cy=b.y+b.h/2,dx=Math.sin(A),dy=-Math.cos(A);
+    const g=ctx.createLinearGradient(cx-dx*L/2,cy-dy*L/2,cx+dx*L/2,cy+dy*L/2);
+    if(repeating){                                   /* 重複漸層：把樣式沿線鋪滿 */
+      const span=st[st.length-1].pos-st[0].pos;
+      if(span>0){for(let r=0;r*span<=1;r++)st.forEach(s=>{
+        const p=s.pos+r*span;if(p>=0&&p<=1)g.addColorStop(p,s.c)})}
+    }else st.forEach(s=>g.addColorStop(Math.min(1,Math.max(0,s.pos)),s.c));
+    ctx.fillStyle=g;ctx.fillRect(b.x,b.y,b.w,b.h);
+  }
+
+  function fillRadial(ctx,spec,b,k){
+    const parts=splitTop(spec);let head='',i=0;
+    if(!isColor(parts[0])){head=parts[0];i=1}
+    let sizeTxt=head,posTxt='';
+    const at=head.split(/\s+at\s+/);
+    if(at.length===2){sizeTxt=at[0];posTxt=at[1]}
+    const pv=(t,base)=>t.endsWith('%')?parseFloat(t)/100*base:parseFloat(t)*k;
+    let cx=b.x+b.w/2,cy=b.y+b.h/2;
+    if(posTxt){const p=posTxt.trim().split(/\s+/);
+      cx=b.x+pv(p[0],b.w);cy=b.y+(p[1]!==undefined?pv(p[1],b.h):b.h/2)}
+    const dx=Math.max(cx-b.x,b.x+b.w-cx),dy=Math.max(cy-b.y,b.y+b.h-cy);
+    const circle=/circle/.test(sizeTxt);
+    let rx,ry;
+    const nums=sizeTxt.replace(/circle|ellipse|closest-side|closest-corner|farthest-side|farthest-corner/g,'').trim();
+    if(nums){const p=nums.split(/\s+/);rx=pv(p[0],b.w);ry=p[1]!==undefined?pv(p[1],b.h):rx}
+    else if(/closest-side/.test(sizeTxt)){
+      rx=Math.min(cx-b.x,b.x+b.w-cx);ry=Math.min(cy-b.y,b.y+b.h-cy);if(circle)rx=ry=Math.min(rx,ry)}
+    else if(circle){rx=ry=Math.hypot(dx,dy)}          /* farthest-corner 圓 */
+    else {rx=dx*Math.SQRT2;ry=dy*Math.SQRT2}          /* farthest-corner 橢圓 */
+    if(!(rx>0&&ry>0))return;
+    const st=parseStops(parts.slice(i),rx/k,k);
+    if(!st.length)return;
+    ctx.save();ctx.beginPath();ctx.rect(b.x,b.y,b.w,b.h);ctx.clip();
+    ctx.translate(cx,cy);ctx.scale(1,ry/rx);
+    const g=ctx.createRadialGradient(0,0,0,0,0,rx);
+    st.forEach(s=>g.addColorStop(Math.min(1,Math.max(0,s.pos)),s.c));
+    ctx.fillStyle=g;const big=Math.max(b.w,b.h)*4;
+    ctx.fillRect(-big,-big,big*2,big*2);ctx.restore();
+  }
+
+  /* 背景圖片（含 SVG 雜訊）以 pattern 平鋪 */
+  const imgCache=new Map();
+  function fillImage(ctx,url,el,s,b,k){
+    const im=imgCache.get(url);
+    if(!im||!im.complete||!im.naturalWidth)return;
+    const bs=s.backgroundSize.split(' ');
+    const tw=bs[0]&&bs[0].endsWith('px')?parseFloat(bs[0])*k:im.naturalWidth*k;
+    const th=bs[1]&&bs[1].endsWith('px')?parseFloat(bs[1])*k:tw*(im.naturalHeight/im.naturalWidth);
+    if(!(tw>0&&th>0))return;
+    const p=ctx.createPattern(im,s.backgroundRepeat.includes('no-repeat')?'no-repeat':'repeat');
+    if(!p)return;
+    p.setTransform(new DOMMatrix([tw/im.naturalWidth,0,0,th/im.naturalHeight,b.x,b.y]));
+    ctx.fillStyle=p;ctx.fillRect(b.x,b.y,b.w,b.h);
+  }
+
+  /* 圓角路徑 */
+  function pathRR(ctx,b,r){
+    const m=Math.min(b.w,b.h)/2,q=Math.min(r,m);
+    ctx.beginPath();
+    if(q<=0){ctx.rect(b.x,b.y,b.w,b.h);return}
+    ctx.moveTo(b.x+q,b.y);
+    ctx.arcTo(b.x+b.w,b.y,b.x+b.w,b.y+b.h,q);
+    ctx.arcTo(b.x+b.w,b.y+b.h,b.x,b.y+b.h,q);
+    ctx.arcTo(b.x,b.y+b.h,b.x,b.y,q);
+    ctx.arcTo(b.x,b.y,b.x+b.w,b.y,q);
+    ctx.closePath();
+  }
+  const radiusOf=(s,b,k)=>{const t=s.borderRadius.split(' ')[0]||'0px';
+    return t.endsWith('%')?Math.min(b.w,b.h)*parseFloat(t)/100:parseFloat(t)*k||0};
+
+  /* inset box-shadow：裁在框內，畫一圈外環讓陰影往內灑 */
+  function insetShadow(ctx,s,b,k){
+    const sh=s.boxShadow;
+    if(!sh||sh==='none'||!sh.includes('inset'))return;
+    splitTop(sh).filter(x=>x.includes('inset')).forEach(one=>{
+      const col=(/((?:rgba?|hsla?)\([^)]*\)|#[0-9a-f]{3,8})/i.exec(one)||[])[1]||'#000';
+      const nums=(one.replace(/((?:rgba?|hsla?)\([^)]*\))/ig,'').match(/-?[\d.]+px/g)||[]).map(v=>parseFloat(v)*k);
+      const[ox=0,oy=0,blur=0,spread=0]=nums;
+      ctx.save();pathRR(ctx,b,radiusOf(s,b,k));ctx.clip();
+      ctx.shadowColor=col;ctx.shadowBlur=blur;ctx.shadowOffsetX=ox;ctx.shadowOffsetY=oy;
+      const pad=blur+Math.abs(spread)+Math.abs(ox)+Math.abs(oy)+20;
+      ctx.beginPath();
+      ctx.rect(b.x-pad,b.y-pad,b.w+pad*2,b.h+pad*2);
+      ctx.rect(b.x+spread,b.y+spread,Math.max(0,b.w-spread*2),Math.max(0,b.h-spread*2));
+      ctx.fillStyle='#000';ctx.fill('evenodd');ctx.restore();
+    });
+  }
+
+  /* 版面座標：沿 offsetParent 鏈累加，不含 transform */
+  function boxIn(el,root,k){
+    let x=0,y=0,n=el;
+    while(n&&n!==root){x+=n.offsetLeft;y+=n.offsetTop;n=n.offsetParent}
+    return{x:x*k,y:y*k,w:el.offsetWidth*k,h:el.offsetHeight*k};
+  }
+  function applyTx(ctx,el,b,k){
+    const t=cs(el).transform;
+    if(!t||t==='none')return;
+    const m=new DOMMatrix(t);
+    const o=cs(el).transformOrigin.split(' ').map(parseFloat);
+    const ox=b.x+(o[0]||0)*k,oy=b.y+(o[1]||0)*k;
+    ctx.translate(ox,oy);ctx.transform(m.a,m.b,m.c,m.d,m.e*k,m.f*k);ctx.translate(-ox,-oy);
+  }
+
+  function paintBg(ctx,el,s,b,k){
+    const r=radiusOf(s,b,k);
+    ctx.save();
+    if(r>0){pathRR(ctx,b,r);ctx.clip()}
+    const bc=s.backgroundColor;
+    if(bc&&!/rgba\(0,\s*0,\s*0,\s*0\)|transparent/.test(bc)){ctx.fillStyle=bc;ctx.fillRect(b.x,b.y,b.w,b.h)}
+    const bg=s.backgroundImage;
+    if(bg&&bg!=='none'){
+      splitTop(bg).reverse().forEach(one=>{     /* CSS 第一層在最上面 → 反序畫 */
+        const m=/^(repeating-)?(linear|radial)-gradient\((.*)\)$/s.exec(one.trim());
+        if(m){(m[2]==='linear'?fillLinear:fillRadial)(ctx,m[3],b,k,!!m[1]);return}
+        const u=/^url\((['"]?)(.*?)\1\)$/s.exec(one.trim());
+        if(u)fillImage(ctx,u[2],el,s,b,k);
+      });
+    }
+    ctx.restore();
+  }
+  function paintPseudo(ctx,el,which,b,k){
+    const s=cs(el,which);
+    if(!s||s.content==='none'||s.content===''||s.display==='none')return;
+    const op=parseFloat(s.opacity);if(!(op>0.001))return;
+    /* 偽元素多為 inset 覆蓋層：用父框加上 inset 偏移 */
+    const off=p=>parseFloat(s[p])||0;
+    const pb={x:b.x+off('left')*k,y:b.y+off('top')*k,
+              w:b.w-(off('left')+off('right'))*k,h:b.h-(off('top')+off('bottom'))*k};
+    const box=(pb.w>0&&pb.h>0)?pb:b;
+    ctx.save();
+    ctx.globalAlpha*=op;
+    const bl=s.mixBlendMode;if(bl&&bl!=='normal')ctx.globalCompositeOperation=bl;
+    paintBg(ctx,el,s,box,k);
+    ctx.restore();
+  }
+  /* SVG 每次 drawImage 都會重新光柵化（含內部的高斯模糊），成本很高。
+     遮罩是靜態的，光柵化一次存成點陣圖重複使用 */
+  const rasterCache=new Map();
+  function rasterize(el,w,h){
+    const key=el.currentSrc+'|'+w+'x'+h;
+    let cv=rasterCache.get(key);
+    if(!cv){
+      cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(w));cv.height=Math.max(1,Math.round(h));
+      cv.getContext('2d').drawImage(el,0,0,cv.width,cv.height);
+      rasterCache.set(key,cv);
+    }
+    return cv;
+  }
+  function paintMedia(ctx,el,s,b,k){
+    const tag=el.tagName;
+    if(tag!=='IMG'&&tag!=='VIDEO')return;
+    const nw=el.videoWidth||el.naturalWidth||0,nh=el.videoHeight||el.naturalHeight||0;
+    if(!nw||!nh)return;
+    const fit=s.objectFit||'fill';
+    let dw=b.w,dh=b.h,dx=b.x,dy=b.y;
+    if(fit==='cover'||fit==='contain'){
+      const sc=fit==='cover'?Math.max(b.w/nw,b.h/nh):Math.min(b.w/nw,b.h/nh);
+      dw=nw*sc;dh=nh*sc;dx=b.x+(b.w-dw)/2;dy=b.y+(b.h-dh)/2;
+    }
+    ctx.save();pathRR(ctx,b,radiusOf(s,b,k));ctx.clip();
+    const isSVG=tag==='IMG'&&/\.svg(\?|$)|image\/svg/i.test(el.currentSrc||'');
+    try{ctx.drawImage(isSVG?rasterize(el,dw,dh):el,dx,dy,dw,dh)}catch(e){}
+    ctx.restore();
+  }
+  function paintText(ctx,el,s,b,k){
+    const txt=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();
+    if(!txt)return;
+    const fs=parseFloat(s.fontSize)*k;
+    ctx.save();
+    ctx.font=`${s.fontStyle} ${s.fontWeight} ${fs}px ${s.fontFamily}`;
+    ctx.fillStyle=s.color;
+    ctx.textBaseline='middle';
+    const ta=s.textAlign;
+    ctx.textAlign=(ta==='center')?'center':(ta==='right'||ta==='end')?'right':'left';
+    const tx=ta==='center'?b.x+b.w/2:(ta==='right'||ta==='end')?b.x+b.w:b.x;
+    const ts=s.textShadow;
+    if(ts&&ts!=='none'){
+      const col=(/((?:rgba?|hsla?)\([^)]*\)|#[0-9a-f]{3,8})/i.exec(ts)||[])[1];
+      const nums=(ts.replace(/((?:rgba?|hsla?)\([^)]*\))/ig,'').match(/-?[\d.]+px/g)||[]).map(v=>parseFloat(v)*k);
+      if(col){ctx.shadowColor=col;ctx.shadowOffsetX=nums[0]||0;ctx.shadowOffsetY=nums[1]||0;ctx.shadowBlur=nums[2]||0}
+    }
+    ctx.fillText(txt,tx,b.y+b.h/2);
+    ctx.restore();
+  }
+
+  /* 遞迴繪製：同層依 z-index 排序，z-index:auto 視為 0，同值維持 DOM 順序 */
+  function paintTree(ctx,root,k){
+    const kids=[...root.children].map((el,i)=>({el,i,s:cs(el)}))
+      .filter(o=>o.s.display!=='none'&&o.s.visibility!=='hidden'&&parseFloat(o.s.opacity)>0.001)
+      .map(o=>({...o,z:o.s.zIndex==='auto'?0:(parseInt(o.s.zIndex)||0)}))
+      .sort((a,b)=>a.z-b.z||a.i-b.i);
+    for(const{el,s}of kids){
+      const b=boxIn(el,FRAME,k);
+      ctx.save();
+      ctx.globalAlpha*=parseFloat(s.opacity);
+      const bl=s.mixBlendMode;
+      ctx.globalCompositeOperation=(bl&&bl!=='normal')?bl:'source-over';
+      if(s.filter&&s.filter!=='none')ctx.filter=scalePx(s.filter,k);
+      applyTx(ctx,el,b,k);
+      const clip=s.overflow==='hidden'||s.overflow==='clip';
+      if(clip){ctx.save();pathRR(ctx,b,radiusOf(s,b,k));ctx.clip()}
+      paintBg(ctx,el,s,b,k);
+      paintPseudo(ctx,el,'::before',b,k);
+      paintMedia(ctx,el,s,b,k);
+      paintText(ctx,el,s,b,k);
+      insetShadow(ctx,s,b,k);
+      paintPseudo(ctx,el,'::after',b,k);
+      ctx.filter='none';
+      paintTree(ctx,el,k);
+      if(clip)ctx.restore();
+      ctx.restore();
+    }
+  }
+
+  /* 錄製前把所有 url() 背景圖先載好，避免第一格空白 */
+  function preloadBg(){
+    const urls=new Set();
+    const scan=(el,ps)=>{const s=cs(el,ps);if(!s)return;
+      const bg=s.backgroundImage;if(!bg||bg==='none')return;
+      splitTop(bg).forEach(o=>{const u=/^url\((['"]?)(.*?)\1\)$/s.exec(o.trim());if(u)urls.add(u[2])})};
+    FRAME.querySelectorAll('*').forEach(el=>{scan(el,null);scan(el,'::before');scan(el,'::after')});
+    scan(FRAME,null);
+    return Promise.all([...urls].map(u=>new Promise(res=>{
+      if(imgCache.has(u))return res();
+      const im=new Image();im.onload=im.onerror=()=>{imgCache.set(u,im);res()};im.src=u;
+    })));
+  }
+
+  function drawFrame(ctx,W,H,k){
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';
+    const fs=cs(FRAME);
+    ctx.fillStyle=(fs.backgroundColor&&!/rgba\(0,\s*0,\s*0,\s*0\)/.test(fs.backgroundColor))?fs.backgroundColor:'#000';
+    ctx.fillRect(0,0,W,H);
+    paintTree(ctx,FRAME,k);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';
+  }
+
+  /* 預覽圖：跟輸出影片走同一條渲染路徑（drawFrame），所以預覽 = 成品。
+     畫在小尺寸上，成本只有輸出的幾十分之一 */
+  drawPreview=(cv)=>{
+    const [W,H]=outSize();
+    const w=Math.min(204, 206*W/H), h=Math.round(w*H/W);
+    cv.width=Math.round(w); cv.height=h;
+    const ctx=cv.getContext('2d',{alpha:false});
+    try{ drawFrame(ctx,cv.width,cv.height,cv.width/FRAME.offsetWidth); }catch(e){}
+  };
+
+  /* ---------- 輸出尺寸與長度 ---------- */
+  function outSize(){
+    const v=$('#aspect').value;
+    if(SIZES[v])return SIZES[v].slice();
+    const ar=cur()?.natAR||0.8;
+    return ar>=1?[1920,Math.round(1920/ar)]:[1080,Math.round(1080/ar)];
+  }
+  /* 總長度 = 每張素材依類型取停留秒數，全部加總 */
+  function totalSecs(){
+    if(!state.items.length)return 0;
+    /* 「第一張當底圖」的濾鏡，第 0 張不會單獨出現一個場景，長度要扣掉 */
+    return state.items.slice(firstIndex())
+      .reduce((s,it)=>s+(it.kind==='video'?Math.min(state.dwell*2, it.dur||state.dwell*2):state.dwell),0)
+      || state.dwell;
+  }
+
+  /* 等素材真正可繪製：build() 重建的 <video>/<img> 需要時間解碼，
+     太早開錄會畫不出畫面，只剩上層色偏（整片單色） */
+  async function awaitMedia(ms=4000){
+    const t0=performance.now();
+    for(;;){
+      /* 涵蓋素材與遮罩框（自訂上傳的遮罩是 blob URL，解碼是非同步的） */
+      const els=[...FRAME.querySelectorAll('img,video')];
+      const ok=!els.length||els.every(e=>e.tagName==='VIDEO'
+        ? (e.videoWidth>0&&e.readyState>=2)
+        : (e.complete&&e.naturalWidth>0));
+      if(ok||performance.now()-t0>ms)return;
+      await new Promise(r=>setTimeout(r,50));
+    }
+  }
+
+  /* busy = false / 'video' / 'still'；輸出中那顆按鈕會變成「取消輸出」 */
+  let busy=false, cancelReq=false;
+  function setBusyUI(which){
+    const r=$('#rec'), ri=$('#recImg');
+    r.classList.toggle('cancelling',which==='video');
+    ri.classList.toggle('cancelling',which==='still');
+    r.textContent = which==='video' ? '取消輸出' : '下載影片';
+    ri.textContent= which==='still' ? '取消輸出' : '下載圖片';
+    r.disabled  = which==='still';
+    ri.disabled = which==='video';
+  }
+  async function exportVideo(){
+    const st=$('#status');
+    if(busy)return;
+    if(!state.items.length){st.textContent='請先加入照片或影片。';return}
+    /* 錄影長度 = 一輪素材 + 結尾。漏光停格是 21 格（約 0.7 秒），逐格淡出到黑則看設定 */
+    const endLen=proj.autoFade?(proj.endStyle==='leak'?0.7:proj.fadeSecs)+0.25:0;
+    const secs=totalSecs()+endLen,[W,H]=outSize();
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const ctx=c.getContext('2d',{alpha:false});
+
+    /* 從第一張開始，確保錄到完整一輪。exporting 打開後，輪完一圈才會進結尾 */
+    proj.exporting=true;
+    if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
+    state.index=firstIndex();renderItems();build();scheduleScene();
+    await new Promise(r=>setTimeout(r,150));
+    await Promise.all([preloadBg(),awaitMedia()]);
+
+    const disp=FRAME.getBoundingClientRect().width||1;
+    const k=W/disp;                         /* 版面座標 → 輸出座標 */
+
+    /* 先跑幾格暖機，量出實際可達成的速度，再決定輸出幀率 —
+       用固定間隔手動推格，避免幀間隔忽長忽短造成的頓挫 */
+    for(let i=0;i<3;i++) drawFrame(ctx,W,H,k);
+    const t=performance.now();
+    for(let i=0;i<5;i++) drawFrame(ctx,W,H,k);
+    const cost=(performance.now()-t)/5;
+    const FPS=Math.max(12,Math.min(30,Math.floor(1000/(cost*1.3))));  /* 留 30% 餘裕，節奏才穩 */
+    const stream=c.captureStream(0);
+    const track=stream.getVideoTracks()[0];
+    const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm']
+      .find(m=>MediaRecorder.isTypeSupported(m))||'';
+    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12e6});
+    const chunks=[];rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+
+    /* 素材若是影片，確保它在播 — 否則會錄成靜止畫面 */
+    const keepPlaying=()=>FRAME.querySelectorAll('video.media')
+      .forEach(m=>{if(m.paused)m.play().catch(()=>{})});
+
+    busy='video';cancelReq=false;setBusyUI('video');
+    keepPlaying();
+    const t0=performance.now();let raf;
+    const period=1000/FPS;
+    let next=t0;
+    const tick=()=>{
+      const now=performance.now(), el=(now-t0)/1000;
+      keepPlaying();
+      drawFrame(ctx,W,H,k);
+      track.requestFrame();                    /* 一次渲染 = 一格，不會重複寫入同一張 */
+      st.textContent=`輸出中… 還有 ${Math.max(0,secs-el).toFixed(1)} 秒 · ${FPS}fps（可以按取消）`;
+      if(cancelReq||el>=secs){rec.stop();return}
+      next+=period;
+      raf=setTimeout(tick,Math.max(0,next-performance.now()));
+    };
+    rec.onstop=()=>{
+      clearTimeout(raf);busy=false;setBusyUI(null);
+      /* 畫板復原：輸出時跑到的結尾不要留在預覽上 */
+      proj.exporting=false;
+      if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
+      /* 按了取消就只收尾、不存檔 */
+      if(cancelReq){cancelReq=false;st.textContent='已取消，沒有存檔。';return}
+      const ext=mime.includes('mp4')?'mp4':'webm';
+      const blob=new Blob(chunks,{type:mime||'video/webm'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=`i-saw-${state.preset}-${W}x${H}.${ext}`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+      st.textContent=`完成：${secs.toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps · ${(blob.size/1048576).toFixed(1)} MB`;
+    };
+    rec.start();tick();
+  }
+
+  /* 下載圖片：每個素材各出一張 PNG。
+     跟影片走同一條渲染路徑（drawFrame），所以圖片 = 影片裡的那一格 = 預覽。
+     作法是把畫板依序切到每一個素材、等它可繪製、畫進 canvas、存檔，最後切回原本那張。 */
+  async function exportStills(){
+    const st=$('#status');
+    if(busy)return;
+    if(!state.items.length){st.textContent='請先加入照片或影片。';return}
+    const [W,H]=outSize(), n=state.items.length, keep=state.index;
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const ctx=c.getContext('2d',{alpha:false});
+
+    /* 放映跑完一輪會停在「結尾」那一格 —— 漏光停格是一整片 rgb(132,38,2)，
+       整個畫板都被它蓋住。不先還原的話，每張存下來都是一片橘褐色。
+       跟輸出影片用同一套還原邏輯 */
+    proj.exporting=true;
+    if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
+
+    /* 入場／換場／結尾這三層是「時間上」的效果，靜態圖不該有。
+       （resumeFromEnd() 會重播入場，所以一定要在它之後才關）
+       記下原本的 display，輸出完再原封不動放回去 */
+    const overlays=['#intro','#trans','#fade'].map(q=>$(q));
+    const savedDisp=overlays.map(nd=>nd.style.display);
+    const hideOverlays=()=>overlays.forEach(nd=>nd.style.display='none');
+    hideOverlays();
+
+    busy='still';cancelReq=false;setBusyUI('still');
+    let done=0;
+    try{
+      /* 先把 CSS 背景圖（紙紋、顆粒貼圖）載進快取 —— fillImage 只讀快取、自己不會去載，
+         沒先 preload 的話這些貼圖不會出現在圖片裡。失敗不影響其他部分，所以包起來 */
+      try{await preloadBg()}catch(e){}
+      for(let i=firstIndex();i<n;i++){
+        if(cancelReq)break;
+        st.textContent=`輸出圖片… ${i-firstIndex()+1} / ${n-firstIndex()}（可以按取消）`;
+        state.index=i;renderItems();build();
+        clearTimeout(sceneTimer);   /* build() 會排下一次換場，輸出圖片時不要讓它自己跳 */
+        hideOverlays();             /* build() 會保留這三層，重建後再關一次 */
+        await awaitMedia();
+        /* 影片播完會觸發 ended → nextScene()，畫板就自己跳到下一張，
+           跟這裡手動指定的索引打架。輸出圖片時直接暫停，順便讓每次輸出都一樣 */
+        FRAME.querySelectorAll('video.media').forEach(v=>v.pause());
+        const k=W/FRAME.offsetWidth;
+        /* 先空畫幾格暖機：顆粒、漏光、塵點那些層是逐格長出來的，
+           第一格畫出來通常還是乾淨的底圖，不是這個濾鏡真正的樣子。
+           這裡不能用 requestAnimationFrame —— 分頁切到背景時瀏覽器會停掉 rAF，
+           整個輸出就卡在這裡不動了 */
+        for(let w=0;w<4;w++){drawFrame(ctx,W,H,k);await new Promise(r=>setTimeout(r,40))}
+        drawFrame(ctx,W,H,k);
+        /* toBlob 在某些瀏覽器（Safari／WebKit）會因為畫布被外部貼圖「污染」而擋下來。
+           真的擋了就把貼圖快取清掉、重畫一次再存 —— 少了紙紋顆粒，但至少存得出圖 */
+        let blob;
+        try{ blob=await new Promise((res,rej)=>{try{c.toBlob(b=>b?res(b):rej(new Error('toBlob 回傳空值')),'image/png')}catch(err){rej(err)}}) }
+        catch(err){
+          imgCache.clear();
+          drawFrame(ctx,W,H,k);
+          blob=await new Promise((res,rej)=>{try{c.toBlob(b=>b?res(b):rej(new Error('toBlob 回傳空值')),'image/png')}catch(e2){rej(e2)}});
+        }
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download=`i-saw-${state.preset}-${String(i+1).padStart(2,'0')}-${W}x${H}.png`;
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+        /* 連續觸發下載要留間隔，否則瀏覽器會把後面的當成彈出視窗擋掉 */
+        done++;
+        await new Promise(r=>setTimeout(r,320));
+      }
+      st.textContent=cancelReq
+        ? `已取消，已經存了 ${done} 張。`
+        : `完成：${n-firstIndex()} 張 · ${W}×${H} · PNG`;
+    }catch(e){
+      st.textContent='輸出圖片失敗：'+(e&&e.message||e);
+    }finally{
+      overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
+      proj.exporting=false;
+      state.index=keep;renderItems();build();
+      busy=false;cancelReq=false;setBusyUI(null);
+    }
+  }
+
+  const askCancel=kind=>{cancelReq=true;$('#status').textContent='取消中…';
+    $(kind==='video'?'#rec':'#recImg').disabled=true};
+  $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:exportVideo());
+  $('#recImg').onclick=()=>busy==='still'?askCancel('still'):(busy?null:exportStills());
+  setBusyUI(null);
+})();
+
+</script>
+</body>
+</html>

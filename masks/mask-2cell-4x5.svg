@@ -1,0 +1,24 @@
+<svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip)">
+<g filter="url(#blurEdge)">
+<rect x="41.0" y="9.0" width="998.0" height="666.0" rx="139.9" stroke="#5E0C03" stroke-width="72.0"/>
+<rect x="41.0" y="675.0" width="998.0" height="666.0" rx="139.9" stroke="#5E0C03" stroke-width="72.0"/>
+</g>
+<g filter="url(#blurMatte)">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M-80 -80H1160V1430H-80ZM180.9 45H899A103.9 103.9 0 0 1 1003 148.9V535A103.9 103.9 0 0 1 899 639H180.9A103.9 103.9 0 0 1 77 535V148.9A103.9 103.9 0 0 1 180.9 45ZM180.9 711H899A103.9 103.9 0 0 1 1003 815V1201A103.9 103.9 0 0 1 899 1305H180.9A103.9 103.9 0 0 1 77 1201V815A103.9 103.9 0 0 1 180.9 711Z" fill="black"/>
+</g>
+</g>
+<defs>
+<filter id="blurEdge" x="-200" y="-200" width="1480" height="1750" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="8.5" result="e1"/>
+</filter>
+<filter id="blurMatte" x="-200" y="-200" width="1480" height="1750" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="7" result="e1"/>
+</filter>
+<clipPath id="clip"><rect width="1080" height="1350" fill="white"/></clipPath>
+</defs>
+</svg>
