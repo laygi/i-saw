@@ -301,6 +301,18 @@
   .slot.bgcell::after{content:"";position:absolute;inset:0;z-index:40;
     background:rgba(10,8,6,var(--sbdim,.45));pointer-events:none}
 
+  /* 紙上時光：白邊卡片本身沒有形狀圖，純 CSS 畫一塊白底＋淡淡的投影，
+     模擬照片放在桌上、紙張本身有一點厚度的感覺。位置由 build() 算好直接寫 inline style，
+     這裡只管外觀 */
+  /* 邊框色：比網站底色 --paper(#ebe7dd) 再亮一點的米灰，不是純白，
+     也不會太接近底色跟畫面融在一起。
+     不加投影：這個白邊本來就窄（3.5%），投影的模糊範圍（4px/9px）比邊框本身還寬，
+     結果整圈都暈到照片裡面去，變成「照片內側有陰影」。
+     也不能用 outline 代替——outline 這個屬性輸出用的 canvas 渲染器不認得
+     （見 paintTree／paintBg，只讀 backgroundColor/backgroundImage/boxShadow 這幾樣），
+     預覽會看到框、輸出影片會不見，等於騙了自己。乾脆就純色平面，不做邊界裝飾 */
+  .card-bg{position:absolute;background:#f4f1eb}
+
   /* ============ 預設 9：金色那天（量測自參考影片，884×634、6.7s、三個鏡頭） ============
      · 亮部（L>205）平均 RGB 237/228/158 —— 藍色比紅色低 79。
        兩支沒加工的對照影片量出來是 224/223/225 與 227/224/221（中性白，差 ±6），
@@ -350,6 +362,42 @@
     background:rgb(206,212,216)}
   .p-cool .vig{background:radial-gradient(ellipse at 50% 48%,transparent 46%,rgba(20,28,32,.4) 80%,rgba(6,10,12,.86) 100%);
     opacity:var(--vig,.5)}
+
+  /* ============ 舊派對（量測自 Lily 的兩張參考截圖：老建築棚戶景、老派對餐桌）============
+     這支不是「整片罩一個顏色」，是暗部跟亮部往不同方向偏，而且偏的方向還看落在什麼顏色上：
+
+     · 亮部（白桌布亮處，L>200）RGB 231/233/217，R−B 只有 +14 —— 幾乎中性，
+       不像金色那天亮部會泛黃（那支是 R−B +79）。這支的亮部收得乾淨，快速削到一片近白，
+       不是慢慢收光
+     · 暗部落在「中性面」上（白桌布陰影帶、白盤陰影邊）：RGB 152/153/167、147/150/159 ——
+       R 反而比 B 低（R−B −15），B 比 G 高（B−G +14）。**暗部是偏紫藍的，不是偏暖**
+     · 暗部落在「暖色物體」上（黃餐巾摺處）：RGB 115/83/26，R−B +89 —— 濁濁的橄欖棕。
+       但這不是另一套色偏，是同一個「陰影偏紫藍」疊在已經很黃的餐巾上，
+       紫藍把餐巾原本乾淨的黃「弄髒」變成橄欖色，兩種暗部其實是同一個機制、只是打在誰身上
+     · 所以做法是**只調暗部**，不是整片调色：亮部維持接近原色，暗部統一往深紫藍拉，
+       落在中性面上看得出紫，落在暖色物體上看起來像變濁 */
+  .p-party .media{filter:saturate(var(--sat,.85)) contrast(var(--con,1.0)) brightness(var(--exp,1.05))
+    blur(calc(var(--soft,.5)*1cqw))}
+  /* 發光：只加亮、不額外染色（跟金色那天不同，那支刻意疊 sepia+saturate 讓光暈變金黃，
+     這支的亮部量測起來要接近中性，所以只用 blur+brightness 讓最亮的地方暈開一圈光暈，
+     不再加別的色調——顏色交給後面的紫調／濁暖層去統一染） */
+  .p-party .glow{mix-blend-mode:screen;opacity:var(--glowop,.4);overflow:hidden}
+  .p-party .glow .media{filter:blur(calc(var(--grad,.5)*6cqw)) brightness(1.6)}
+  /* lighten：只把「比這個顏色暗」的地方墊到這個顏色，比它亮的地方完全不受影響 ——
+     跟陽光褪色的暗部抬升是同一個技巧，差在這裡選了偏藍紫的顏色（B 明顯比 R、G 高），
+     命中量測到的「暗部落在白色上會偏紫」。
+     實測發現：對比一旦調高會把暗部提早壓到 0，這層再怎麼疊都疊不上去
+     （lighten 在 0 上會直接變成地板色，但如果暗部已經被壓到 0 之前的濾鏡層還沒跑到這裡，
+     順序沒問題，問題是 contrast 開太高，正常暗部細節被壓沒了，紫色浮不出來）——
+     所以這支的對比刻意壓低，把「拉低反差」也算進調性裡 */
+  .p-party .violet{mix-blend-mode:lighten;background:rgb(58,54,80);opacity:var(--violet,.6)}
+  /* multiply：把整體壓濁、偏棕黃。opacity 刻意調低——
+     multiply 對「本來就亮」的地方影響反而比暗部大（亮部乘出來的絕對變化比較大），
+     開太高亮部會被拉暖，跟「亮部收得乾淨接近白」的量測結果衝突，
+     這層只需要一點點就夠把暖色物體的暗部混成橄欖色 */
+  .p-party .warm{mix-blend-mode:multiply;background:rgb(150,124,74);opacity:var(--warm,.16)}
+  .p-party .vig{background:radial-gradient(ellipse at 50% 48%,transparent 44%,rgba(28,20,26,.42) 80%,rgba(10,6,10,.82) 100%);
+    opacity:var(--vig,.4)}
 
   /* ============ 「無」：照片影片原本的樣子，只留基礎微調 ============
      不套任何色調濾鏡，純粹是曝光／飽和／對比／顆粒／暗角這幾個最基本的調整，
@@ -646,6 +694,8 @@
   .csel-opt[aria-selected="true"]{color:var(--red)}
   .csel-opt[aria-selected="true"]::before{background:var(--red)}
   .csel-opt.cursor{background:var(--hover)}
+  .csel-opt:disabled{color:var(--muted);opacity:.42;cursor:default}
+  .csel-opt:disabled:hover{background:none}
   input[type=text]::placeholder{color:var(--muted)}
   input[type=file]{display:none}
 
@@ -733,7 +783,7 @@
     border:1px solid var(--hair);transition:border-color .12s,box-shadow .12s}
   .preset:hover .pv{border-color:var(--muted)}
   .preset:focus-visible .pv{border-color:var(--ink)}
-  .preset.on .pv{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+  .preset.on .pv{border:2px solid var(--red);box-shadow:0 0 0 1px var(--red)}
   /* 濾鏡實際長出來的那層。container-type 一定要有 —— 濾鏡內部全用 cqw 當單位 */
   .thumb{position:absolute;inset:0;container-type:size;overflow:hidden;isolation:isolate;background:#000}
   /* 說明：壓在樣張下緣，滑過才浮出來，不會把格線撐開 */
@@ -765,6 +815,10 @@
     color:var(--muted);font:17px/1 var(--mono);transition:border-color .12s,color .12s;
     background:var(--paper)}
   .item.add:hover{border-color:var(--ink);color:var(--ink)}
+  .item.add.disabled{cursor:not-allowed;opacity:.4}
+  .item.add.disabled:hover{border-color:var(--hair);color:var(--muted)}
+  /* 片格之間這種只用得到目前這張的載體：沒被用到的縮圖壓淡，示意「加了也不會顯示」 */
+  .item.dim{opacity:.42}
   .items:empty{display:none}
   /* 單排、可橫向捲動；「＋」釘在右端，縮圖會從它底下滑過去 */
   .items .list{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
@@ -1005,6 +1059,8 @@
           <option value="lace2">蕾絲兩格</option>
           <option value="memory">精裝記憶</option>
           <option value="soon">敬請期待</option>
+          <option value="card">紙上時光</option>
+          <option value="wrap">片格之間</option>
           <option value="custom">自訂：上傳透明 PNG / SVG</option>
         </select>
         <input type="file" id="maskFile" accept="image/png,image/webp,image/svg+xml"></div></div>
@@ -1084,7 +1140,9 @@ function markCurrent(){
   const list=itemsBox.querySelector('.list'); if(!list)return false;
   const cells=[...list.querySelectorAll('.item:not(.add)')];
   if(cells.length!==state.items.length)return false;
-  cells.forEach((c,i)=>c.classList.toggle('on',i===state.index));
+  /* 片格之間這種「只用得到目前這張」的載體：沒被用到的縮圖壓淡，提示使用者這些不會顯示 */
+  const single=!!FRAMES[maskState.id]?.singleItem;
+  cells.forEach((c,i)=>{c.classList.toggle('on',i===state.index);c.classList.toggle('dim',single&&i!==state.index)});
   return true;
 }
 function renderItems(){
@@ -1092,8 +1150,12 @@ function renderItems(){
   const keepScroll=prev?prev.scrollLeft:0;      /* 真的要重建時，至少把捲動位置留著 */
   itemsBox.innerHTML='';
   const list=el('list',itemsBox);
+  /* 片格之間這種載體只會用到「目前這張」，其他張加了也不會顯示——
+     沒被用到的縮圖壓淡示意，「+」也擋掉、點了說明原因，不是真的技術上不能加 */
+  const single=!!FRAMES[maskState.id]?.singleItem;
   state.items.forEach((it,i)=>{
-    const d=document.createElement('div');d.className='item'+(i===state.index?' on':'');d.title=it.name||'';
+    const dim=single&&i!==state.index;
+    const d=document.createElement('div');d.className='item'+(i===state.index?' on':'')+(dim?' dim':'');d.title=it.name||'';
     const m=it.kind==='video'?document.createElement('video'):new Image();m.src=it.src;m.muted=true;d.appendChild(m);
     if(it.kind==='video'){const v=document.createElement('span');v.className='vid';v.textContent='▶';d.appendChild(v)}
     const x=document.createElement('span');x.className='x';x.textContent='×';x.onclick=e=>{e.stopPropagation();removeItem(i)};d.appendChild(x);
@@ -1103,8 +1165,10 @@ function renderItems(){
   /* 最後一格永遠是「＋」，沒有素材時就只有這一格 */
   const wrap=document.createElement('div');wrap.className='addwrap';
   const add=document.createElement('div');
-  add.className='item add';add.textContent='+';add.title='加入照片 / 影片';
-  add.onclick=()=>$('#file').click();
+  const blockAdd=single&&state.items.length>=1;
+  add.className='item add'+(blockAdd?' disabled':'');add.textContent='+';
+  add.title=blockAdd?'此載體只能有一個素材':'加入照片 / 影片';
+  add.onclick=blockAdd?()=>alert('此載體只能有一個素材，同一張會重複出現在三個位置。\n要換照片，直接點掉現有那張的「×」再重加就好。'):()=>$('#file').click();
   wrap.appendChild(add);list.appendChild(wrap);
   if(keepScroll)list.scrollLeft=keepScroll;
 }
@@ -1144,7 +1208,8 @@ function scheduleScene(){
 function firstIndex(){
   const n=state.items.length;
   const F=FRAMES[maskState.id];
-  const hasBg=(F&&F.mode!=='cover')||PRESETS[state.preset]?.bgFirst;
+  /* wrap（片格之間）不是「底圖+窗」，是同一張素材重複三次，不跳過第一張 */
+  const hasBg=(F&&F.mode!=='cover'&&F.mode!=='wrap')||PRESETS[state.preset]?.bgFirst;
   return (hasBg && n>1) ? 1 : 0;
 }
 function stepIndex(i){
@@ -1730,6 +1795,30 @@ PRESETS.cool={name:'霧裡微亮',desc:'低飽和冷調、柔霧發光，暗部�
     setVar('con',(.96+Math.max(0,p.depth-.35)*.30).toFixed(3));}
 };
 
+PRESETS.party={name:'舊派對',desc:'亮部收得乾淨接近白；暗部統一偏紫藍——落在白色上看得出紫、落在暖色物體上變成濁橄欖',
+  transition:'dissolve',
+  params:[['exp','曝光',.8,1.5,.02,1.05],['violet','陰影紫調',0,1,.05,.6],['warm','濁暖',0,.8,.05,.16],
+    ['glowop','發光強度',0,1,.05,.4],['grad','發光範圍',.15,1.2,.05,.5],
+    ['sat','飽和',0,1.6,.05,.85],['soft','柔焦',0,1.6,.05,.5],['grain','顆粒',0,.8,.02,.06],
+    ['vig','暗角',0,1,.05,.4],['fade','淡入長度',.3,2.5,.1,.8,'s']],
+  build(p,T,root,item){
+    const m0=makeMedia(item);root.appendChild(m0);
+    /* 發光要疊在紫調／濁暖之前（沿用金色那天、霧裡微亮同一招 bloomLayer）——
+       這樣溢出來的光也會被後面那兩層一起染色，不會是一團乾淨的白光浮在上面、跟畫面調性脫節 */
+    bloomLayer(root,m0,'glow');
+    el('fx violet',root);
+    el('fx warm',root);
+    const g1=el('grain',root),g2=el('grain coarse',root);
+    el('fx vig',root);
+    grainTick([g1,g2],T,22);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('violet',p.violet);setVar('warm',p.warm);
+    setVar('glowop',p.glowop);setVar('grad',p.grad);
+    setVar('sat',p.sat);setVar('soft',p.soft);setVar('grain',p.grain);setVar('vig',p.vig);}
+};
+
 /* 選到這個濾鏡時會鎖住「比例」與「載體」：觀景窗本身就是框，再疊載體會打架 */
 PRESETS.finder={name:'方寸之間',desc:'從觀景窗裡看出去；機身反射景色的環境光、低對比霧面、取景器慢漂（照片不跟著晃）',
   transition:'dissolve', lock:{aspect:'0.8',mask:''},
@@ -1917,7 +2006,41 @@ const FRAMES={
      這是設計本來就要的效果，不是要修掉的瑕疵。
      窗外還多一層純不透明的白色框邊，量測時要避開，不然量到的窗會偏大 */
   soon:{src:'assets/soon-frame.webp', ar:1131/1772, mode:'cover',
-    win:[24.53,75.47,28.88,71.07]}
+    win:[24.53,75.47,28.88,71.07]},
+  /* 紙上時光：跟郵票同邏輯（背景一張滿版、前景一張輪播），
+     但沒有一張手繪 PNG 決定前景的形狀 —— 前景是純白邊框，用 CSS 算出來的
+     （像沖洗照片：四邊等寬的白邊，不是拍立得那種下面留寬）。
+     所以 ar/scale 描述的是「白邊卡片本身」的長寬比與大小（沿用 frameBox() 那套算法，
+     不用改它）；四邊等寬時卡片比例＝照片本身的比例，所以 ar 直接用這個 app 預設的 4:5。
+     photoInset 是照片相對卡片四邊縮進多少 %（[左,右,上,下]）。
+     src 在這裡不是形狀圖，是蓋在最上層的描圖紙，用 mode:'cover' 鋪滿整個畫面；
+     overlayOpacity 把它原本的半透明度再乘一次（.2＝再壓到 20%，photoInset 是等寬邊框） */
+  card:{src:'assets/tracingpaper-card.webp', mode:'polaroid',
+    ar:.8, scale:.62, photoInset:[3.5,3.5,3.5,3.5], overlayOpacity:.2, dim:.2},
+  /* 片格之間：直式專用，模擬底片上下露出鄰格畫面的樣子。
+     跟前面幾個都不一樣 —— 不是「不同格放不同素材」，是同一個素材重複三次，
+     只是上下兩條窄縫裁切的位置不同（置底／置頂），中間正常置中顯示。
+     沒有一張形狀圖，兩條線是同一張素材橫向拉滿。
+
+     線的高度不能寫死成固定 %——那是壓扁／拉伸線條本身的比例，會失真
+     （Lily 原話：「是要讓你直接壓在圖的接縫上，不是把它壓縮成長方形」）。
+     改成用線條素材自己的長寬比反推：橫向拉滿 100% 寬之後，高度該是多少
+     才不會變形，見 buildWrapZones() 的 lineH 計算，跟著目前畫面比例（currentAR）
+     一起變、不會固定死。
+     lineAR = 線條素材本身的寬/高（量測自 source/片格間_線條.png：2172/80）
+     lineMidY = 兩條線各自的「中心點」在畫面上的位置（量測自 Lily 的參考截圖的
+     兩條線中點：(13.8+15.4)/2、(83.7+85.1)/2），線的粗細不再用量測值，
+     改成即時算，中心點對齊到這裡才不會偏
+     16:9 也能用同一套效果，整個格局轉 90 度（Lily 原話：「16:9 也可以用這特效，
+     只是就 90 度，左邊那格至右，右邊那格至左」）——直式時上下兩條窄縫改成
+     橫式時的左右兩條窄縫，線也跟著轉成直的，見 buildWrapZones() 的 landscape 分支。
+     只有 1:1 正方形效果撐不起來維持 disable（Lily 原話：「1:1 效果不好維持 disable」）。
+     noSquareOnly 是這個載體專屬的旗標：只有正方形比例會被 UI 擋掉，見 aspect 下拉的 disabled 判斷 */
+  wrap:{lineSrc:'assets/filmline.webp', mode:'wrap',
+    lineAR:2172/80, lineMidY:[14.6,84.4], noSquareOnly:true}
+    /* 原本這裡有 singleItem:true（＋按鈕擋掉、其他縮圖壓淡），Lily 說沒必要，拿掉了。
+       renderItems()／markCurrent() 裡讀這個旗標的邏輯留著沒動——沒有任何載體設它，
+       等於整組都是死碼但沒壞處，之後真的要用再加回一行 */
 };
 const frameMask=()=>FRAMES[maskState.id]||null;
 function currentAR(){
@@ -1955,6 +2078,14 @@ function frameSlots(){
   if(F.mode==='cover')return [coverWinSlot(F)];
   const b=frameBox(); if(!b)return null;
   const r=v=>+v.toFixed(2);
+  if(F.mode==='polaroid'){
+    /* 白邊卡片本身用 frameBox() 算（跟郵票同一套：ar+scale），
+       照片窗再從卡片四邊縮進 photoInset % */
+    const[il,ir,it,ib]=F.photoInset;
+    return [[0,0,100,100],[
+      r(b.l+il*b.w/100), r(b.t+it*b.h/100),
+      r(b.w*(100-il-ir)/100), r(b.h*(100-it-ib)/100)]];
+  }
   return [[0,0,100,100], ...F.wins.map(w=>[
     r(b.l+w[0]*b.w/100), r(b.t+w[2]*b.h/100),
     r((w[1]-w[0])*b.w/100), r((w[3]-w[2])*b.h/100)])];
@@ -1976,17 +2107,25 @@ function maskKey(){
 }
 const maskState={id:'1',customSrc:null};
 function applyMask(){
-  frame.querySelectorAll('.masklayer').forEach(n=>n.remove());
+  frame.querySelectorAll('.masklayer').forEach(n=>n.remove());  /* 一律先清掉舊的，不管切到哪個載體 */
   const id=maskState.id;if(!id)return;
+  /* 片格之間的兩條線不是「一張圖決定形狀」，是兩張獨立的裝飾線，位置固定，
+     buildWrapZones() 自己會建、自己管。這裡只負責清掉舊的，不要另外生一張，
+     所以呼叫順序一定是「先 applyMask() 清乾淨，再 buildWrapZones() 建新的」，
+     反過來就會把剛建好的線也清掉 */
+  if(FRAMES[id]&&FRAMES[id].mode==='wrap')return;
   const src=id==='custom'?maskState.customSrc
     :FRAMES[id]?FRAMES[id].src
     :`masks/mask-${id}cell-${maskKey()}.svg`;
   if(!src)return;
   const im=new Image();im.className='masklayer';im.src=src;
-  if(FRAMES[id]&&FRAMES[id].mode==='cover'){
+  if(FRAMES[id]&&(FRAMES[id].mode==='cover'||FRAMES[id].mode==='polaroid')){
     /* 滿版鋪滿，裁切交給 object-fit:cover（預覽跟輸出的 canvas 渲染器都支援，見 paintMedia） */
     im.style.cssText='left:0;top:0;right:auto;bottom:auto;width:100%;height:100%';
     im.style.objectFit='cover';
+    /* 疊加層額外的透明度倍率（例如紙上時光的描圖紙再壓到 20%）。
+       沒設就是 1，不影響郵票／精裝記憶／敬請期待這些沒開這個選項的載體 */
+    if(FRAMES[id].overlayOpacity!=null)im.style.opacity=String(FRAMES[id].overlayOpacity);
   }else if(FRAMES[id]){
     /* 圖框不是滿版：縮到自己的 scale、置中，而且維持自己的長寬比（不跟著畫面比例被拉） */
     const b=frameBox();
@@ -1994,16 +2133,111 @@ function applyMask(){
       +`width:${b.w.toFixed(3)}%;height:${b.h.toFixed(3)}%`}
   frame.appendChild(im);
 }
+/* 片格之間直式／橫式(16:9)都能用（橫式是整個格局轉 90 度，見 buildWrapZones()），
+   只有正方形撐不起這個效果，選到它就把「比例」下拉裡的 1:1 選項灰掉、擋掉點擊，
+   跟切到別的載體時的自動還原。
+   「跟素材一樣」（value='auto'）算不出固定比例，不擋 */
+function updateAspectAvailability(){
+  const F=FRAMES[maskState.id];
+  const restrict=!!(F&&F.noSquareOnly);
+  const asp=$('#aspect');
+  [...asp.options].forEach(o=>{o.disabled=restrict&&o.value!=='auto'&&(+o.value===1)});
+  if(restrict&&asp.options[asp.selectedIndex]?.disabled){
+    asp.value='0.8';                    /* 目前停在正方形，強制切回一個合法的比例 */
+    asp.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+}
 $('#maskSel').onchange=e=>{
   maskState.id=e.target.value;
   if(maskState.id==='custom'&&!maskState.customSrc){$('#maskFile').click()}
   clampIndex();   /* 郵票框：底圖那張不要同時出現在窗裡 */
+  updateAspectAvailability();
+  renderItems();  /* 片格之間這種「只用得到目前這張」的載體：切過去要重畫縮圖，壓淡沒被用到的 */
   /* 各比例都有對應的遮罩檔，不再強制切回 4:5 */
   build();
 };
 $('#maskFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(maskState.customSrc)URL.revokeObjectURL(maskState.customSrc);maskState.customSrc=URL.createObjectURL(f);maskState.id='custom';$('#maskSel').value='custom';applyMask()};
 
 /* ================= 建構 / UI ================= */
+/* 片格之間：同一張素材重複三次（不是三張不同素材）——
+   上緣窄縫「置底對齊」、下緣窄縫「置頂對齊」、中間正常「置中」，
+   模擬底片上下露出鄰格畫面的樣子，兩條裝飾線橫向拉滿蓋在交界處。
+
+   置底／置頂靠的是同一招：把 .media 撐成「這一格自己撐到跟整個畫面一樣高」的虛擬尺寸
+   （百分比是相對這一格自己的高度算，所以格子越窄，這個數字要撐得越大），
+   物件覆蓋（cover）會用這個虛擬尺寸去算縮放，畫面因此跟中間主體同一個鏡頭感、不會另外歪掉；
+   再用 translateY 把這個撐大的 .media 往上/下推，讓它的底/頂邊對齊格子自己的底/頂邊，
+   露出來的那一小截就是「這一格」看到的內容。中間格不用這招，維持它自己那格的正常覆蓋。
+
+   輸出用的 canvas 渲染器不支援 object-position（paintMedia 一律置中算），
+   所以完全不能用 object-position 做這件事，只能靠 transform ＋ 尺寸——
+   這兩個渲染器都讀得到，預覽跟輸出才會一樣。
+
+   16:9 橫式：整套格局轉 90 度——三格從「上/中/下」改成「左/中/右」，
+   置底對齊改成置右對齊、置頂對齊改成置左對齊（Lily 原話：「16:9 也可以用這特效，
+   只是就 90 度，左邊那格至右，右邊那格至左」）。canvas 匯出讀的是 getComputedStyle
+   解出來的 transform 矩陣（見 applyTx），不是個別解析 translate/rotate，
+   所以直接對線條圖用 transform:rotate(90deg) 預覽跟匯出一樣會轉對，不用另外準備直式素材 */
+function buildWrapZones(FM,P,T){
+  /* 兩段素材直接緊貼，中間不留縫——線不是「自己佔一格」，是疊在接縫正中央的裝飾，
+     蓋在兩段素材之上。線本身透明的地方會直接透出接縫兩邊的照片，不會有黑色的框
+    （Lily 原話：「png 不要做任何修飾，直接壓在素材跟素材中間的縫隙上，不要有個框」）。
+     m1/m2 就是接縫本身的位置（量測自參考截圖兩條線的中點），格子邊界跟線的中心
+     用同一組數字，兩格才會真的貼齊、沒有空隙 */
+  const [m1,m2]=FM.lineMidY;
+  const landscape=currentAR()>=1;     /* 跟「今天的小星星」判斷橫直式同一個門檻 */
+  const item=cur();
+  /* align 決定撐大後的 media 怎麼擺：
+     'head' → 往前推到底，讓它「接縫那一側」的邊對齊這一格接縫那一側的邊（上緣／左緣窄縫）
+     'tail' → 不用推，left/top:0（預設）本來就是「media 那一邊對齊這一格同一邊」（下緣／右緣窄縫）
+     'mid'  → 置中：media 比這一格大很多，預設會貼齊這一格的起始邊、超出的部分整段掉在後面
+              （之前這裡什麼都沒做，等於誤用了 'tail' 的行為——中間格因此偏向起始邊，
+              另一側被多裁掉一截，Lily 發現「怎麼沒有置中」抓到的就是這個） */
+  const mkZone=(a0,a1,align)=>{
+    const root=el('slot'+(dissolving?' entering':''),frame);
+    const size=a1-a0;
+    root.style.cssText=landscape
+      ?`left:${a0}%;top:0%;width:${size.toFixed(3)}%;height:100%`
+      :`left:0%;top:${a0}%;width:100%;height:${size.toFixed(3)}%`;
+    P.build(P.p,T,root,item);
+    const m=root.querySelector('.media');
+    if(m){
+      /* 撐成整個畫面那麼寬／高（相對這一格自己的寬／高換算） */
+      const stretch=(100/size*100).toFixed(2)+'%';
+      if(landscape)m.style.width=stretch;else m.style.height=stretch;
+      /* shift 都是照 media「自己」撐大後的寬／高算 %（絕對值＝100），
+         head：-(100-size) 推到底；mid：size/2-50 置中；tail：0 不用推
+         （head 公式之前寫成 /h*100 是算錯了，會推超過頭，整格看起來像被推空變黑） */
+      const shift=align==='head'?-(100-size):align==='mid'?(size/2-50):0;
+      if(shift){
+        m.style.transform=landscape?`translateX(${shift.toFixed(2)}%)`:`translateY(${shift.toFixed(2)}%)`;
+      }
+    }
+    return root;
+  };
+  mkZone(0,m1,'head');       /* 上緣／左緣窄縫：置底／置右對齊，一路到接縫 */
+  mkZone(m1,m2,'mid');       /* 中間主體：置中，露出照片正中央 */
+  mkZone(m2,100,'tail');     /* 下緣／右緣窄縫：置頂／置左對齊，從接縫開始 */
+  /* 線的粗細：橫向（或轉 90 度後的縱向）拉滿之後，照線條素材自己的長寬比反推
+     另一邊該有多粗，不是寫死的數字——不然畫面比例一換、或線條素材本身比例改了，
+     就會被壓扁/拉伸。lineAR＝寬/高 */
+  const mkLine=(mid)=>{
+    const im=document.createElement('img');im.className='masklayer';im.alt='';im.src=FM.lineSrc;
+    if(landscape){
+      /* 轉90度：先照「轉正前」的尺寸排版（寬=100/currentAR%、高=100/lineAR%，
+         推導見 CHANGELOG 66），中心點對齊到接縫，再整個轉 90 度——
+         轉完視覺上就是「滿版高、粗細照比例反推」的直線，跟直式版是同一套算法轉個方向 */
+      const w=100/currentAR(), h=100/FM.lineAR;
+      im.style.cssText=`left:${(mid-w/2).toFixed(3)}%;top:${(50-h/2).toFixed(3)}%;`
+        +`width:${w.toFixed(3)}%;height:${h.toFixed(3)}%;object-fit:cover;transform:rotate(90deg)`;
+    }else{
+      const h=(100/FM.lineAR)*currentAR();
+      im.style.cssText=`left:0;top:${(mid-h/2).toFixed(3)}%;width:100%;height:${h.toFixed(3)}%;object-fit:cover`;
+    }
+    frame.appendChild(im);
+  };
+  mkLine(m1);mkLine(m2);
+}
 let dissolving=false;
 function build(){
   if(current){current.T.clear()}
@@ -2023,13 +2257,22 @@ function build(){
   if(frameMask())frame.classList.add('mask-frame');
   /* 槽位：遮罩 1 是上下兩格，各放一個素材；其他情況一格滿版 */
   /* 槽位幾何 [left%, top%, width%, height%]，與遮罩 SVG 同一份幾何算出，不會對不上 */
-  const cells=(frameMask() ? frameSlots()
+  const FM=frameMask();
+  if(FM&&FM.mode==='wrap'){
+    /* applyMask() 要先跑：清掉切換載體前留下的舊 .masklayer，
+       buildWrapZones() 再建自己的兩條線——順序反過來，線會被 applyMask() 一起清掉 */
+    applyMask();
+    buildWrapZones(FM,P,T);
+    current={T};
+    applyAspect();applyCaptions();scheduleScene();
+    return;
+  }
+  const cells=(FM ? frameSlots()
     : maskState.id&&maskState.id!=='custom' ? MASK_SLOTS[maskState.id+'-'+maskKey()]
     : null)||[[0,0,100,100]];
   const n=state.items.length;
   cells.forEach((c,i)=>{
     /* 圖框的第一格 = 框外面的底圖 —— 只有「底圖+窗」這種才有（cover 模式沒有，本身就滿版） */
-    const FM=frameMask();
     const bgcell=!!FM&&FM.mode!=='cover'&&i===0;
     const root=el('slot'+(dissolving?' entering':'')+(bgcell?' bgcell':''),frame);
     root.style.cssText=`left:${c[0]}%;top:${c[1]}%;width:${c[2]}%;height:${c[3]}%`;
@@ -2044,6 +2287,22 @@ function build(){
       : FM ? (FM.mode==='cover' ? state.items[state.index] : (i===0?state.items[0]:cycItem(state.index+i-1)))
       : state.items[(state.index+i)%n];
     P.build(P.p,T,root,item);
+    /* 紙上時光：照片窗比整個畫面小很多，濾鏡自己的暗角（橢圓形）套在這麼小的窗上
+       會被放得很明顯，看起來像是紙上時光自己加了一圈陰影（不管選哪個濾鏡都一樣，
+       只是暗角比較重的濾鏡——例如舊派對——特別明顯）。
+       --vig 是 CSS 繼承下來的值，寫在這一格自己身上就能局部覆蓋，
+       不影響底圖那格（底圖滿版，暗角維持濾鏡原本的樣子） */
+    if(!bgcell&&FM&&FM.mode==='polaroid')root.style.setProperty('--vig','0');
+    /* 紙上時光：白邊卡片沒有形狀圖，用一塊純白色的 div 畫出來。
+       一定要在底圖格（i===0）蓋完之後才插進 DOM，不然會被底圖蓋掉；
+       又要在照片窗（i===1）之前插進去，照片才會疊在白底上面——
+       這裡照 DOM 順序疊層，跟 z-index 無關 */
+    if(bgcell&&FM.mode==='polaroid'){
+      const cb=frameBox();
+      const cardBg=el('card-bg',frame);
+      cardBg.style.cssText=`left:${cb.l.toFixed(3)}%;top:${cb.t.toFixed(3)}%;`
+        +`width:${cb.w.toFixed(3)}%;height:${cb.h.toFixed(3)}%`;
+    }
   });
   current={T};
   applyMask();applyAspect();applyCaptions();scheduleScene();
@@ -2118,7 +2377,7 @@ function renderParams(){
 }
 /* 濾鏡在清單上的擺放順序。跟 PRESETS 的定義順序分開，要調順序改這裡就好。
    沒列到的會自動接在後面，所以之後新增濾鏡不會憑空消失 */
-const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','split','finder','bw'];
+const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','party','split','finder','bw'];
 const presetIds=[...new Set([...PRESET_ORDER.filter(id=>PRESETS[id]),...Object.keys(PRESETS)])];
 presetIds.forEach(id=>{
   const P=PRESETS[id];
@@ -2301,7 +2560,10 @@ function enhanceSelect(sel){
       b.setAttribute('role','option');b.setAttribute('aria-selected',String(i===sel.selectedIndex));
       b.classList.toggle('cursor',i===cursor);
       b.textContent=o.textContent;
-      b.onclick=()=>{pick(i)};
+      /* 原生 <option disabled> 這裡才有作用 —— 之前完全沒讀過，個別選項灰掉/不能點
+         （例如片格之間鎖住比例的橫式選項）都要靠這裡才能生效 */
+      b.disabled=o.disabled;b.setAttribute('aria-disabled',String(o.disabled));
+      if(!o.disabled)b.onclick=()=>{pick(i)};
       list.appendChild(b);
     });
   };
@@ -2314,7 +2576,7 @@ function enhanceSelect(sel){
     btn.setAttribute('aria-expanded','true');place();CSEL_OPEN.push(close);
   };
   const pick=i=>{
-    if(i<0||i>=sel.options.length)return;
+    if(i<0||i>=sel.options.length||sel.options[i].disabled)return;   /* 鍵盤 Enter 也要擋灰掉的選項 */
     const changed=i!==sel.selectedIndex;
     sel.selectedIndex=i;sync();close();btn.focus();
     if(changed)sel.dispatchEvent(new Event('change',{bubbles:true}));
@@ -2333,7 +2595,16 @@ function enhanceSelect(sel){
     const t=e.target instanceof Node?e.target:null;   /* target 不一定是元素（例如事件打在 window 上）*/
     if(!t||(!list.contains(t)&&t!==btn))close();
   },true);
-  addEventListener('scroll',()=>{if(!list.hidden)close()},true);
+  /* 本來想做的是「頁面本身捲動（例如側欄）就關掉清單，不然固定定位的清單位置會對不準按鈕」，
+     但用 capture 監聽全域 scroll 事件，連「清單自己裡面捲動」都會被抓到——
+     清單長到要內部捲動時（超過 13 個選項），使用者一捲就被當成外部捲動、清單立刻自己關掉，
+     感覺像「片格之間」這種排在後面的選項被切掉點不到，其實是每次想捲就先被關掉一次。
+     加一個判斷：捲動事件如果是從清單自己裡面發出來的，就不要關 */
+  addEventListener('scroll',e=>{
+    if(list.hidden)return;
+    if(e.target===list||(e.target instanceof Node&&list.contains(e.target)))return;
+    close();
+  },true);
   addEventListener('resize',()=>{if(!list.hidden)close()});
   /* 程式端改了 value / disabled（例如濾鏡鎖定）也要跟著更新顯示 */
   new MutationObserver(sync).observe(sel,{attributes:true,attributeFilter:['disabled','value']});

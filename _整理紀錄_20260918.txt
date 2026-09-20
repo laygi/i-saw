@@ -58,3 +58,12 @@ assets/soon-frame.webp ← 由上面那張 cwebp -q 92 -alpha_q 100 轉出，alp
 2026-09-18 22:12 敬請期待 素材更新（覆蓋 18:04 那版）
 source/敬請期待.png ← ~/Downloads/coming soon_forlilymide.png（新版，同尺寸 1131x1772，窗位置沒變）
 assets/soon-frame.webp ← 重新轉出，alpha 誤差 0
+
+2026-09-20 紙上時光載體
+source/描圖紙_紙上時光.png ← ~/Downloads/素材/描圖紙.png（用 cp，原檔還在 Downloads）
+assets/tracingpaper-card.webp ← 由上面那張 cwebp -q 90 -alpha_q 100 轉出，alpha 誤差 0
+
+2026-09-20 片格之間載體
+source/片格間_線條.png ← 由下面那份裁切出線條本身範圍
+source/片格間_線條_原始.png ← ~/Downloads/72049b29f1e5b982cea0e2ce17329d890b0f5b76c89b44f04345ce3f912f8706.png（用 cp，原檔還在 Downloads）
+assets/filmline.webp ← 由 片格間_線條.png 轉出，alpha 誤差 0
