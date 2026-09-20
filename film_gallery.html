@@ -1481,10 +1481,21 @@ const el=(cls,parent,tag='div')=>{const d=document.createElement(tag);d.classNam
    建濾鏡縮圖時暫時改指到縮圖的盒子 —— 否則十個濾鏡會互相蓋掉主畫面的變數 */
 let varTarget=frame;
 const setVar=(k,v,node=null)=>(node||varTarget).style.setProperty('--'+k,v);
+/* raf 平常用 requestAnimationFrame（分頁切到背景會自動停，省電，預覽階段本來就該這樣）。
+   但顆粒亂位、手震、閃爍這些逐格效果全部走這條路——如果輸出影片／圖片時
+   使用者切走分頁，rAF 會被瀏覽器整個凍結，這些效果就會定格不動，
+   录出來的影片因此會有一段時間畫面幾乎沒變化，回放起來像「掉幀」。
+   輸出的擷取迴圈本來就刻意不用 rAF（見 exportStills 的說明），
+   這裡補上同一招：exporting 開著的時候改用 setTimeout，不受切走分頁影響 */
 function timers(){const list=[];return{
   every:(ms,fn)=>{list.push(['i',setInterval(fn,ms)])},
   after:(ms,fn)=>{const id=setTimeout(fn,ms);list.push(['t',id]);return id},
-  raf:fn=>{let on=true;const loop=t=>{if(!on)return;fn(t);requestAnimationFrame(loop)};requestAnimationFrame(loop);list.push(['r',()=>on=false])},
+  raf:fn=>{let on=true;
+    const loop=t=>{if(!on)return;fn(t);step()};
+    const step=()=>proj.exporting?setTimeout(()=>loop(performance.now()),1000/60):requestAnimationFrame(loop);
+    step();
+    list.push(['r',()=>on=false]);
+  },
   clear:()=>list.forEach(([k,v])=>k==='i'?clearInterval(v):k==='t'?clearTimeout(v):v())
 }}
 /* 逐格 tick：以 hz 步進呼叫 fn（參考 Super 8 量到 17.6 次/秒 = 18 fps 步進；8mm 每格都變 = 30） */
@@ -3109,15 +3120,23 @@ let drawPreview=null;
     const disp=FRAME.getBoundingClientRect().width||1;
     const k=W/disp;                         /* 版面座標 → 輸出座標 */
 
-    /* 先跑幾格暖機，量出實際可達成的速度，再決定輸出幀率 —
-       用固定間隔手動推格，避免幀間隔忽長忽短造成的頓挫 */
+    /* 先跑幾格暖機，量出實際可達成的速度，再決定輸出幀率 */
     for(let i=0;i<3;i++) drawFrame(ctx,W,H,k);
     const t=performance.now();
     for(let i=0;i<5;i++) drawFrame(ctx,W,H,k);
     const cost=(performance.now()-t)/5;
     const FPS=Math.max(12,Math.min(30,Math.floor(1000/(cost*1.3))));  /* 留 30% 餘裕，節奏才穩 */
-    const stream=c.captureStream(0);
-    const track=stream.getVideoTracks()[0];
+    /* captureStream(0)＋手動 track.requestFrame() 原本是想「固定間隔手動推格」，
+       但這樣寫出來的時間戳是逐格記錄「實際被呼叫的那一刻」，只要中間有一點點誤差
+       （GC、系統排程、畫面本身變複雜讓那一格畫比較久），整支影片的幀距就是忽長忽短——
+       這種「可變幀率」（VFR）的檔案，QuickTime／預覽這類播放器特別容易播起來一頓一頓，
+       即使内容本身沒有真的漏格（Lily 反應「整支都卡，用 QuickTime 開的」，
+       正好對到這個已知的相容性問題）。
+       改成 captureStream(FPS)（非 0）讓瀏覽器自己用固定頻率去「採樣」畫布目前的樣子——
+       我們這邊的 tick() 還是盡量把畫面畫到最新，但幾點採樣、多久採一次不再由我們手動控制，
+       輸出的每一格時間距離永遠一樣（真正的固定幀率），最差狀況只是重複用到上一格畫面
+       （看起來像短暫停格一瞬間），不會是整支忽快忽慢的頓挫感 */
+    const stream=c.captureStream(FPS);
     const mime=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm']
       .find(m=>MediaRecorder.isTypeSupported(m))||'';
     const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12e6});
@@ -3135,8 +3154,7 @@ let drawPreview=null;
     const tick=()=>{
       const now=performance.now(), el=(now-t0)/1000;
       keepPlaying();
-      drawFrame(ctx,W,H,k);
-      track.requestFrame();                    /* 一次渲染 = 一格，不會重複寫入同一張 */
+      drawFrame(ctx,W,H,k);                    /* 畫布內容盡量畫到最新，實際幾點被採樣交給 captureStream(FPS) 自己算 */
       st.textContent=`輸出中… 還有 ${Math.max(0,secs-el).toFixed(1)} 秒 · ${FPS}fps（可以按取消）`;
       if(cancelReq||el>=secs){rec.stop();return}
       next+=period;
