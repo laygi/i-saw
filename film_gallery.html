@@ -547,17 +547,38 @@
 
   /* 手機版的輸出鈕：桌機不出現（桌機是右下角的銀盒） */
   .exportbar{display:none}
-  .expanel{position:fixed;right:24px;bottom:24px;z-index:7;width:236px;padding:16px 16px 12px;
+  /* 遮罩：跟面板共用 data-open 開關（見 open()），蓋住鐵盒跟底下的操作面板，
+     讓「正在輸出」這件事更明確、也順便擋掉輸出中誤觸背後控制項 */
+  .expbackdrop{position:fixed;inset:0;z-index:6;background:rgba(0,0,0,.4);
+    opacity:0;pointer-events:none;transition:opacity .3s ease}
+  .expbackdrop[data-open]{opacity:1;pointer-events:auto}
+  /* 面板改成螢幕正中間的對話框（原本是釘在右下角）——
+     用 translate(-50%,-50%) 置中，展開動畫疊在後面再多推一點 Y／縮放。
+     Lily：「框框可以大一點，可能是左右排版，影片放左邊可以大一點，
+     右邊目前資訊比較少，之後會補上」——原本 236px 是單欄堆疊時的寬度，
+     改左右兩欄後整個放寬，見下面 .expbody */
+  .expanel{position:fixed;left:50%;top:50%;z-index:7;width:min(600px,94vw);padding:20px 24px 18px;
     background:var(--paper);border:1px solid var(--rule);
     box-shadow:0 18px 44px rgba(30,8,10,.34);
-    opacity:0;transform:translateY(10px) scale(.98);pointer-events:none;
+    opacity:0;transform:translate(-50%,-50%) translateY(10px) scale(.98);pointer-events:none;
     transition:opacity .3s ease,transform .3s cubic-bezier(.22,.61,.36,1)}
-  .expanel[data-open]{opacity:1;transform:none;pointer-events:auto}
-  /* 預覽圖：用輸出影片時同一套 canvas 渲染器畫的，所以看到什麼就會下載到什麼 */
-  .expanel .prevbox{margin:0 0 12px;background:#000;display:flex;justify-content:center;
-    align-items:center;min-height:60px}
-  .expanel .prevbox canvas{display:block;max-width:100%;max-height:206px}
-  .expanel h3{margin:0 0 10px;font:11px/1 var(--mono);font-weight:600;
+  .expanel[data-open]{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}
+  /* 左右兩欄：左邊預覽圖固定寬度、右邊資訊吃剩下的空間。
+     窄螢幕（手機）疊回原本的上下排列 */
+  .expbody{display:flex;gap:24px;align-items:flex-start}
+  .expbody .expinfo{flex:1 1 auto;min-width:0}
+  @media (max-width:640px){.expbody{flex-direction:column}.expanel{width:min(340px,92vw);padding:16px 16px 12px}}
+  /* 輸出中的進度條：平常收著，setBusyUI() 開始輸出時才打開 */
+  .expprogress{display:none;height:3px;background:var(--hair);margin-top:10px;overflow:hidden}
+  .expprogress[data-show]{display:block}
+  .expprogress-bar{height:100%;width:0%;background:var(--red);transition:width .15s linear}
+  /* 預覽圖：用輸出影片時同一套 canvas 渲染器畫的，所以看到什麼就會下載到什麼。
+     固定寬度、不吃 flex 的伸縮，長邊跟著素材比例自己變 */
+  .expanel .prevbox{flex:0 0 300px;width:300px;margin:0;background:#000;display:flex;
+    justify-content:center;align-items:center;min-height:60px}
+  .expanel .prevbox canvas{display:block;max-width:100%;max-height:420px}
+  @media (max-width:640px){.expanel .prevbox{flex-basis:auto;width:100%;margin:0 0 12px}}
+  .expanel h3{margin:0 0 14px;font:11px/1 var(--mono);font-weight:600;
     letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
   .expanel .spec{margin:0 0 12px;display:grid;grid-template-columns:auto 1fr;gap:5px 10px;
     font:11px/1.5 var(--mono);color:var(--ink);
@@ -586,7 +607,7 @@
   .btn.cancelling{background:transparent;color:var(--red);border-color:var(--red)}
   .btn.cancelling:hover:not(:disabled){background:var(--red);color:var(--paper)}
   .expanel .status{border-bottom:0;min-height:26px;padding-top:6px;color:var(--muted)}
-  @media (max-width:860px){.iron{width:46vw}.expanel{right:12px;bottom:12px}.ironhint{display:none}}
+  @media (max-width:860px){.iron{width:46vw}.ironhint{display:none}}
 
   /* ============ 蕾絲裝飾 ============ */
   /* 預設垂掛在頁面上方（只露出下緣）；點一下移到畫面中央並擺正一些 */
@@ -951,8 +972,8 @@
     /* 手機沒有 hover，:hover 會在點完之後殘留成反白，所以壓掉它、只留按下去的回饋 */
     .exportbar:hover{background:var(--ink)}
     .exportbar:active,.exportbar[data-open]{background:var(--red);border-color:var(--red)}
-    /* 輸出面板改成貼著左右、浮在按鈕上方 */
-    .expanel{left:12px;right:12px;bottom:72px;width:auto}
+    /* 輸出面板現在改成螢幕正中間的對話框（見前面 .expanel 的定義），
+       手機不用再另外貼著左右浮在按鈕上方——這裡原本有一條蓋掉置中定位的殘留規則，拿掉 */
     /* 設定區最後要留白，不然最下面那排會被輸出鈕蓋住、點不到 */
     .panel-r{padding-bottom:84px}
   }
@@ -970,13 +991,19 @@
 <button class="exportbar" id="exportBar" type="button">輸出影片 <span>Export</span></button>
 <div class="ironhint" aria-hidden="true">輸出影片<span>EXPORT</span></div>
 
+<div class="expbackdrop" id="expBackdrop"></div>
 <div class="expanel" id="expanel" role="dialog" aria-label="輸出">
   <h3>輸出</h3>
-  <div class="prevbox"><canvas id="prev"></canvas></div>
-  <dl class="spec" id="spec"></dl>
-  <button class="btn btn-primary" id="rec">下載影片</button>
-  <button class="btn btn-secondary" id="recImg">下載圖片</button>
-  <div class="status" id="status"></div>
+  <div class="expbody">
+    <div class="prevbox"><canvas id="prev"></canvas></div>
+    <div class="expinfo">
+      <dl class="spec" id="spec"></dl>
+      <button class="btn btn-primary" id="rec">下載影片</button>
+      <button class="btn btn-secondary" id="recImg">下載圖片</button>
+      <div class="expprogress" id="expProgress"><div class="expprogress-bar" id="expProgressBar"></div></div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
 </div>
 
 <img class="lace" id="lace" src="assets/lace@2x.webp" alt="" aria-hidden="true">
@@ -1428,9 +1455,11 @@ function playScript(node,script,done){
   })();
 }
 let introPlayed=false;
+/* 回傳 Promise，播完（或根本不用播）才 resolve —— 輸出影片時要等它真的播完
+   才能開始錄，不然錄到的前一小段會是漏光入場那個橘紅色還沒退掉的樣子 */
 function playIntro(){
-  if(proj.introStyle!=='leak'){$('#intro').style.display='none';return}
-  playScript($('#intro'),INTRO,()=>{$('#intro').style.display='none'});
+  if(proj.introStyle!=='leak'){$('#intro').style.display='none';return Promise.resolve()}
+  return new Promise(res=>playScript($('#intro'),INTRO,()=>{$('#intro').style.display='none';res()}));
 }
 function startFade(onDone){
   if(proj.fading||proj.ended)return;proj.fading=true;
@@ -1451,7 +1480,7 @@ function startFade(onDone){
       clearTimeout(sceneTimer);mediaEls.forEach(m=>m.tagName==='VIDEO'&&m.pause());onDone&&onDone()}
   },1000/24);
 }
-function resumeFromEnd(){proj.ended=false;const lay=$('#fade .e-black');lay.style.opacity=0;lay.style.background='#000';lay.style.display='';state.index=firstIndex();renderItems();build();playIntro()}
+function resumeFromEnd(){proj.ended=false;const lay=$('#fade .e-black');lay.style.opacity=0;lay.style.background='#000';lay.style.display='';state.index=firstIndex();renderItems();build();return playIntro()}
 $('#introStyle').onchange=e=>{
   proj.introStyle=e.target.value;
   /* 選完就預覽：把入場層還原再重播一次（「直接開始」則直接隱藏，本來就沒有效果） */
@@ -2451,7 +2480,7 @@ const DEFAULT_VIDEOS=['media/default-1.mov','media/default-2.mov'];
 
 /* ================= 輸出銀盒 ================= */
 (()=>{
-  const iron=$('#iron'), panel=$('#expanel'), spec=$('#spec');
+  const iron=$('#iron'), panel=$('#expanel'), spec=$('#spec'), backdrop=$('#expBackdrop');
   const fill=()=>{
     const v=$('#aspect').value;
     const size={'0.8':'1080×1350','0.5625':'1080×1920','1':'1080×1080','1.7778':'1920×1080'}[v]||'跟素材一樣';
@@ -2462,6 +2491,7 @@ const DEFAULT_VIDEOS=['media/default-1.mov','media/default-2.mov'];
   let prevTimer=null;
   const open=v=>{
     panel.toggleAttribute('data-open',v);
+    backdrop.toggleAttribute('data-open',v);
     iron.classList.toggle('open',v);
     /* 手機的輸出鈕跟著面板亮暗。寫在 open() 裡面而不是按鈕的 click，
        這樣「點面板外面關掉」的時候按鈕狀態也會跟著還原 */
@@ -3052,7 +3082,7 @@ let drawPreview=null;
      畫在小尺寸上，成本只有輸出的幾十分之一 */
   drawPreview=(cv)=>{
     const [W,H]=outSize();
-    const w=Math.min(204, 206*W/H), h=Math.round(w*H/W);
+    const w=Math.min(300, 340*W/H), h=Math.round(w*H/W);
     cv.width=Math.round(w); cv.height=h;
     const ctx=cv.getContext('2d',{alpha:false});
     try{ drawFrame(ctx,cv.width,cv.height,cv.width/FRAME.offsetWidth); }catch(e){}
@@ -3099,6 +3129,11 @@ let drawPreview=null;
     ri.textContent= which==='still' ? '取消輸出' : '下載圖片';
     r.disabled  = which==='still';
     ri.disabled = which==='video';
+    /* 開始輸出才打開進度條，結束（不管完成／取消／失敗）就收起來、歸零，
+       下次開始不會殘留上一次跑到一半的長度 */
+    const bar=$('#expProgress'), fill=$('#expProgressBar');
+    bar.toggleAttribute('data-show',!!which);
+    fill.style.width='0%';
   }
   async function exportVideo(){
     const st=$('#status');
@@ -3110,10 +3145,16 @@ let drawPreview=null;
     const c=document.createElement('canvas');c.width=W;c.height=H;
     const ctx=c.getContext('2d',{alpha:false});
 
-    /* 從第一張開始，確保錄到完整一輪。exporting 打開後，輪完一圈才會進結尾 */
+    /* 從第一張開始，確保錄到完整一輪。exporting 打開後，輪完一圈才會進結尾。
+       如果畫板剛好停在「結尾」（漏光停格／淡到黑），resumeFromEnd() 會重播漏光入場——
+       這段動畫本身要跑快 1 秒才會退乾淨，之前這裡只固定等 150ms 就開始錄，
+       常常錄到入場還沒退完、整格都還是橘紅色的畫面，看起來像「整支都是橘色光」，
+       而且只有「畫板剛好停在結尾」才會踩到，所以感覺起來時好時壞。
+       改成真的等 resumeFromEnd() 的入場動畫播完再往下走 */
     proj.exporting=true;
-    if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
-    state.index=firstIndex();renderItems();build();scheduleScene();
+    if(proj.ended||proj.fading){proj.fading=false;await resumeFromEnd()}
+    else{state.index=firstIndex();renderItems();build()}
+    scheduleScene();
     await new Promise(r=>setTimeout(r,150));
     await Promise.all([preloadBg(),awaitMedia()]);
 
@@ -3147,6 +3188,7 @@ let drawPreview=null;
       .forEach(m=>{if(m.paused)m.play().catch(()=>{})});
 
     busy='video';cancelReq=false;setBusyUI('video');
+    const bar=$('#expProgressBar');
     keepPlaying();
     const t0=performance.now();let raf;
     const period=1000/FPS;
@@ -3155,7 +3197,8 @@ let drawPreview=null;
       const now=performance.now(), el=(now-t0)/1000;
       keepPlaying();
       drawFrame(ctx,W,H,k);                    /* 畫布內容盡量畫到最新，實際幾點被採樣交給 captureStream(FPS) 自己算 */
-      st.textContent=`輸出中… 還有 ${Math.max(0,secs-el).toFixed(1)} 秒 · ${FPS}fps（可以按取消）`;
+      bar.style.width=Math.min(100,el/secs*100).toFixed(1)+'%';
+      st.textContent=`轉存中，請不要離開此頁面 · 還有 ${Math.max(0,secs-el).toFixed(1)} 秒（可以按取消）`;
       if(cancelReq||el>=secs){rec.stop();return}
       next+=period;
       raf=setTimeout(tick,Math.max(0,next-performance.now()));
@@ -3205,6 +3248,7 @@ let drawPreview=null;
     hideOverlays();
 
     busy='still';cancelReq=false;setBusyUI('still');
+    const bar=$('#expProgressBar');
     let done=0;
     try{
       /* 先把 CSS 背景圖（紙紋、顆粒貼圖）載進快取 —— fillImage 只讀快取、自己不會去載，
@@ -3212,7 +3256,8 @@ let drawPreview=null;
       try{await preloadBg()}catch(e){}
       for(let i=firstIndex();i<n;i++){
         if(cancelReq)break;
-        st.textContent=`輸出圖片… ${i-firstIndex()+1} / ${n-firstIndex()}（可以按取消）`;
+        bar.style.width=((i-firstIndex())/(n-firstIndex())*100).toFixed(1)+'%';
+        st.textContent=`轉存中，請不要離開此頁面 · 圖片 ${i-firstIndex()+1} / ${n-firstIndex()}（可以按取消）`;
         state.index=i;renderItems();build();
         clearTimeout(sceneTimer);   /* build() 會排下一次換場，輸出圖片時不要讓它自己跳 */
         hideOverlays();             /* build() 會保留這三層，重建後再關一次 */
@@ -3245,6 +3290,7 @@ let drawPreview=null;
         done++;
         await new Promise(r=>setTimeout(r,320));
       }
+      bar.style.width='100%';
       st.textContent=cancelReq
         ? `已取消，已經存了 ${done} 張。`
         : `完成：${n-firstIndex()} 張 · ${W}×${H} · PNG`;
