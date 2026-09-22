@@ -3161,12 +3161,20 @@ let drawPreview=null;
     const disp=FRAME.getBoundingClientRect().width||1;
     const k=W/disp;                         /* 版面座標 → 輸出座標 */
 
-    /* 先跑幾格暖機，量出實際可達成的速度，再決定輸出幀率 */
-    for(let i=0;i<3;i++) drawFrame(ctx,W,H,k);
+    /* 先跑幾格暖機，量出實際可達成的速度，再決定輸出幀率。
+       重點：drawFrame() 之後一定要接著讀一次畫布內容（getImageData），逼瀏覽器把
+       這一格「真的畫完」，不能只算「發出畫布指令」花了多久——瀏覽器很多時候會把
+       畫布指令延後、合併到真的要讀取畫面內容（例如被錄影擷取那一刻）才處理，
+       沒有強制讀取的話量到的時間會失真地快（在我自己的測試環境量到 0ms，
+       但一發現「濾鏡疊了好幾層、每層都有模糊」realistically 要 100–200ms 才對）。
+       Lily 抓到重點了：「是不是因為濾鏡太多」——疊越多層（發光模糊＋色調＋顆粒＋暗角）
+       量出來的真實成本就越高，之前少量了這一段，選出來的幀率一直偏高（例如 30fps），
+       但真正錄的時候跟不上，出來的影片才會忽快忽慢／卡頓 */
+    for(let i=0;i<3;i++){drawFrame(ctx,W,H,k);ctx.getImageData(0,0,1,1)}
     const t=performance.now();
-    for(let i=0;i<5;i++) drawFrame(ctx,W,H,k);
+    for(let i=0;i<5;i++){drawFrame(ctx,W,H,k);ctx.getImageData(0,0,1,1)}
     const cost=(performance.now()-t)/5;
-    const FPS=Math.max(12,Math.min(30,Math.floor(1000/(cost*1.3))));  /* 留 30% 餘裕，節奏才穩 */
+    const FPS=Math.max(8,Math.min(30,Math.floor(1000/(cost*1.3))));  /* 留 30% 餘裕，節奏才穩 */
     /* captureStream(0)＋手動 track.requestFrame() 原本是想「固定間隔手動推格」，
        但這樣寫出來的時間戳是逐格記錄「實際被呼叫的那一刻」，只要中間有一點點誤差
        （GC、系統排程、畫面本身變複雜讓那一格畫比較久），整支影片的幀距就是忽長忽短——
@@ -3198,7 +3206,7 @@ let drawPreview=null;
       keepPlaying();
       drawFrame(ctx,W,H,k);                    /* 畫布內容盡量畫到最新，實際幾點被採樣交給 captureStream(FPS) 自己算 */
       bar.style.width=Math.min(100,el/secs*100).toFixed(1)+'%';
-      st.textContent=`轉存中，請不要離開此頁面 · 還有 ${Math.max(0,secs-el).toFixed(1)} 秒（可以按取消）`;
+      st.textContent=`轉存中，請不要離開此頁面 · 還有 ${Math.max(0,secs-el).toFixed(1)} 秒 · ${FPS}fps（可以按取消）`;
       if(cancelReq||el>=secs){rec.stop();return}
       next+=period;
       raf=setTimeout(tick,Math.max(0,next-performance.now()));
