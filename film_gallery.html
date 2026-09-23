@@ -83,6 +83,9 @@
   .capblock .del:hover{color:var(--ink)}
 
   .slot{position:absolute;overflow:hidden;isolation:isolate;background:#000}
+  /* 留白的格子：素材不夠時多出來的那一格。底色拿掉，露出後面（觀景窗＝框本身的底、
+     圖框類＝框外面那張底圖），不要變成一塊突兀的黑色方塊 */
+  .slot.empty{background:transparent}
   .slot+.slot .placeholder{display:none}
   /* 會抖動的圖層要比畫面大一點，抖的時候才不會露出邊 */
   .gate{position:absolute;inset:-3%;overflow:hidden;will-change:transform}
@@ -131,11 +134,12 @@
   .p-leak .media{filter:sepia(var(--warm,.35)) saturate(1.25) contrast(1.06) brightness(.92)}
   .p-leak .tint{background:linear-gradient(180deg,rgba(255,170,80,.18),rgba(120,20,0,.28));mix-blend-mode:multiply}
   /* 漏光：固定在左緣（光從機身縫隙進來的位置），強度由 JS 逐格脈衝驅動。
-     不用 CSS 動畫，因為真實漏光的閃動是不規則的 */
+     不用 CSS 動畫，因為真實漏光的閃動是不規則的。
+     也刻意不留 transition —— pulse() 每格自己算好該多亮（見 PRESETS.leak），
+     再疊一層 CSS 過渡的話，「一格一格算」的輸出管線會被真實時間拖著跑 */
   .p-leak .leak{left:0;top:-25%;bottom:-25%;width:var(--lw,30%);
     mix-blend-mode:screen;opacity:0;filter:blur(26px);
     transform:translateY(var(--ly,0));
-    transition:opacity 60ms linear;
     background:
       radial-gradient(70% 42% at 0% 50%,rgba(255,250,230,.85) 0%,transparent 62%),
       linear-gradient(90deg,var(--la,#ffb347) 0%,var(--lb,#ff5e3a) 42%,transparent 100%)}
@@ -1206,8 +1210,13 @@ function makeMedia(it,cls=''){
   let el;
   if(it.kind==='video'){
     el=document.createElement('video');el.muted=true;el.playsInline=true;el.autoplay=true;el.src=it.src;
-    el.loop=state.items.length<2;
-    if(state.items.length>=2)el.addEventListener('ended',()=>nextScene());   /* 播完就換 */
+    /* 只有一幕的時候讓影片自己循環（不然看一次就定住了）。
+       兩幕以上不循環：播完停在最後一格，等這一幕的「素材停留」時間到才換。
+       以前這裡還會掛一個 ended → nextScene（播完就換），現在拿掉了——
+       一幕停多久只由「素材停留」決定（見 sceneSecs()）。
+       那個 ended 事件還會造成預覽跟輸出不一樣：影片放在第二、三格時，
+       它一播完就把整幕切掉（實測停留設 12 秒、8.53 秒就換場），輸出卻是照 12 秒走 */
+    el.loop=sceneCount()<2;
     el.play().catch(()=>{});
   }else{el=new Image();el.src=it.src}
   el.className='media '+cls;mediaEls.push(el);return el;
@@ -1225,11 +1234,10 @@ document.addEventListener('paste',e=>{const fs=[...e.clipboardData.items].filter
 /* ================= 換場景 ================= */
 function scheduleScene(){
   clearTimeout(sceneTimer);
-  if(state.items.length<2||!cur())return;
-  /* 照片停留 dwell 秒；影片播完就換（見下方 ended 事件），
-     但若影片很長，最多停到 dwell 的 2 倍就強制換場 */
-  const secs=cur().kind==='video'?state.dwell*2:state.dwell;
-  sceneTimer=setTimeout(nextScene,secs*1000);
+  /* 只有一幕就不換場（例如兩格的載體剛好放兩張，一次就全部看得到了） */
+  if(sceneCount()<2||!cur())return;
+  /* 一幕停多久跟輸出用的是同一個算法（sceneSecs()），預覽才不會跟成品不一樣 */
+  sceneTimer=setTimeout(nextScene,sceneSecs(state.index)*1000);
 }
 /* 郵票框：第 0 張固定鋪在框外面當底圖，輪播只在第 1 張之後跑。
    firstIndex() = 輪播從第幾張開始；stepIndex() = 下一張是第幾張。
@@ -1241,10 +1249,48 @@ function firstIndex(){
   const hasBg=(F&&F.mode!=='cover'&&F.mode!=='wrap')||PRESETS[state.preset]?.bgFirst;
   return (hasBg && n>1) ? 1 : 0;
 }
+/* 這個載體一次會顯示幾格「會輪播的」素材（框外面的底圖那格不算）。
+   算法跟 build() 排格子用的是同一段式子，兩邊不會各說各話 */
+function cellCount(){
+  const F=frameMask();
+  if(F&&F.mode==='wrap')return 1;                    /* 片格之間：同一張重複三次，還是一張 */
+  const cells=(F ? frameSlots()
+    : maskState.id&&maskState.id!=='custom' ? MASK_SLOTS[maskState.id+'-'+maskKey()]
+    : null)||[[0,0,100,100]];
+  const hasBg=!!F&&F.mode!=='cover';                 /* 圖框類第一格是底圖，不算在輪播裡 */
+  return Math.max(1,cells.length-(hasBg?1:0));
+}
+/* 一幕 = 一次把所有格子填滿。所以「要換幾次場」看的是格子數，不是素材數：
+     兩格的載體 + 2 張 → 1 幕，不換場
+     兩格的載體 + 3~4 張 → 2 幕，換 1 次
+     三格的載體 + 3 張 → 1 幕，不換場
+   sceneStarts() 回傳每一幕「從第幾張素材開始」 */
+function sceneStarts(){
+  const n=state.items.length; if(!n)return [];
+  const f=firstIndex(), k=cellCount(), out=[];
+  for(let i=f;i<n;i+=k)out.push(i);
+  return out.length?out:[f];
+}
+function sceneCount(){return state.items.length?sceneStarts().length:0}
+/* 一幕會停多久（秒）：一律就是「素材停留」，不管這一幕裡是照片還是影片。
+   （2026-09-23 Lily 指定：滑桿寫幾秒就是幾秒，所見即所得。
+     舊規則是照片 ×1、影片 ×2 且播完就換 —— 好處是長影片播得完，
+     壞處是滑桿上的數字跟實際對不起來，多格載體還會因為「只看第一格」而前後不一致。）
+   影片比停留長 → 播到時間到就切；比停留短 → 停在最後一格，剩下的時間定住。
+   scheduleScene()、輸出影片、輸出銀盒顯示的長度全部問這一個，不要各自算一份 */
+function sceneSecs(i){ return state.dwell }
+/* 總長度 = 每一幕的停留時間加總（不是每張素材加總——
+   兩格的載體一幕就吃掉兩張，見 sceneStarts()） */
+function totalSecs(){
+  if(!state.items.length)return 0;
+  return sceneStarts().reduce((s,i)=>s+sceneSecs(i),0) || state.dwell;
+}
 function stepIndex(i){
   const n=state.items.length; if(n<1)return 0;
   const f=firstIndex();
-  let x=i+1; if(x>=n||x<f)x=f;
+  /* 一次跳一整幕（有幾格就跳幾張），不是一張一張挪 —— 一張一張挪的話，
+     兩格的載體放兩張會變成「同樣兩張換個位置再演一次」，還多一次轉場 */
+  let x=i+cellCount(); if(x>=n||x<f)x=f;
   return x;
 }
 /* 把 state.index 拉回合法範圍。
@@ -1257,7 +1303,10 @@ function clampIndex(){
   if(state.index>=n||state.index<f)state.index=f;
 }
 function nextScene(){
-  if(switching||state.items.length<2||proj.ended)return;
+  if(switching||sceneCount()<2||proj.ended)return;
+  /* 「一格一格算」的輸出管線在跑的時候，只有輸出迴圈自己排的換場算數。
+     影片播完的 ended 事件、殘留的計時器都會呼叫這裡，讓它們插隊的話畫面順序就亂了 */
+  if(frameMode&&!sceneFromExport)return;
   switching=true;
   /* 「一格一格算」的新輸出管線在跑的時候，exportTransVT 會有值——
      這裡排的每一個 setTimeout 都要改走它（虛擬時鐘），不然真實時間不會自己走，
@@ -1292,6 +1341,20 @@ function nextScene(){
       void frame.offsetWidth;                       // 強制重排，讓起始值生效
       const afterPaint=exportTransVT?f=>f():requestAnimationFrame;
       afterPaint(()=>{
+        if(exportTransVT){
+          /* 「一格一格算」的輸出管線：CSS transition 是照真實時間跑的，虛擬時鐘拉不動它，
+             留著的話淡入會整段變成硬跳（有七個濾鏡的換場預設都是交叉淡入）。
+             改成每一格自己算「現在該多不透明」，曲線用跟 CSS 同一條 cubic-bezier(.4,0,.5,1)，
+             所以預覽跟輸出看起來是一樣的 */
+          const t1=exportTransVT.now(), ez=bez(.4,0,.5,1);
+          let fin=false;
+          exportTransVT.raf(t=>{
+            if(fin)return;
+            const x=Math.min(1,Math.max(0,(t-t1)/ms)), v=ez(x).toFixed(3);
+            ins.forEach(n=>{n.style.opacity=v});
+            if(x>=1)fin=true;
+          });
+        }else
         ins.forEach(n=>{n.style.transition=`opacity ${ms}ms cubic-bezier(.4,0,.5,1)`;n.style.opacity='1'});
         /* 計時從「淡入真正開始」起算，不是從呼叫 nextScene 起算 */
         sched(()=>{
@@ -1425,16 +1488,27 @@ $('#addCaption').onclick=()=>{state.captions.push({text:'',color:'#f2ead8',weigh
    exporting：只有在輸出的時候才會真的走到結尾 —— 畫板上永遠一直輪播，方便邊看邊調 */
 const proj={flicker:.2,fadeSecs:2,autoFade:true,exporting:false,ended:false,fading:false,
   introStyle:'leak',endStyle:'leak',transStyle:''};
+/* frameMode：「一格一格算、不即時」的輸出管線（exportVideoFrames()）正在跑。
+   凡是靠真實時間自己跳出來的東西——放映機閃動、影片播完自動換場——這時候都要讓路，
+   改由輸出迴圈按虛擬時鐘一格一格推；不然輸出的節奏會跟著這台電腦畫得快不快跑掉 */
+let frameMode=false;
+/* 只有輸出迴圈自己要換場的那一瞬間才打開。frameMode 期間其他來源（影片 ended 事件、
+   殘留的計時器）呼叫 nextScene() 一律擋掉，避免畫面順序被插隊搞亂（同 CHANGELOG 76） */
+let sceneFromExport=false;
 const fl={dark:$('#flick .f-dark'),light:$('#flick .f-light')};
 let fk=0,nextDip=rnd(70,120),nextSpike=rnd(100,190);
-setInterval(()=>{
+/* 一格閃動。平常由下面的 setInterval 每 1/24 秒叫一次；
+   「一格一格算」的輸出管線在跑的時候改由輸出迴圈每畫一格叫一次
+   （輸出也是 24fps，節奏剛好對得上），這樣閃動的快慢才不會被電腦畫得慢拖著跑 */
+function flickStep(){
   fk++;const a=proj.flicker;
   let m=1+a*(0.05*Math.sin(fk*2.1)+0.03*Math.sin(fk*0.7)+rnd(-.02,.02));
   if(--nextDip<=0){m=1-0.2*a;nextDip=rnd(70,120)}
   if(--nextSpike<=0){m=1+0.15*a;nextSpike=rnd(100,190)}
   fl.dark.style.opacity=m<1?Math.min(.6,(1-m)*1.1).toFixed(3):0;
   fl.light.style.opacity=m>1?Math.min(.9,(m-1)*2.2).toFixed(3):0;
-},1000/24);
+}
+setInterval(()=>{if(frameMode)return;flickStep()},1000/24);
 /* 漏光入場 / 結尾：逐格腳本，色值取自參考影片 3（遮罩 Agent 量測），每格 33ms 硬切 */
 const LEAK_BAND='linear-gradient(90deg, rgb(75,0,2) 0%, rgb(59,1,1) 4.2%, rgb(38,0,0) 7.5%, rgb(14,0,0) 10%, #000 11.7%)';
 const INTRO=[
@@ -1456,11 +1530,13 @@ const OUTRO=[
 ];
 function playScript(node,script,done){
   node.style.display='block';let i=0;
+  /* 虛擬時鐘在跑的時候（輸出管線），格與格之間的間隔要走它——真實時間不會自己往前走 */
+  const sched=(fn,ms)=>exportTransVT?exportTransVT.after(ms,fn):setTimeout(fn,ms);
   (function step(){
     if(i>=script.length){done&&done();return}
     const [n,bg]=script[i++];
     if(bg)node.style.background=bg;else{node.style.background='transparent';node.style.display='none'}
-    if(n>0)setTimeout(step,n*1000/30);else step();
+    if(n>0)sched(step,n*1000/30);else step();
   })();
 }
 let introPlayed=false;
@@ -1481,13 +1557,18 @@ function startFade(onDone){
   }
   const blk=$('#fade .e-black'),pur=$('#fade .e-purple');
   const frames=Math.round(proj.fadeSecs*24);const purpleAt=new Set([Math.floor(frames*rnd(.2,.4)),Math.floor(frames*rnd(.55,.75)),Math.floor(frames*rnd(.8,.95))]);
-  let i=0;const iv=setInterval(()=>{
+  /* 逐格排下一格，不用 setInterval —— 虛擬時鐘沒有真的 interval 可以用 */
+  const sched=(fn,ms)=>exportTransVT?exportTransVT.after(ms,fn):setTimeout(fn,ms);
+  let i=0;
+  const step=()=>{
     i++;const k=i/frames;
     blk.style.opacity=Math.min(1,Math.pow(k,1.4)*1.05).toFixed(3);          // 逐格變暗，末端加速到全黑
     pur.style.opacity=(purpleAt.has(i)||purpleAt.has(i-1))?.55:0;
-    if(i>=frames){clearInterval(iv);blk.style.opacity=1;pur.style.opacity=0;proj.ended=true;proj.fading=false;
-      clearTimeout(sceneTimer);mediaEls.forEach(m=>m.tagName==='VIDEO'&&m.pause());onDone&&onDone()}
-  },1000/24);
+    if(i>=frames){blk.style.opacity=1;pur.style.opacity=0;proj.ended=true;proj.fading=false;
+      clearTimeout(sceneTimer);mediaEls.forEach(m=>m.tagName==='VIDEO'&&m.pause());onDone&&onDone();return}
+    sched(step,1000/24);
+  };
+  sched(step,1000/24);
 }
 function resumeFromEnd(){proj.ended=false;const lay=$('#fade .e-black');lay.style.opacity=0;lay.style.background='#000';lay.style.display='';state.index=firstIndex();renderItems();build();return playIntro()}
 $('#introStyle').onchange=e=>{
@@ -1574,6 +1655,20 @@ let exportVT=null;   /* build() 執行時如果這個有值，就用它代替真
    但 build() 每次都會把上一個 T.clear() 掉（見 build() 開頭），如果跟 exportVT 共用，
    新畫面一 build()，還沒播完的換場步驟會被一起清掉、播到一半就消失 */
 let exportTransVT=null;
+/* CSS 的 cubic-bezier(x1,y1,x2,y2) 換成 JS：給進度 0~1，回傳套上曲線之後的值。
+   「一格一格算」的輸出管線沒有真實時間可以讓 CSS 自己跑過渡動畫，需要自己算出
+   「這一格該長怎樣」的時候用它——算出來跟瀏覽器畫的是同一條曲線，預覽與輸出不會兩個樣 */
+function bez(x1,y1,x2,y2){
+  const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx;
+  const cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+  const fx=t=>((ax*t+bx)*t+cx)*t, dfx=t=>(3*ax*t+2*bx)*t+cx;
+  return x=>{
+    if(x<=0)return 0; if(x>=1)return 1;
+    let t=x;
+    for(let i=0;i<8;i++){const e=fx(t)-x;if(Math.abs(e)<1e-5)break;const d=dfx(t);if(Math.abs(d)<1e-6)break;t-=e/d}
+    return ((ay*t+by)*t+cy)*t;
+  };
+}
 /* 逐格 tick：以 hz 步進呼叫 fn（參考 Super 8 量到 17.6 次/秒 = 18 fps 步進；8mm 每格都變 = 30） */
 function tick(T,hz,fn){let last=0;T.raf(t=>{if(t-last<1000/hz-4)return;last=t;fn(t)})}
 /* 畫面抖動：單位是畫面寬高百分比（cqw / cqh），畫面尺寸改變也一樣
@@ -1769,13 +1864,21 @@ const PRESETS={
       tick(T,HZ,()=>{
         if(Math.random()<this.p.scratch*.8/HZ){
           const s=el('scratch'+(Math.random()<.5?' dark':''),dust);let x=rnd(3,97);s.style.left=x+'%';s.style.opacity=rnd(.2,.6);s.style.width=rnd(.08,.25)+'cqw';
-          const life=rnd(150,900),start=performance.now();
-          const mv=()=>{if(performance.now()-start>life){s.remove();return}x+=rnd(-.25,.25);s.style.left=x+'%';setTimeout(mv,1000/HZ)};mv();
+          /* 用 T（這一格畫面自己的時鐘）而不是真實時間——輸出管線餵進來的是虛擬時鐘，
+             用 performance.now()／setTimeout 的話刮痕會照真實時間自己跑掉、跟畫面對不上 */
+          const life=rnd(150,900),start=T.now();
+          const mv=()=>{if(T.now()-start>life){s.remove();return}x+=rnd(-.25,.25);s.style.left=x+'%';T.after(1000/HZ,mv)};mv();
         }
       });
       /* 卡頓：影片偶爾凍一下（單一素材不做任何跳黑閃格） */
       T.every(400,()=>{
-        if(Math.random()<this.p.fps*.35){const vs=mediaEls.filter(m=>m.tagName==='VIDEO');vs.forEach(v=>v.pause());T.after(rnd(60,160),()=>vs.forEach(v=>v.play().catch(()=>{})))}
+        if(Math.random()<this.p.fps*.35){
+          const vs=mediaEls.filter(m=>m.tagName==='VIDEO');
+          /* 平常預覽：真的按暫停。輸出管線：影片是被逐格 seek 推著走的，按暫停沒有意義，
+             改成掛一個記號，讓輸出迴圈這幾格先不要把它往前推——效果一樣是「凍住」 */
+          vs.forEach(v=>{v.pause();v.dataset.hold='1'});
+          T.after(rnd(60,160),()=>vs.forEach(v=>{delete v.dataset.hold;if(!frameMode)v.play().catch(()=>{})}));
+        }
       });
       this.update(p);
     },
@@ -2193,11 +2296,13 @@ function frameSlots(){
     r(b.l+w[0]*b.w/100), r(b.t+w[2]*b.h/100),
     r((w[1]-w[0])*b.w/100), r((w[3]-w[2])*b.h/100)])];
 }
-/* 在「輪播範圍」內取第 k 張（範圍是 firstIndex()..最後一張，也就是扣掉底圖那張） */
-function cycItem(k){
-  const n=state.items.length; if(!n)return null;
-  const f=firstIndex(), m=n-f;
-  return m>0 ? state.items[f+((k-f)%m+m)%m] : state.items[0];
+/* 這一幕的某一格要放第 k 張素材。超過最後一張就回 null —— 那一格留白，
+   不會回頭補第一張（Lily 指定：兩格的載體放三張時，第二幕的第二格是空的）。
+   空的格子在第二格以後只會是一片底色，不會冒出「把照片拖進來」那個提示
+   （CSS 的 .slot+.slot .placeholder{display:none} 已經擋掉） */
+function slotItem(k){
+  const n=state.items.length;
+  return (k>=0 && k<n) ? state.items[k] : null;
 }
 function maskKey(){
   const v=$('#aspect').value;
@@ -2377,19 +2482,23 @@ function build(){
   cells.forEach((c,i)=>{
     /* 圖框的第一格 = 框外面的底圖 —— 只有「底圖+窗」這種才有（cover 模式沒有，本身就滿版） */
     const bgcell=!!FM&&FM.mode!=='cover'&&i===0;
-    const root=el('slot'+(dissolving?' entering':'')+(bgcell?' bgcell':''),frame);
+    /* 這一格要放誰。圖框：第一格固定放第一張（框外面的底圖），第二格之後才是輪播的那幾張。
+       cover 模式（精裝記憶）沒有底圖格，就一格，照一般規則跑（跟目前索引一起換）。
+       其他載體照舊：從目前這張往後依序填格子。
+       素材不夠時 slotItem() 會回 null —— 那一格留白，不會回頭補第一張 */
+    const item=!n?null
+      : FM ? (FM.mode==='cover' ? state.items[state.index] : (i===0?state.items[0]:slotItem(state.index+i-1)))
+      : slotItem(state.index+i);
+    const empty=!!n&&!bgcell&&!item;
+    const root=el('slot'+(dissolving?' entering':'')+(bgcell?' bgcell':'')+(empty?' empty':''),frame);
     root.style.cssText=`left:${c[0]}%;top:${c[1]}%;width:${c[2]}%;height:${c[3]}%`;
     /* 壓暗的程度每個框自己決定（蕾絲 0 = 不壓暗，郵票 .45）。CSS 的 ::after 讀這個變數。
        一定要寫在 cssText 後面 —— cssText 是整段覆蓋，寫前面會被洗掉。
        值也一定要是字串，傳數字 WebKit 會直接忽略 */
     if(bgcell)root.style.setProperty('--sbdim',String(FM.dim ?? .45));
-    /* 圖框：第一格固定放第一張（框外面的底圖），第二格才是輪播的那張。
-       cover 模式（精裝記憶）沒有底圖格，就一格，照一般規則跑（跟目前索引一起換）。
-       其他載體照舊：從目前這張往後依序填格子 */
-    const item=!n?null
-      : FM ? (FM.mode==='cover' ? state.items[state.index] : (i===0?state.items[0]:cycItem(state.index+i-1)))
-      : state.items[(state.index+i)%n];
-    P.build(P.p,T,root,item);
+    /* 留白的格子就真的什麼都不畫 —— 連濾鏡自己的暗角、顆粒、色調層都不要疊上去，
+       不然那一格會比周圍暗一塊／多一層色，看得出一個方形（圖框類特別明顯） */
+    if(!empty)P.build(P.p,T,root,item);
     /* 紙上時光：照片窗比整個畫面小很多，濾鏡自己的暗角（橢圓形）套在這麼小的窗上
        會被放得很明顯，看起來像是紙上時光自己加了一圈陰影（不管選哪個濾鏡都一樣，
        只是暗角比較重的濾鏡——例如舊派對——特別明顯）。
@@ -2547,8 +2656,8 @@ const DEFAULT_VIDEOS=['media/default-1.mov','media/default-2.mov'];
   const fill=()=>{
     const v=$('#aspect').value;
     const size={'0.8':'1080×1350','0.5625':'1080×1920','1':'1080×1080','1.7778':'1920×1080'}[v]||'跟素材一樣';
-    const secs=state.items.reduce((a,it)=>a+(it.kind==='video'?Math.min(state.dwell*2, it.dur||state.dwell*2):state.dwell),0);
-    const rows=[['尺寸',size],['長度',secs.toFixed(1)+' 秒'],['素材',state.items.length+' 個'],['格式','MP4']];
+    /* 長度一定要跟輸出用的是同一個算法，不然多格載體會顯示成好幾倍 */
+    const rows=[['尺寸',size],['長度',totalSecs().toFixed(1)+' 秒'],['素材',state.items.length+' 個'],['格式','MP4']];
     spec.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
   };
   let prevTimer=null;
@@ -3158,14 +3267,6 @@ let drawPreview=null;
     const ar=cur()?.natAR||0.8;
     return ar>=1?[1920,Math.round(1920/ar)]:[1080,Math.round(1080/ar)];
   }
-  /* 總長度 = 每張素材依類型取停留秒數，全部加總 */
-  function totalSecs(){
-    if(!state.items.length)return 0;
-    /* 「第一張當底圖」的濾鏡，第 0 張不會單獨出現一個場景，長度要扣掉 */
-    return state.items.slice(firstIndex())
-      .reduce((s,it)=>s+(it.kind==='video'?Math.min(state.dwell*2, it.dur||state.dwell*2):state.dwell),0)
-      || state.dwell;
-  }
 
   /* 等素材真正可繪製：build() 重建的 <video>/<img> 需要時間解碼，
      太早開錄會畫不出畫面，只剩上層色偏（整片單色） */
@@ -3293,23 +3394,25 @@ let drawPreview=null;
     rec.start();tick();
   }
 
-  /* ============ 新的「一格一格算、不即時」輸出管線（試驗中） ============
-     目前只有「時間光漏」這個濾鏡走這條路（Lily 要求先從一個濾鏡開始試）。
-     跟原本 exportVideo() 最大的差別：不用 MediaRecorder＋captureStream 即時錄，
+  /* ============ 輸出影片：「一格一格算、不即時」的管線 ============
+     2026-09-23 起所有濾鏡都走這條路（在那之前只有「時間光漏」是試驗品）。
+     跟舊的 exportVideo() 最大的差別：不用 MediaRecorder＋captureStream 即時錄，
      改成自己控制一個「虛擬時鐘」（exportVT，見 makeVirtualTimers()），
      一格一格往前推、每格愛畫多久畫多久（沒有真實時間的壓力，畫完才進到下一格），
      最後用 mediabunny（透過瀏覽器內建的 WebCodecs 編碼＋封裝成 mp4）把整串畫面接成影片。
      這樣「這台電腦畫一格要花多少時間」完全不會影響輸出出來的影片順不順——
      每一格在檔案裡的時間距離永遠是算好的、真正固定的，不會忽快忽慢。
 
-     目前的簡化（先求跑得通，之後再補）：
-     - 換場動畫（漏光燒片／交叉淡入）已經接上虛擬時鐘會播（見 nextScene() 裡的 sched()），
-       但「交叉淡入」那段淡出淡入本身還是用 CSS transition 算，虛擬時鐘沒辦法讓它跟著走，
-       如果手動把換場改成「交叉淡入」，畫面會變成直接跳，不會真的淡——這個先留著當已知
-       限制，之後要修就是把那段也改成跟時間光漏的 pulse() 一樣自己逐格算。
-     - 入場／結尾漏光效果先跳過，不影響時間光漏本身逐格閃爍那個效果
-       （那個已經改成用虛擬時鐘也能算出來，見 PRESETS.leak.build() 裡的 pulse()）。 */
-  async function exportVideoLeak(){
+     要讓每一個濾鏡都走得通，畫面上「會自己動」的每一件事都得改成聽虛擬時鐘：
+       換場（漏光燒片／黑／硬切）    → nextScene() 裡的 sched()
+       交叉淡入                      → nextScene() 裡自己逐格算不透明度（七個濾鏡預設用它）
+       放映機閃動（全域那層）        → flickStep()，輸出時由這裡每格叫一次
+       結尾（漏光停格／淡到黑）      → playScript()／startFade() 裡的 sched()
+       顆粒／手震／塵點／刮痕        → 各濾鏡 build() 拿到的 T 就是虛擬時鐘
+       CSS 自己跑的動畫              → syncAnims()（顆粒 keyframes、時間光漏左緣的呼吸光）
+       影片素材                      → syncVideos()，每格精準 seek 到該在的時間點
+     入場漏光不算在輸出範圍內（舊做法也是等它播完才開始錄），所以照樣關掉。 */
+  async function exportVideoFrames(){
     const st=$('#status');
     if(busy)return;
     if(!state.items.length){st.textContent='請先加入照片或影片。';return}
@@ -3320,19 +3423,26 @@ let drawPreview=null;
        這個真實計時器如果沒攔住，會在背景自己跳出來亂呼叫 nextScene()，跟我們自己步進的
        換場搶著改 state.index／switching，畫面順序就會亂跳（第一張→第二張→又回第一張），
        跟 Lily 看到的「秀斗」完全對得上。
-       所以：先把已經排好的那個計時器取消、把 scheduleScene 換成空函式，輸出全程都不讓
-       真實時間插手，結束再還原。而且一定要在下載編碼元件（await import）之前做——
+       所以：先把已經排好的那個計時器取消、把 scheduleScene 換成空函式、打開 frameMode
+       （影片播完的 ended 事件也會呼叫 nextScene()，一併擋掉），輸出全程都不讓真實時間插手，
+       結束再還原。而且一定要在下載編碼元件（await import）之前做——
        等待下載那零點幾秒，舊計時器一樣可能跳出來。 */
     clearTimeout(sceneTimer);
     const savedScheduleScene=scheduleScene;
     scheduleScene=()=>{};
+    frameMode=true;
     /* 按下載那一刻如果剛好有一個預覽的換場動畫還在跑（它的步驟是用真實 setTimeout 排好的，
        取消不掉），等它自己跑完（最多約 1.2 秒）再開始，不要讓它跑到一半插進輸出裡 */
     for(let i=0;i<60&&switching;i++)await new Promise(r=>setTimeout(r,50));
 
     let Mediabunny;
     try{ Mediabunny=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.59.0/+esm'); }
-    catch(e){ scheduleScene=savedScheduleScene;scheduleScene(); st.textContent='載入編碼元件失敗，請檢查網路連線後再試一次。'; return }
+    catch(e){
+      /* 編碼元件是從網路上抓的。抓不到就退回舊的即時錄製做法，至少還能存得出檔案 */
+      frameMode=false;scheduleScene=savedScheduleScene;scheduleScene();
+      st.textContent='編碼元件載不下來（可能是沒有網路），改用舊的錄製方式輸出…';
+      return exportVideo();
+    }
     const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality}=Mediabunny;
 
     const FPS=24;
@@ -3344,14 +3454,22 @@ let drawPreview=null;
     proj.exporting=true;
     proj.ended=false;proj.fading=false;
     /* #trans 不能藏——燒片換場的畫面（.t-fill／.t-wipe／.t-over）就掛在它底下，
-       藏起來換場就整個看不到了。只藏入場／結尾，這兩個這次先跳過不處理 */
-    const overlays=['#intro','#fade'].map(q=>$(q));
+       藏起來換場就整個看不到了。#fade 也不能藏，結尾（漏光停格／淡到黑）畫在它上面。
+       只藏入場那層 */
+    const overlays=[$('#intro')];
     const savedDisp=overlays.map(nd=>nd.style.display);
     overlays.forEach(nd=>nd.style.display='none');
+    /* 結尾那層先歸零：畫板如果剛好停在「已經播完結尾」的狀態，殘留的橘紅色會蓋住整支影片 */
+    const fadeBlk=$('#fade .e-black'), fadePur=$('#fade .e-purple');
+    const resetFade=()=>{fadeBlk.style.opacity=0;fadeBlk.style.background='#000';fadeBlk.style.display='';fadePur.style.opacity=0};
+    resetFade();
 
     busy='video';cancelReq=false;setBusyUI('video');
     const bar=$('#expProgressBar');
-    let f=0, totalFramesGuess=Math.max(1,Math.round(totalSecs()*FPS));   /* 只用來算進度條百分比，換場會讓實際格數比這個多一點，無妨 */
+    let f=0;
+    /* 結尾的長度跟舊做法同一套算法：漏光停格 21 格（0.7 秒）、淡到黑看設定，再加 0.25 秒收尾 */
+    const endSecs=proj.autoFade?((proj.endStyle==='leak'?0.7:proj.fadeSecs)+0.25):0;
+    let totalFramesGuess=Math.max(1,Math.round((totalSecs()+endSecs)*FPS));   /* 只用來算進度條百分比，換場會讓實際格數比這個多一點，無妨 */
 
     try{
       try{await preloadBg()}catch(e){}
@@ -3366,8 +3484,10 @@ let drawPreview=null;
          以它第一次出現在畫面上的那一格當起點，往後每格推進 1/FPS 秒，播完就停在最後一格
          （或 loop 的話從頭繞）。等 seeked 事件回來才畫，最多等 1.5 秒，避免壞檔卡死整個輸出。
          舊做法是即時錄、影片自己播所以沒這問題；新做法沒做這步，影片就會整段停在第一格
-         （Lily 回報：「特效都有在跑，但素材影片本身沒在動」） */
-      const vBirth=new WeakMap();
+         （Lily 回報：「特效都有在跑，但素材影片本身沒在動」）。
+         dataset.hold 是「黑白老電影」的卡頓效果掛上來的記號：那幾格不要往前推（凍住），
+         被凍住的格數要記下來扣掉，解凍之後才會從剛剛停住的地方接著播、而不是跳過去 */
+      const vBirth=new WeakMap(), vHeld=new WeakMap();
       const seekTo=(v,t)=>new Promise(res=>{
         if(!(v.readyState>=1)||!isFinite(v.duration)){res();return}
         if(Math.abs(v.currentTime-t)<0.002){res();return}
@@ -3380,53 +3500,97 @@ let drawPreview=null;
         for(const v of vids){
           if(!v.paused)v.pause();
           if(!vBirth.has(v))vBirth.set(v,f);
-          let t=(f-vBirth.get(v))/FPS;
+          let held=vHeld.get(v)||0;
+          if(v.dataset.hold){held++;vHeld.set(v,held)}
+          let t=(f-vBirth.get(v)-held)/FPS;
           const d=v.duration;
           if(isFinite(d)&&d>0)t=v.loop?(t%d):Math.min(t,Math.max(0,d-0.001));
-          await seekTo(v,t);
+          await seekTo(v,Math.max(0,t));
+        }
+      };
+      /* 畫面裡還有一些效果是交給瀏覽器自己動的 CSS 動畫（顆粒那層的 keyframes、
+         時間光漏左緣的呼吸光、塵點紅點的漂移）。CSS 動畫照真實時間跑，這條管線沒有
+         真實時間可言（一格可能畫了半秒），放著不管的話輸出出來會比預覽快好幾倍。
+         作法：每畫一格就把畫面裡所有動畫暫停，並把播放進度直接設成虛擬時間——
+         它們就跟著我們一格一格走。第一次看到某個動畫的那一格算它的起點 */
+      const animBirth=new WeakMap();
+      const syncAnims=()=>{
+        let list;
+        try{ list=FRAME.getAnimations({subtree:true}) }catch(e){ return }
+        const vt=f*frameMs;
+        for(const a of list){
+          try{
+            if(a.playState!=='paused')a.pause();
+            if(!animBirth.has(a))animBirth.set(a,vt);
+            a.currentTime=vt-animBirth.get(a);
+          }catch(e){}
         }
       };
       const paint=async()=>{
         await awaitMedia(1500);   /* 換場中途 swap() 剛建好的新素材可能還在解碼；準備好就立刻回來，不會拖 */
         await syncVideos();
+        flickStep();              /* 全域的放映機閃動：輸出時改由這裡一格叫一次（輸出也是 24fps，節奏剛好） */
+        syncAnims();
         const k=W/FRAME.offsetWidth;
         drawFrame(ctx,W,H,k);
         videoSource.add(f/FPS,1/FPS);
         f++;
         bar.style.width=Math.min(100,f/totalFramesGuess*100).toFixed(1)+'%';
-        st.textContent=`轉存中，請不要離開此頁面 · 第 ${f} 格（試驗版，可以按取消）`;
+        st.textContent=`轉存中，請不要離開此頁面 · 第 ${f} 格（可以按取消）`;
       };
       const yieldTick=()=>new Promise(r=>setTimeout(r,0));   /* 讓畫面跟取消按鈕有機會反應，不會整個卡死 */
+      const stepClock=()=>{exportVT.step(f*frameMs);exportTransVT.step(f*frameMs)};
 
       exportVT=makeVirtualTimers();
       exportTransVT=makeVirtualTimers();
 
-      /* 場景清單：跟 totalSecs() 用同一套邏輯，算出每個素材各佔幾格 */
-      const items=state.items.slice(firstIndex());
-      state.index=state.items.indexOf(items[0]);
+      /* 場景清單：跟 totalSecs() 用同一套邏輯（sceneStarts()）。
+         一幕 = 一次把載體所有格子填滿，所以兩格的載體放兩張就只有一幕、不換場 */
+      const starts=sceneStarts();
+      state.index=starts[0];
       renderItems();build();
       await awaitMedia();
 
-      for(let s=0;s<items.length && !cancelReq;s++){
+      for(let s=0;s<starts.length && !cancelReq;s++){
         FRAME.querySelectorAll('video.media').forEach(v=>v.pause());
-        const dwellFrames=Math.max(1,Math.round((items[s].kind==='video'?Math.min(state.dwell*2,items[s].dur||state.dwell*2):state.dwell)*FPS));
+        const dwellFrames=Math.max(1,Math.round(sceneSecs(starts[s])*FPS));
         for(let i=0;i<dwellFrames && !cancelReq;i++){
-          exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
+          stepClock();
           await paint();
           await yieldTick();
         }
-        if(s<items.length-1 && !cancelReq){
+        if(s<starts.length-1 && !cancelReq){
           switching=false;   /* 保險：確保上一次沒殘留卡在 true */
-          nextScene();
+          sceneFromExport=true; nextScene(); sceneFromExport=false;   /* 只有這一瞬間允許換場，其他來源一律擋掉 */
           let guard=0;
           while(switching&&guard<FPS*6){   /* 換場最多給 6 秒的格數，安全上限，避免不明原因卡住 */
-            exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
+            stepClock();
             await paint();
             guard++;
             await yieldTick();
           }
         }
       }
+
+      /* 結尾（漏光停格／淡到黑）。舊的即時錄製做法是等輪播繞回第一張時自動觸發，
+         新管線只跑一輪、不會繞回去，所以在這裡直接叫它，一樣用虛擬時鐘逐格演完 */
+      if(proj.autoFade && !cancelReq){
+        proj.ended=false;proj.fading=false;
+        startFade();
+        const endGuard=Math.round(endSecs*FPS)+FPS*2;
+        for(let i=0;i<endGuard && !proj.ended && !cancelReq;i++){
+          stepClock();
+          await paint();
+          await yieldTick();
+        }
+        /* 最後停在結尾畫面上 0.25 秒，不然最後一格會一閃而過（跟舊做法的 endLen 對齊） */
+        for(let i=0;i<Math.round(0.25*FPS) && !cancelReq;i++){
+          stepClock();
+          await paint();
+          await yieldTick();
+        }
+      }
+
       exportVT=null;exportTransVT=null;
       if(cancelReq){
         st.textContent='已取消，沒有存檔。';
@@ -3436,18 +3600,22 @@ let drawPreview=null;
         const blob=new Blob([buffer],{type:'video/mp4'});
         const a=document.createElement('a');
         a.href=URL.createObjectURL(blob);
-        a.download=`i-saw-${state.preset}-${W}x${H}-v2.mp4`;
+        a.download=`i-saw-${state.preset}-${W}x${H}.mp4`;
         document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(a.href),60000);
-        st.textContent=`完成：${(f/FPS).toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps（試驗版）· ${(blob.size/1048576).toFixed(1)} MB`;
+        st.textContent=`完成：${(f/FPS).toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps · ${(blob.size/1048576).toFixed(1)} MB`;
       }
     }catch(e){
       st.textContent='輸出失敗：'+(e&&e.message||e);
     }finally{
       exportVT=null;exportTransVT=null;switching=false;
+      frameMode=false;sceneFromExport=false;
       scheduleScene=savedScheduleScene;   /* 還原成真的會排真實計時器的版本，回到平常預覽模式 */
       overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
       proj.exporting=false;
+      proj.ended=false;proj.fading=false;resetFade();   /* 結尾那層還原，不然畫板會留在結束畫面 */
+      /* 剛才為了跟著虛擬時鐘走，畫面裡的 CSS 動畫全被暫停了，還原成自己跑 */
+      try{ FRAME.getAnimations({subtree:true}).forEach(a=>{try{a.play()}catch(e){}}) }catch(e){}
       state.index=firstIndex();renderItems();build();
       busy=false;cancelReq=false;setBusyUI(null);
     }
@@ -3460,7 +3628,9 @@ let drawPreview=null;
     const st=$('#status');
     if(busy)return;
     if(!state.items.length){st.textContent='請先加入照片或影片。';return}
-    const [W,H]=outSize(), n=state.items.length, keep=state.index;
+    const [W,H]=outSize(), keep=state.index;
+    /* 一幕一張圖（兩格的載體放兩張只會出一張，因為那兩張本來就同時在畫面上） */
+    const starts=sceneStarts(), n=starts.length;
     const c=document.createElement('canvas');c.width=W;c.height=H;
     const ctx=c.getContext('2d',{alpha:false});
 
@@ -3485,11 +3655,11 @@ let drawPreview=null;
       /* 先把 CSS 背景圖（紙紋、顆粒貼圖）載進快取 —— fillImage 只讀快取、自己不會去載，
          沒先 preload 的話這些貼圖不會出現在圖片裡。失敗不影響其他部分，所以包起來 */
       try{await preloadBg()}catch(e){}
-      for(let i=firstIndex();i<n;i++){
+      for(let i=0;i<n;i++){
         if(cancelReq)break;
-        bar.style.width=((i-firstIndex())/(n-firstIndex())*100).toFixed(1)+'%';
-        st.textContent=`轉存中，請不要離開此頁面 · 圖片 ${i-firstIndex()+1} / ${n-firstIndex()}（可以按取消）`;
-        state.index=i;renderItems();build();
+        bar.style.width=(i/n*100).toFixed(1)+'%';
+        st.textContent=`轉存中，請不要離開此頁面 · 圖片 ${i+1} / ${n}（可以按取消）`;
+        state.index=starts[i];renderItems();build();
         clearTimeout(sceneTimer);   /* build() 會排下一次換場，輸出圖片時不要讓它自己跳 */
         hideOverlays();             /* build() 會保留這三層，重建後再關一次 */
         await awaitMedia();
@@ -3524,7 +3694,7 @@ let drawPreview=null;
       bar.style.width='100%';
       st.textContent=cancelReq
         ? `已取消，已經存了 ${done} 張。`
-        : `完成：${n-firstIndex()} 張 · ${W}×${H} · PNG`;
+        : `完成：${n} 張 · ${W}×${H} · PNG`;
     }catch(e){
       st.textContent='輸出圖片失敗：'+(e&&e.message||e);
     }finally{
@@ -3538,7 +3708,8 @@ let drawPreview=null;
   const askCancel=kind=>{cancelReq=true;$('#status').textContent='取消中…';
     $(kind==='video'?'#rec':'#recImg').disabled=true};
   /* 時間光漏先走新的「一格一格算」管線試水溫，其他濾鏡繼續用原本即時錄的做法 */
-  $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:(state.preset==='leak'?exportVideoLeak():exportVideo()));
+  /* 所有濾鏡都走「一格一格算」的新管線；編碼元件抓不到時它自己會退回舊的 exportVideo() */
+  $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:exportVideoFrames());
   $('#recImg').onclick=()=>busy==='still'?askCancel('still'):(busy?null:exportStills());
   setBusyUI(null);
 })();
