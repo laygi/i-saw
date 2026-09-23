@@ -3311,9 +3311,26 @@ let drawPreview=null;
     const st=$('#status');
     if(busy)return;
     if(!state.items.length){st.textContent='請先加入照片或影片。';return}
+
+    /* 關鍵修正（要放在任何 await 之前）：build() 結尾會自己呼叫 scheduleScene()，
+       用「真實時間」排一個 setTimeout 在 dwell 秒後自動換場——這是給平常預覽輪播用的，
+       不知道我們現在要用虛擬時鐘自己控制換場。輸出要跑好幾分鐘（真實照片畫得慢），
+       這個真實計時器如果沒攔住，會在背景自己跳出來亂呼叫 nextScene()，跟我們自己步進的
+       換場搶著改 state.index／switching，畫面順序就會亂跳（第一張→第二張→又回第一張），
+       跟 Lily 看到的「秀斗」完全對得上。
+       所以：先把已經排好的那個計時器取消、把 scheduleScene 換成空函式，輸出全程都不讓
+       真實時間插手，結束再還原。而且一定要在下載編碼元件（await import）之前做——
+       等待下載那零點幾秒，舊計時器一樣可能跳出來。 */
+    clearTimeout(sceneTimer);
+    const savedScheduleScene=scheduleScene;
+    scheduleScene=()=>{};
+    /* 按下載那一刻如果剛好有一個預覽的換場動畫還在跑（它的步驟是用真實 setTimeout 排好的，
+       取消不掉），等它自己跑完（最多約 1.2 秒）再開始，不要讓它跑到一半插進輸出裡 */
+    for(let i=0;i<60&&switching;i++)await new Promise(r=>setTimeout(r,50));
+
     let Mediabunny;
     try{ Mediabunny=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.59.0/+esm'); }
-    catch(e){ st.textContent='載入編碼元件失敗，請檢查網路連線後再試一次。'; return }
+    catch(e){ scheduleScene=savedScheduleScene;scheduleScene(); st.textContent='載入編碼元件失敗，請檢查網路連線後再試一次。'; return }
     const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality}=Mediabunny;
 
     const FPS=24;
@@ -3399,6 +3416,7 @@ let drawPreview=null;
       st.textContent='輸出失敗：'+(e&&e.message||e);
     }finally{
       exportVT=null;exportTransVT=null;switching=false;
+      scheduleScene=savedScheduleScene;   /* 還原成真的會排真實計時器的版本，回到平常預覽模式 */
       overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
       proj.exporting=false;
       state.index=firstIndex();renderItems();build();
