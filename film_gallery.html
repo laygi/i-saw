@@ -1257,13 +1257,17 @@ function clampIndex(){
 function nextScene(){
   if(switching||state.items.length<2||proj.ended)return;
   switching=true;
+  /* 「一格一格算」的新輸出管線在跑的時候，exportTransVT 會有值——
+     這裡排的每一個 setTimeout 都要改走它（虛擬時鐘），不然真實時間不會自己走，
+     這個函式就永遠播不完 */
+  const sched=(fn,ms)=>exportTransVT?exportTransVT.after(ms,fn):setTimeout(fn,ms);
   const type=proj.transStyle||PRESETS[state.preset].transition;
   if(type==='cut'){   /* 純硬切：參考影片 3 兩個切點前後 ΔL ≤0.4，什麼都不加 */
     const nx=state.items[stepIndex(state.index)];
     if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
     state.index=stepIndex(state.index);if(!markCurrent())renderItems();build();
-    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)setTimeout(()=>startFade(),300);
-    setTimeout(()=>switching=false,150);return;
+    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)sched(()=>startFade(),300);
+    sched(()=>switching=false,150);return;
   }
   if(type==='dissolve'){   /* 交叉淡入：新畫面淡入時與舊畫面重疊，沒有任何遮片或黑格 */
     const nx=state.items[stepIndex(state.index)];
@@ -1275,17 +1279,20 @@ function nextScene(){
     const ins=[...frame.querySelectorAll('.slot.entering')];
     ins.forEach(n=>{n.style.opacity='0';n.style.willChange='opacity'});
 
-    /* 等新素材可以繪製再開始淡入，否則會先淡入一片空白（最多等 600ms） */
+    /* 等新素材可以繪製再開始淡入，否則會先淡入一片空白（最多等 600ms）。
+       虛擬時鐘模式下沒有 requestAnimationFrame 可以等——反正輸出管線在這之前
+       已經自己 awaitMedia() 過，直接當作已經準備好，跳過這段輪詢 */
     const ready=()=>[...frame.querySelectorAll('.slot.entering video.media,.slot.entering img.media')]
       .every(e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0));
     const t0=performance.now();
     const start=()=>{
-      if(!ready()&&performance.now()-t0<600){requestAnimationFrame(start);return}
+      if(!exportTransVT&&!ready()&&performance.now()-t0<600){requestAnimationFrame(start);return}
       void frame.offsetWidth;                       // 強制重排，讓起始值生效
-      requestAnimationFrame(()=>{
+      const afterPaint=exportTransVT?f=>f():requestAnimationFrame;
+      afterPaint(()=>{
         ins.forEach(n=>{n.style.transition=`opacity ${ms}ms cubic-bezier(.4,0,.5,1)`;n.style.opacity='1'});
         /* 計時從「淡入真正開始」起算，不是從呼叫 nextScene 起算 */
-        setTimeout(()=>{
+        sched(()=>{
           frame.querySelectorAll('.slot.leaving').forEach(n=>n.remove());
           frame.querySelectorAll('.slot.entering').forEach(n=>{
             n.classList.remove('entering');
@@ -1309,7 +1316,7 @@ function nextScene(){
   const swap=()=>{const nx=state.items[stepIndex(state.index)];
     if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
     state.index=stepIndex(state.index);if(!markCurrent())renderItems();build();
-    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)setTimeout(()=>startFade(),300)};
+    if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)sched(()=>startFade(),300)};
   const rndi=(a,b)=>Math.floor(rnd(a,b+1));
 
   /* 逐格腳本：[格數, 動作] */
@@ -1340,8 +1347,8 @@ function nextScene(){
   push(1,()=>{over.style.display='none';over.style.opacity=0});
 
   let t=0;
-  steps.forEach(([n,fn])=>{setTimeout(fn,t);t+=n*F});
-  setTimeout(()=>switching=false,t+300);
+  steps.forEach(([n,fn])=>{sched(fn,t);t+=n*F});
+  sched(()=>switching=false,t+300);
 }
 
 /* ================= 字幕：多個、可拖曳、可調粗細大小 ================= */
@@ -1517,6 +1524,7 @@ const setVar=(k,v,node=null)=>(node||varTarget).style.setProperty('--'+k,v);
    輸出的擷取迴圈本來就刻意不用 rAF（見 exportStills 的說明），
    這裡補上同一招：exporting 開著的時候改用 setTimeout，不受切走分頁影響 */
 function timers(){const list=[];return{
+  now:()=>performance.now(),
   every:(ms,fn)=>{list.push(['i',setInterval(fn,ms)])},
   after:(ms,fn)=>{const id=setTimeout(fn,ms);list.push(['t',id]);return id},
   raf:fn=>{let on=true;
@@ -1527,8 +1535,45 @@ function timers(){const list=[];return{
   },
   clear:()=>list.forEach(([k,v])=>k==='i'?clearInterval(v):k==='t'?clearTimeout(v):v())
 }}
+/* 虛擬時鐘版的 timers()——給「一格一格算、不即時」的新輸出管線用（試驗中，目前只有
+   時間光漏在用）。介面跟 timers() 一樣（every/after/raf/clear），差別是完全不碰真的
+   setTimeout/setInterval/requestAnimationFrame，時間都是我們自己說了算：呼叫 step(target)
+   才會往前推進，推進的過程中該到期的 after/every 會依時間順序觸發，最後再把新的時刻
+   餵給所有 raf 監聽者（tick() 的節流邏輯不用改，餵進去的 t 只是換成虛擬時間而已）。
+   這樣每一格要花多久算、多久畫都沒關係——不用跟真實時間賽跑，才不會卡 */
+function makeVirtualTimers(){
+  let vt=0;
+  const rafCbs=[];             /* {fn} */
+  const pending=[];            /* {time, fn, every?:ms} */
+  return{
+    now:()=>vt,
+    every:(ms,fn)=>{pending.push({time:vt+ms,fn,every:ms})},
+    after:(ms,fn)=>{const item={time:vt+ms,fn};pending.push(item);return item},
+    raf:fn=>{rafCbs.push({fn})},
+    clear:()=>{rafCbs.length=0;pending.length=0},
+    step(target){
+      while(true){
+        let idx=-1,best=Infinity;
+        for(let i=0;i<pending.length;i++){if(pending[i].time<=target&&pending[i].time<best){best=pending[i].time;idx=i}}
+        if(idx<0)break;
+        const item=pending[idx];
+        vt=item.time;
+        if(item.every)item.time=vt+item.every;else pending.splice(idx,1);
+        item.fn();
+      }
+      vt=target;
+      rafCbs.forEach(cb=>cb.fn(vt));
+    }
+  };
+}
+let exportVT=null;   /* build() 執行時如果這個有值，就用它代替真的 timers()（見 build()） */
+/* 換場動畫（nextScene()）自己另外開一個虛擬時鐘，不能跟 exportVT 共用——
+   換場排的那些 setTimeout 是掛在「換場」這件事本身，不是掛在某一格畫面的 build()，
+   但 build() 每次都會把上一個 T.clear() 掉（見 build() 開頭），如果跟 exportVT 共用，
+   新畫面一 build()，還沒播完的換場步驟會被一起清掉、播到一半就消失 */
+let exportTransVT=null;
 /* 逐格 tick：以 hz 步進呼叫 fn（參考 Super 8 量到 17.6 次/秒 = 18 fps 步進；8mm 每格都變 = 30） */
-function tick(T,hz,fn){let last=0;T.raf(t=>{if(t-last<1000/hz-4)return;last=t;fn()})}
+function tick(T,hz,fn){let last=0;T.raf(t=>{if(t-last<1000/hz-4)return;last=t;fn(t)})}
 /* 畫面抖動：單位是畫面寬高百分比（cqw / cqh），畫面尺寸改變也一樣
    ax / ay：每格隨機位移（rnd(-1,1)×，%W / %H）；hold：位置慣性（AR 係數）；kick / kickSize：每格出現大踢動的機率與大小（%W）；rot：旋轉（度）
    量測：Super 8 每張源格 0.03–0.1% H、0.02% W、無旋轉無滑動；8mm 水平 0.25% W rms、每秒 3–5 次 0.5–1% W 踢動、垂直 <.05% H、旋轉 .03° */
@@ -1617,22 +1662,38 @@ const PRESETS={
       el('grain',root);
       const self=this;
       /* 漏光脈衝：不規則地閃一下就退，偶爾來一次大的。
-         每次的深度、垂直位置、明滅速度都重新亂數，才不會有規律感 */
+         每次的深度、垂直位置、明滅速度都重新亂數，才不會有規律感。
+         opacity 改成每格自己算（不再用 CSS transition 讓瀏覽器自己過渡）——
+         「一格一格算、不即時」的新輸出管線沒有真實時間可以讓 CSS transition 跟著跑，
+         只能自己決定「這一格該長怎樣」。ease-out／ease-in 用簡單的平方曲線近似，
+         肉眼看不出差異，換來的是預覽跟輸出永遠是同一套算法、結果保證一致 */
       const pulse=(node,scale,varName)=>{
+        let phase=null;   /* {t0,rise,hold,fall,peak} */
         const fire=()=>{
           const P=self.p, big=Math.random()<.16;
           const peak=(big?rnd(.72,1):rnd(.22,.58))*P.leak*scale;
           const rise=rnd(25,70), hold=rnd(15,80), fall=rnd(70,190);
           node.style.setProperty(varName,(P.depth*(big?rnd(34,52):rnd(15,30)))+'%');
           node.style.setProperty('--ly',rnd(-18,18)+'%');
-          node.style.transition=`opacity ${rise}ms ease-out`;
-          node.style.opacity=peak.toFixed(3);
-          T.after(rise+hold,()=>{node.style.transition=`opacity ${fall}ms ease-in`;node.style.opacity=0});
+          phase={t0:T.now(),rise,hold,fall,peak};
           /* 下一次的間隔：頻率越高間隔越短，但保留隨機性 */
           const gap=rnd(260,1500)/Math.max(.2,P.rate);
           T.after(rise+hold+fall+gap,fire);
         };
         T.after(rnd(80,700),fire);
+        /* 每格算一次目前該是多亮：dt 是離這次脈衝開始經過多久，
+           rise 段用 ease-out（起步快、後面慢，貼近原本 CSS 的 ease-out）、
+           hold 段維持在頂點、fall 段用 ease-in（起步慢、後面快）淡出到 0 */
+        tick(T,60,t=>{
+          if(!phase){node.style.opacity=0;return}
+          const dt=t-phase.t0;
+          let op=0;
+          if(dt<phase.rise){const x=Math.max(0,dt)/phase.rise;op=phase.peak*(1-(1-x)*(1-x))}
+          else if(dt<phase.rise+phase.hold){op=phase.peak}
+          else if(dt<phase.rise+phase.hold+phase.fall){const x=(dt-phase.rise-phase.hold)/phase.fall;op=phase.peak*(1-x*x)}
+          else{phase=null}
+          node.style.opacity=Math.max(0,op).toFixed(3);
+        });
       };
       pulse(made['leak'],1,'--lw');
       pulse(made['leak two'],.55,'--lw2');
@@ -2291,7 +2352,7 @@ function build(){
   frame.className='frame';frame.style.cssText='';
   clampIndex();          /* 最後一道保險：任何路徑進到 build() 索引都一定是合法的 */
   const P=PRESETS[state.preset];
-  const T=timers();
+  const T=exportVT||timers();
   P.p=state.params[state.preset];
   frame.classList.add('p-'+state.preset);
   if(frameMask())frame.classList.add('mask-frame');
@@ -3230,6 +3291,121 @@ let drawPreview=null;
     rec.start();tick();
   }
 
+  /* ============ 新的「一格一格算、不即時」輸出管線（試驗中） ============
+     目前只有「時間光漏」這個濾鏡走這條路（Lily 要求先從一個濾鏡開始試）。
+     跟原本 exportVideo() 最大的差別：不用 MediaRecorder＋captureStream 即時錄，
+     改成自己控制一個「虛擬時鐘」（exportVT，見 makeVirtualTimers()），
+     一格一格往前推、每格愛畫多久畫多久（沒有真實時間的壓力，畫完才進到下一格），
+     最後用 mediabunny（透過瀏覽器內建的 WebCodecs 編碼＋封裝成 mp4）把整串畫面接成影片。
+     這樣「這台電腦畫一格要花多少時間」完全不會影響輸出出來的影片順不順——
+     每一格在檔案裡的時間距離永遠是算好的、真正固定的，不會忽快忽慢。
+
+     目前的簡化（先求跑得通，之後再補）：
+     - 換場動畫（漏光燒片／交叉淡入）已經接上虛擬時鐘會播（見 nextScene() 裡的 sched()），
+       但「交叉淡入」那段淡出淡入本身還是用 CSS transition 算，虛擬時鐘沒辦法讓它跟著走，
+       如果手動把換場改成「交叉淡入」，畫面會變成直接跳，不會真的淡——這個先留著當已知
+       限制，之後要修就是把那段也改成跟時間光漏的 pulse() 一樣自己逐格算。
+     - 入場／結尾漏光效果先跳過，不影響時間光漏本身逐格閃爍那個效果
+       （那個已經改成用虛擬時鐘也能算出來，見 PRESETS.leak.build() 裡的 pulse()）。 */
+  async function exportVideoLeak(){
+    const st=$('#status');
+    if(busy)return;
+    if(!state.items.length){st.textContent='請先加入照片或影片。';return}
+    let Mediabunny;
+    try{ Mediabunny=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.59.0/+esm'); }
+    catch(e){ st.textContent='載入編碼元件失敗，請檢查網路連線後再試一次。'; return }
+    const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality}=Mediabunny;
+
+    const FPS=24;
+    const frameMs=1000/FPS;
+    const [W,H]=outSize();
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const ctx=c.getContext('2d',{alpha:false});
+
+    proj.exporting=true;
+    proj.ended=false;proj.fading=false;
+    /* #trans 不能藏——燒片換場的畫面（.t-fill／.t-wipe／.t-over）就掛在它底下，
+       藏起來換場就整個看不到了。只藏入場／結尾，這兩個這次先跳過不處理 */
+    const overlays=['#intro','#fade'].map(q=>$(q));
+    const savedDisp=overlays.map(nd=>nd.style.display);
+    overlays.forEach(nd=>nd.style.display='none');
+
+    busy='video';cancelReq=false;setBusyUI('video');
+    const bar=$('#expProgressBar');
+    let f=0, totalFramesGuess=Math.max(1,Math.round(totalSecs()*FPS));   /* 只用來算進度條百分比，換場會讓實際格數比這個多一點，無妨 */
+
+    try{
+      try{await preloadBg()}catch(e){}
+
+      const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
+      const videoSource=new CanvasSource(c,{codec:'avc',quality:new Quality({bitrate:12e6})});
+      output.addVideoTrack(videoSource,{frameRate:FPS});
+      await output.start();
+
+      const paint=()=>{
+        const k=W/FRAME.offsetWidth;
+        drawFrame(ctx,W,H,k);
+        videoSource.add(f/FPS,1/FPS);
+        f++;
+        bar.style.width=Math.min(100,f/totalFramesGuess*100).toFixed(1)+'%';
+        st.textContent=`轉存中，請不要離開此頁面 · 第 ${f} 格（試驗版，可以按取消）`;
+      };
+      const yieldTick=()=>new Promise(r=>setTimeout(r,0));   /* 讓畫面跟取消按鈕有機會反應，不會整個卡死 */
+
+      exportVT=makeVirtualTimers();
+      exportTransVT=makeVirtualTimers();
+
+      /* 場景清單：跟 totalSecs() 用同一套邏輯，算出每個素材各佔幾格 */
+      const items=state.items.slice(firstIndex());
+      state.index=state.items.indexOf(items[0]);
+      renderItems();build();
+      await awaitMedia();
+
+      for(let s=0;s<items.length && !cancelReq;s++){
+        FRAME.querySelectorAll('video.media').forEach(v=>v.pause());
+        const dwellFrames=Math.max(1,Math.round((items[s].kind==='video'?Math.min(state.dwell*2,items[s].dur||state.dwell*2):state.dwell)*FPS));
+        for(let i=0;i<dwellFrames && !cancelReq;i++){
+          exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
+          paint();
+          await yieldTick();
+        }
+        if(s<items.length-1 && !cancelReq){
+          switching=false;   /* 保險：確保上一次沒殘留卡在 true */
+          nextScene();
+          let guard=0;
+          while(switching&&guard<FPS*6){   /* 換場最多給 6 秒的格數，安全上限，避免不明原因卡住 */
+            exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
+            paint();
+            guard++;
+            await yieldTick();
+          }
+        }
+      }
+      exportVT=null;exportTransVT=null;
+      if(cancelReq){
+        st.textContent='已取消，沒有存檔。';
+      }else{
+        await output.finalize();
+        const buffer=output.target.buffer;
+        const blob=new Blob([buffer],{type:'video/mp4'});
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download=`i-saw-${state.preset}-${W}x${H}-v2.mp4`;
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+        st.textContent=`完成：${(f/FPS).toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps（試驗版）· ${(blob.size/1048576).toFixed(1)} MB`;
+      }
+    }catch(e){
+      st.textContent='輸出失敗：'+(e&&e.message||e);
+    }finally{
+      exportVT=null;exportTransVT=null;switching=false;
+      overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
+      proj.exporting=false;
+      state.index=firstIndex();renderItems();build();
+      busy=false;cancelReq=false;setBusyUI(null);
+    }
+  }
+
   /* 下載圖片：每個素材各出一張 PNG。
      跟影片走同一條渲染路徑（drawFrame），所以圖片 = 影片裡的那一格 = 預覽。
      作法是把畫板依序切到每一個素材、等它可繪製、畫進 canvas、存檔，最後切回原本那張。 */
@@ -3314,7 +3490,8 @@ let drawPreview=null;
 
   const askCancel=kind=>{cancelReq=true;$('#status').textContent='取消中…';
     $(kind==='video'?'#rec':'#recImg').disabled=true};
-  $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:exportVideo());
+  /* 時間光漏先走新的「一格一格算」管線試水溫，其他濾鏡繼續用原本即時錄的做法 */
+  $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:(state.preset==='leak'?exportVideoLeak():exportVideo()));
   $('#recImg').onclick=()=>busy==='still'?askCancel('still'):(busy?null:exportStills());
   setBusyUI(null);
 })();
