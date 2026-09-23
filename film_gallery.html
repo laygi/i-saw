@@ -1146,7 +1146,9 @@ function addFiles(files){
     if(!file||!(file.type.startsWith('image/')||file.type.startsWith('video/')))return;
     const it={src:URL.createObjectURL(file),kind:file.type.startsWith('video/')?'video':'image',natAR:0.8,name:file.name};
     const probe=it.kind==='video'?document.createElement('video'):new Image();
-    probe.onloadedmetadata=probe.onload=()=>{it.natAR=it.kind==='video'?probe.videoWidth/probe.videoHeight:probe.naturalWidth/probe.naturalHeight;if(cur()===it)applyAspect()};
+    probe.onloadedmetadata=probe.onload=()=>{it.natAR=it.kind==='video'?probe.videoWidth/probe.videoHeight:probe.naturalWidth/probe.naturalHeight;
+      if(it.kind==='video'&&isFinite(probe.duration))it.dur=probe.duration;   /* 影片長度：算輸出總長、每個場景幾格都要用 */
+      if(cur()===it)applyAspect()};
     probe.src=it.src;
     state.items.push(it);
   });
@@ -3359,7 +3361,34 @@ let drawPreview=null;
       output.addVideoTrack(videoSource,{frameRate:FPS});
       await output.start();
 
-      const paint=()=>{
+      /* 影片素材：新管線是自己控制時間、一格一格畫，影片不會自己播（早就被暫停），
+         所以每畫一格之前，要把每一個影片素材精準跳到「這一格該在的時間點」再畫——
+         以它第一次出現在畫面上的那一格當起點，往後每格推進 1/FPS 秒，播完就停在最後一格
+         （或 loop 的話從頭繞）。等 seeked 事件回來才畫，最多等 1.5 秒，避免壞檔卡死整個輸出。
+         舊做法是即時錄、影片自己播所以沒這問題；新做法沒做這步，影片就會整段停在第一格
+         （Lily 回報：「特效都有在跑，但素材影片本身沒在動」） */
+      const vBirth=new WeakMap();
+      const seekTo=(v,t)=>new Promise(res=>{
+        if(!(v.readyState>=1)||!isFinite(v.duration)){res();return}
+        if(Math.abs(v.currentTime-t)<0.002){res();return}
+        let done=false;const fin=()=>{if(done)return;done=true;v.removeEventListener('seeked',fin);res()};
+        v.addEventListener('seeked',fin);setTimeout(fin,1500);
+        try{v.currentTime=t}catch(e){fin()}
+      });
+      const syncVideos=async()=>{
+        const vids=[...FRAME.querySelectorAll('video.media')];
+        for(const v of vids){
+          if(!v.paused)v.pause();
+          if(!vBirth.has(v))vBirth.set(v,f);
+          let t=(f-vBirth.get(v))/FPS;
+          const d=v.duration;
+          if(isFinite(d)&&d>0)t=v.loop?(t%d):Math.min(t,Math.max(0,d-0.001));
+          await seekTo(v,t);
+        }
+      };
+      const paint=async()=>{
+        await awaitMedia(1500);   /* 換場中途 swap() 剛建好的新素材可能還在解碼；準備好就立刻回來，不會拖 */
+        await syncVideos();
         const k=W/FRAME.offsetWidth;
         drawFrame(ctx,W,H,k);
         videoSource.add(f/FPS,1/FPS);
@@ -3383,7 +3412,7 @@ let drawPreview=null;
         const dwellFrames=Math.max(1,Math.round((items[s].kind==='video'?Math.min(state.dwell*2,items[s].dur||state.dwell*2):state.dwell)*FPS));
         for(let i=0;i<dwellFrames && !cancelReq;i++){
           exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
-          paint();
+          await paint();
           await yieldTick();
         }
         if(s<items.length-1 && !cancelReq){
@@ -3392,7 +3421,7 @@ let drawPreview=null;
           let guard=0;
           while(switching&&guard<FPS*6){   /* 換場最多給 6 秒的格數，安全上限，避免不明原因卡住 */
             exportVT.step(f*frameMs);exportTransVT.step(f*frameMs);
-            paint();
+            await paint();
             guard++;
             await yieldTick();
           }
