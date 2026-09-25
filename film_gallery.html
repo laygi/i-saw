@@ -403,6 +403,61 @@
   .p-party .vig{background:radial-gradient(ellipse at 50% 48%,transparent 44%,rgba(28,20,26,.42) 80%,rgba(10,6,10,.82) 100%);
     opacity:var(--vig,.4)}
 
+  /* ============ 預設 14：那晚的紅（量測自 Lily 給的參考照片 IMG_0347.jpg，2026-09-25）============
+     照片 1206×1043，上緣 207px 是沒曝到光的黑邊（掃描的底片邊，不做進濾鏡）。
+     底色（只量完全沒漏光的上三分之一）：
+       · 暗部 (1,11,10)：紅被壓到 0、綠青抬起約 11 —— 夜景的黑不是純黑，是偏青綠的黑
+       · 亮部最亮 0.5% 只到 (213,229,200)：到不了純白，而且偏綠
+       · 顆粒很細：相鄰像素差 rms 只有 1~2，熱核的綠藍通道才到 9~13
+     漏光：
+       · 覆蓋下方約 60%，上緣在畫面高度 40%（右側）到 52%（左緣）之間，右邊比左邊高
+       · 是一條「熱度梯度」不是一層紅：薄的地方只有紅被抬起 (120,0,0)→(254,60,0)、綠藍還是 0；
+         濃一點才開始抬綠 (254,140,0)；最熱的核心連藍都抬起來 (254,205,165) 接近暖白
+         —— 這正是「加色光」（screen）的行為，所以三層漏光全部用 screen 疊
+       · 熱核在下緣偏左（x≈36~45%、y≈75~95%），右側一路到底都是純紅 (250,0,0)
+     三層漏光都不用 blur：漸層本身就是連續的，不規則感靠三層錯開疊出來。
+     （blur 一層要幾十毫秒，輸出會明顯變慢，見 CHANGELOG 73） */
+  .p-night .media{filter:saturate(1.15) contrast(1.28) brightness(var(--exp,1))}
+  /* 暗部青綠：screen 只抬暗部、亮部幾乎不動。opacity .65 × rgb(3,17,14) ≈ 量到的 (1,11,10) */
+  .p-night .teal{mix-blend-mode:screen;background:rgb(3,17,14);opacity:var(--teal,.65)}
+  /* 亮部天花板：multiply 的絕對變化隨亮度遞增，只削亮部不弄髒暗部（跟金色那天同一招）。
+     .9 × rgb(212,230,200) → 白色變成 (216,232,205)，命中量測的 (213,229,200) */
+  .p-night .ceil{mix-blend-mode:multiply;opacity:var(--ceil,.9);
+    background:linear-gradient(174deg,rgb(212,230,200) 0%,rgb(205,224,196) 100%)}
+  /* 漏光 1／3：從下緣整片升起的紅 —— 只有深端 --nb 一個顏色，不摻橘。
+     量測：右側 (x>72%) 從 61% 高度的 (164,0,0) 一路到底 (254,0,0)，綠藍全程是 0，
+     橘跟白只出現在熱核附近，所以橘留給第 2 層。
+     角度 353deg 讓右邊比左邊高一點（量測：右 40%、左 52%）。
+     --rise 是「漏光高度」，--rsj／--lxj／--lang 是每張素材各自的小亂數（見 build()） */
+  .p-night .wash{mix-blend-mode:screen;opacity:calc(var(--leak,.95)*var(--bre,1));
+    background:linear-gradient(var(--lang,353deg),
+      var(--nb,#fa0800) 0%,
+      var(--nb,#fa0800) calc((var(--rise,.6) + var(--rsj,0))*67%),
+      transparent        calc((var(--rise,.6) + var(--rsj,0))*113%))}
+  /* 漏光 2／3：熱核。中心是暖白（燒穿了，量到 (254,205,165)），往外變成熱端的橘 (254,140,0)，
+     再淡出讓底下那層紅接手。範圍只佔畫面寬的一半，位置由 --lx 決定（量測熱核在 x≈36~54%） */
+  .p-night .core{mix-blend-mode:screen;opacity:calc(var(--heat,.85)*var(--bre,1));
+    background:
+      radial-gradient(48% 66% at calc((var(--lx,.45) + var(--lxj,0))*100%) 104%,
+        rgb(255,232,205) 0%,rgb(255,214,170) 18%,var(--na,#ff9a2e) 42%,rgba(255,90,0,.5) 70%,transparent 100%),
+      radial-gradient(44% 32% at 6% 102%,var(--na,#ff9a2e) 0%,rgba(255,120,0,.6) 45%,transparent 100%)}
+  /* 漏光 3／3：右下角多溢一團深紅，讓右側一路到底都是純紅、形狀也不對稱 */
+  .p-night .spill{mix-blend-mode:screen;opacity:calc(var(--leak,.95)*.7*var(--bre,1));
+    background:radial-gradient(80% 58% at 90% 98%,var(--nb,#fa0800) 0%,var(--nb,#fa0800) 30%,transparent 100%)}
+  .p-night .vig{background:radial-gradient(ellipse at 50% 46%,transparent 46%,rgba(0,8,6,.45) 82%,rgba(0,4,3,.85) 100%);
+    opacity:var(--vig,.4)}
+
+  /* ============ 預設 15：貓眼（量測自 Lily 給的參考截圖 IMG_0333.PNG，2026-09-25）============
+     截圖 2622×1206。圓心在正中（x 50.3%），圓的直徑 = 短邊的 133%（上下被畫框切掉）。
+     圓的邊緣：r/R 0.80→1.00 亮度 120→50→9；圓外還有一圈很暗的暖色暈到 r/R≈1.4 才全黑（鏡筒）。
+     圓內：暗部 (33,30,30) 抬起、亮部最亮只到 (195,202,185)、中間調 (113,91,60) 偏暖棕、飽和 0.4；
+     極糊：相鄰像素差 rms 只有 0.8（一般清楚的照片 8～15）；色散很小（紅藍邊緣差 2px／半徑 802px）。
+     「往外弓」的變形跟圓框在 WebGL 裡做（見 FISH），顏色在這裡做——
+     但不能用 contrast()，它會把圓外的黑抬成灰，所以對比也放進 FISH 裡算 */
+  .frame canvas.fish,.thumb canvas.fish{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .p-peep .fishsrc{display:none}
+  .p-peep .fish{filter:sepia(var(--warm,.55)) saturate(1.05) brightness(1.02) blur(calc(var(--soft,.9)*.9cqw))}
+
   /* ============ 「無」：照片影片原本的樣子，只留基礎微調 ============
      不套任何色調濾鏡，純粹是曝光／飽和／對比／顆粒／暗角這幾個最基本的調整，
      預設值全部是「沒有效果」（曝光1、飽和1、對比1、顆粒0、暗角0），
@@ -738,6 +793,45 @@
   .param .num{order:3;flex:0 0 40px;min-width:0}
   .num{font:12px/1 var(--num);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
     letter-spacing:0;color:var(--ink);text-align:right;min-width:48px}
+  /* 「這一張」的秒數：沒單獨調過（照片跟著全域、影片用自己的長度）時壓淡，
+     調過就是正常的墨色 —— 一眼看得出這個數字是自動來的還是她自己設的 */
+  .num.auto{color:var(--muted)}
+
+  /* ============ 裁切／秒數對話框 ============
+     點縮圖右下角的秒數標籤打開。影片是「選哪一段」（像相簿的影片剪輯），照片是「停幾秒」。
+     外框沿用輸出面板同一套（.expanel），只換裡面的內容 */
+  .trimpanel{width:min(560px,94vw)}
+  .trimprev{background:#000;display:flex;justify-content:center;align-items:center;
+    height:220px;margin:0 0 12px}
+  .trimprev canvas,.trimprev video{display:block;max-width:100%;max-height:220px}
+  /* 膠卷：底圖是從影片抓出來的一排畫面，上面疊一個可以拖的選取範圍 */
+  .trimstrip{position:relative;height:54px;margin:0 0 10px;background:var(--paper-2);
+    border:1px solid var(--hair);overflow:hidden;touch-action:none;user-select:none}
+  .trimstrip canvas{display:block;width:100%;height:100%}
+  .trimstrip .shade{position:absolute;top:0;bottom:0;background:rgba(20,8,10,.62);pointer-events:none}
+  .trimsel{position:absolute;top:0;bottom:0;border:2px solid var(--red);cursor:grab}
+  .trimsel:active{cursor:grabbing}
+  .trimh{position:absolute;top:-2px;bottom:-2px;width:14px;background:var(--red);cursor:ew-resize;
+    display:flex;align-items:center;justify-content:center}
+  .trimh::after{content:"";width:2px;height:16px;background:var(--paper)}
+  .trimh.l{left:0}
+  .trimh.r{right:0}
+  .trimplay{position:absolute;top:0;bottom:0;width:2px;background:var(--paper);
+    box-shadow:0 0 4px rgba(0,0,0,.8);pointer-events:none;display:none}
+  .trimnums{display:flex;justify-content:space-between;align-items:baseline;
+    font:11px/1.6 var(--mono);color:var(--muted);margin:0 0 14px}
+  .trimnums b{font:14px/1.4 var(--num);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:400}
+  /* 照片：沒有時間軸，只要選幾秒 */
+  .trimquick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+  /* 全域的 button{display:block;width:100%;height:36px} 會把這些壓成一顆一列，
+     所以這裡要把寬高明確搶回來 */
+  .trimquick button{flex:0 0 auto;width:auto;height:auto;display:inline-block;
+    padding:7px 12px;background:transparent;border:1px solid var(--hair);
+    font:11px/1 var(--mono);color:var(--muted);cursor:pointer;
+    transition:border-color .12s,color .12s,background-color .12s}
+  .trimquick button:hover{border-color:var(--rule);color:var(--ink)}
+  .trimquick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+  @media (max-width:640px){.trimprev{height:150px}.trimprev canvas{max-height:150px}}
   input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;margin:0 0 -1px;padding:0;background:transparent;outline:none}
   input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;margin-top:-4.5px;border:0;border-radius:50%;background:var(--red)}
@@ -854,9 +948,23 @@
   .item:hover{border-color:var(--muted)}
   .item.on{border-color:var(--ink)}
   .item img,.item video{width:100%;height:100%;object-fit:cover;display:block}
-  .item .x{position:absolute;top:0;right:0;width:16px;height:16px;text-align:center;background:var(--paper);color:var(--ink);font:11px/16px var(--mono);opacity:0;transition:opacity .12s}
+  .item .x{position:absolute;top:0;right:0;width:16px;height:16px;text-align:center;background:var(--paper);color:var(--ink);font:11px/16px var(--mono);opacity:0;transition:opacity .12s;z-index:2}
   .item:hover .x{opacity:1}
   .item .vid{position:absolute;left:3px;bottom:1px;font:9px/1.4 var(--mono);color:#fff;text-shadow:0 0 3px #000}
+  /* 每個素材停多久：直接標在縮圖右下角。手動調過的會反白，一眼看得出哪幾個被動過。
+     滑鼠移到縮圖上時，這個標籤會變成「編輯」——點它打開裁切／秒數對話框；
+     點縮圖其他地方還是原本的「切到這個素材預覽」，兩件事分開不打架。
+     z-index 2 壓在刪除鈕同層，確保 hover 時點得到 */
+  .item .sec{position:absolute;right:2px;bottom:1px;z-index:2;padding:0 2px;font:9px/1.4 var(--mono);
+    color:#fff;text-shadow:0 0 3px #000;letter-spacing:-.02em;cursor:pointer;
+    transition:background-color .12s,color .12s,padding .12s}
+  .item .sec i{font-style:normal}                     /* <i> 預設是斜體，秒數要正體 */
+  .item .sec b{display:none;font-weight:400;letter-spacing:.06em}
+  .item:hover .sec{background:var(--paper);color:var(--ink);text-shadow:none;padding:2px 4px;font-size:10px}
+  .item:hover .sec i{display:none}
+  .item:hover .sec b{display:inline}
+  .item .sec.own{background:var(--red);color:var(--paper);text-shadow:none}
+  .item:hover .sec.own{background:var(--ink);color:var(--paper)}
 
   /* 狀態、備註、頁尾 */
   .status{display:flex;align-items:center;min-height:36px;font:11px/1.5 var(--mono);color:var(--ink);border-bottom:var(--bw) solid var(--hair)}
@@ -996,6 +1104,23 @@
 <div class="ironhint" aria-hidden="true">輸出影片<span>EXPORT</span></div>
 
 <div class="expbackdrop" id="expBackdrop"></div>
+<div class="expbackdrop" id="trimBackdrop"></div>
+<div class="expanel trimpanel" id="trimpanel" role="dialog" aria-label="調整長度">
+  <h3 id="trimTitle">長度</h3>
+  <div class="trimprev" id="trimPrevBox"><canvas id="trimPrev"></canvas></div>
+  <div class="trimstrip" id="trimStrip">
+    <canvas id="trimFilm"></canvas>
+    <div class="shade" id="trimShadeL"></div>
+    <div class="shade" id="trimShadeR"></div>
+    <div class="trimsel" id="trimSel"><div class="trimh l" data-h="l"></div><div class="trimh r" data-h="r"></div></div>
+    <div class="trimplay" id="trimPlay"></div>
+  </div>
+  <div id="trimPhoto"><div class="trimquick" id="trimQuick"></div>
+    <input type="range" id="trimSecs" min=".5" max="30" step=".5" value="4"></div>
+  <div class="trimnums"><span id="trimFrom"></span><span><b id="trimLen"></b> 秒</span></div>
+  <button class="btn btn-primary" id="trimDone">完成</button>
+  <button class="btn btn-text" id="trimReset">改回預設長度</button>
+</div>
 <div class="expanel" id="expanel" role="dialog" aria-label="輸出">
   <h3>輸出</h3>
   <div class="expbody">
@@ -1110,7 +1235,7 @@
 
     <section class="cell">
       <h2>放映 <span>projector</span></h2>
-      <div class="rowline param"><div class="top"><label class="k" for="dwell">素材停留</label><span class="num" id="vDwell">4 秒</span></div><input type="range" id="dwell" min=".5" max="12" step=".5" value="4"></div>
+      <div class="rowline param"><div class="top"><label class="k" for="dwell">照片停留</label><span class="num" id="vDwell">4 秒</span></div><input type="range" id="dwell" min=".5" max="12" step=".5" value="4"></div>
       <div class="rowline param"><div class="top"><label class="k" for="flicker">閃動</label><span class="num" id="vFlicker">0.2</span></div><input type="range" id="flicker" min="0" max="2" step=".1" value="0.2"></div>
             <div class="rowline"><label class="k" for="introStyle">入場</label><div class="v">
         <select id="introStyle"><option value="">直接開始</option><option value="leak" selected>漏光入場</option></select></div></div>
@@ -1120,6 +1245,7 @@
           <option value="dissolve">交叉淡入</option>
           <option value="burn">漏光燒片</option>
           <option value="black">跳黑一格</option>
+          <option value="shutter">快門眨一下</option>
           <option value="cut">直接硬切</option>
         </select></div></div>
       <div class="rowline"><label class="k" for="endStyle">結尾</label><div class="v">
@@ -1138,6 +1264,7 @@
 <script>
 /* ================= 狀態 ================= */
 const $=s=>document.querySelector(s);
+let openTrim=()=>{};   /* 裁切對話框；真正的實作在下面的 IIFE，這裡先佔位 */
 const frame=$('#frame'), stage=$('#stage'), paramsBox=$('#params'), presetsBox=$('#presets'), itemsBox=$('#items'), trans=$('#trans');
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const state={items:[],index:0,dwell:4,preset:'leak',params:{},captions:[{text:'',color:'#e0a23a',weight:700,size:4,x:50,y:90}]};
@@ -1152,6 +1279,8 @@ function addFiles(files){
     const probe=it.kind==='video'?document.createElement('video'):new Image();
     probe.onloadedmetadata=probe.onload=()=>{it.natAR=it.kind==='video'?probe.videoWidth/probe.videoHeight:probe.naturalWidth/probe.naturalHeight;
       if(it.kind==='video'&&isFinite(probe.duration))it.dur=probe.duration;   /* 影片長度：算輸出總長、每個場景幾格都要用 */
+      /* 長度是非同步量到的；量到之後縮圖上的秒數才會是正確的值 */
+      renderItems();scheduleScene();
       if(cur()===it)applyAspect()};
     probe.src=it.src;
     state.items.push(it);
@@ -1191,6 +1320,17 @@ function renderItems(){
     const d=document.createElement('div');d.className='item'+(i===state.index?' on':'')+(dim?' dim':'');d.title=it.name||'';
     const m=it.kind==='video'?document.createElement('video'):new Image();m.src=it.src;m.muted=true;d.appendChild(m);
     if(it.kind==='video'){const v=document.createElement('span');v.className='vid';v.textContent='▶';d.appendChild(v)}
+    const sec=document.createElement('span');
+    sec.className='sec'+(itemCustom(i)?' own':'');
+    const sv=itemSecs(i);
+    /* 平常顯示秒數，滑鼠移到縮圖上就換成「編輯」（切換純靠 CSS，不用重畫） */
+    const num=document.createElement('i');
+    num.textContent=(sv>=10?Math.round(sv):sv.toFixed(1).replace(/\.0$/,''))+'s';
+    const lab=document.createElement('b');lab.textContent='編輯';
+    sec.append(num,lab);
+    sec.title=it.kind==='video'?'剪這支影片':'設定這張停幾秒';
+    sec.onclick=e=>{e.stopPropagation();openTrim(i)};
+    d.appendChild(sec);
     const x=document.createElement('span');x.className='x';x.textContent='×';x.onclick=e=>{e.stopPropagation();removeItem(i)};d.appendChild(x);
     d.onclick=()=>{state.index=i;if(!markCurrent())renderItems();build()};
     list.appendChild(d);
@@ -1205,18 +1345,40 @@ function renderItems(){
   wrap.appendChild(add);list.appendChild(wrap);
   if(keepScroll)list.scrollLeft=keepScroll;
 }
+/* 把裁切（dataset.t0／t1）套到一個 <video> 上。
+   預覽用：載好先跳到起點，播到終點就繞回起點（只有一幕）或停住。
+   原生的 loop 只會回到第 0 秒，所以有裁切的時候要關掉它自己來。
+   輸出不走這裡——輸出是逐格 seek，看的是同一組 dataset（見 syncVideos()）。
+   複製出來的影片（發光層、反射層、星星對切的下半）也要叫一次，
+   不然它們會從頭播、跟上面那支對不起來 */
+function bindTrim(el){
+  if(el.tagName!=='VIDEO')return el;
+  const t0=+el.dataset.t0||0, t1=+el.dataset.t1||0, wrap=el.dataset.wrap==='1';
+  el.loop=wrap&&!(t0>0||t1>0);
+  if(!(t0>0||t1>0))return el;
+  const seek=()=>{try{el.currentTime=t0}catch(e){}};
+  el.readyState>=1?seek():el.addEventListener('loadeddata',seek,{once:true});
+  el.addEventListener('timeupdate',()=>{
+    const end=t1>0?t1:(el.duration||0);
+    if(end>0&&el.currentTime>=end-.03){ wrap?seek():el.pause() }
+  });
+  return el;
+}
 function makeMedia(it,cls=''){
   if(!it){const d=document.createElement('div');d.className='placeholder';d.innerHTML='把照片或影片拖進來<br>或點一下選擇檔案<small>可以一次放多個，會自動輪播<br>也可以直接 ⌘V 貼上照片</small>';d.onclick=()=>$('#file').click();return d}
   let el;
   if(it.kind==='video'){
     el=document.createElement('video');el.muted=true;el.playsInline=true;el.autoplay=true;el.src=it.src;
     /* 只有一幕的時候讓影片自己循環（不然看一次就定住了）。
-       兩幕以上不循環：播完停在最後一格，等這一幕的「素材停留」時間到才換。
+       兩幕以上不循環：播完停在最後一格，等這一幕該停的時間到才換。
        以前這裡還會掛一個 ended → nextScene（播完就換），現在拿掉了——
-       一幕停多久只由「素材停留」決定（見 sceneSecs()）。
+       一幕停多久只由每個素材自己的長度決定（見 sceneSecs()）。
        那個 ended 事件還會造成預覽跟輸出不一樣：影片放在第二、三格時，
        它一播完就把整幕切掉（實測停留設 12 秒、8.53 秒就換場），輸出卻是照 12 秒走 */
-    el.loop=sceneCount()<2;
+    el.dataset.wrap=sceneCount()<2?'1':'0';
+    if(it.t0>0)el.dataset.t0=it.t0;
+    if(it.t1>0)el.dataset.t1=it.t1;
+    bindTrim(el);
     el.play().catch(()=>{});
   }else{el=new Image();el.src=it.src}
   el.className='media '+cls;mediaEls.push(el);return el;
@@ -1225,7 +1387,7 @@ function applyAspect(){const v=$('#aspect').value;document.documentElement.style
 $('#aspect').onchange=()=>{applyAspect();build()};
 $('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 $('#clear').onclick=()=>{state.items.forEach(i=>URL.revokeObjectURL(i.src));state.items=[];state.index=0;renderItems();build()};
-$('#dwell').oninput=e=>{state.dwell=+e.target.value;$('#vDwell').textContent=e.target.value+' 秒';scheduleScene()};
+$('#dwell').oninput=e=>{state.dwell=+e.target.value;$('#vDwell').textContent=e.target.value+' 秒';renderItems();scheduleScene()};
 ['dragenter','dragover'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.add('dragover')}));
 ['dragleave','drop'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.remove('dragover')}));
 frame.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
@@ -1278,7 +1440,33 @@ function sceneCount(){return state.items.length?sceneStarts().length:0}
      壞處是滑桿上的數字跟實際對不起來，多格載體還會因為「只看第一格」而前後不一致。）
    影片比停留長 → 播到時間到就切；比停留短 → 停在最後一格，剩下的時間定住。
    scheduleScene()、輸出影片、輸出銀盒顯示的長度全部問這一個，不要各自算一份 */
-function sceneSecs(i){ return state.dwell }
+/* 一個素材停多久。
+   it.secs 有值 = 她在「這一張」那支滑桿上單獨調過，以它為準；
+   沒調過的話，照片用全域的「照片停留」、影片用它自己的長度——
+   這就是 2026-09-25 那個矛盾的解法：照片沒有自己的時間軸才需要人幫它決定，
+   影片自己就宣告了長度，不該被一個全域數字蓋掉 */
+function itemSecs(i){
+  const it=state.items[i]; if(!it)return state.dwell;
+  if(it.kind==='video'){
+    /* 影片：t0/t1 是裁切出來的那一段（相簿式的剪輯）。沒裁過就是整支 */
+    if(it.t1>0)return Math.max(.2,it.t1-(it.t0||0));
+    return it.dur>0?it.dur:state.dwell;
+  }
+  return it.secs>0?it.secs:state.dwell;
+}
+/* 這個素材有沒有被單獨動過（縮圖上的秒數要不要反白、對話框要不要給「改回預設」） */
+function itemCustom(i){
+  const it=state.items[i]; if(!it)return false;
+  return it.kind==='video' ? (it.t1>0||it.t0>0) : it.secs>0;
+}
+/* 一幕停多久 = 這一幕所有格子裡最長的那個。
+   多格載體一幕會同時放好幾個素材，照片配影片的話要等最長的那個演完 */
+function sceneSecs(i){
+  const k=cellCount(), n=state.items.length;
+  let best=0;
+  for(let j=i;j<Math.min(i+k,n);j++)best=Math.max(best,itemSecs(j));
+  return best||state.dwell;
+}
 /* 總長度 = 每一幕的停留時間加總（不是每張素材加總——
    兩格的載體一幕就吃掉兩張，見 sceneStarts()） */
 function totalSecs(){
@@ -1369,6 +1557,17 @@ function nextScene(){
       });
     };
     start();
+    return;
+  }
+  if(type==='shutter'){   /* 快門：黑 3 格（1/10 秒）就回來，中間那一格換照片——像按下快門眨了一下。
+                             沒有斜角遮片、沒有過曝回穩，就只是黑一下（貓眼濾鏡預設用它） */
+    const nx=state.items[stepIndex(state.index)];
+    if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
+    const fill=trans.querySelector('.t-fill'), F=1000/30;
+    fill.style.filter='';fill.style.background='#000';fill.style.display='block';
+    sched(()=>{state.index=stepIndex(state.index);if(!markCurrent())renderItems();build();
+      if(state.index===firstIndex()&&proj.autoFade&&proj.exporting)sched(()=>startFade(),300)},F);
+    sched(()=>{fill.style.display='none';switching=false},3*F);
     return;
   }
   const fill=trans.querySelector('.t-fill'), wipe=trans.querySelector('.t-wipe');
@@ -1699,7 +1898,7 @@ function bloomLayer(parent,src,cls){
   const copy=src.cloneNode(false);
   copy.className=src.className;
   if(copy.tagName==='VIDEO'){copy.loop=true;copy.muted=true;copy.playsInline=true;copy.autoplay=true;
-    copy.play().catch(()=>{});mediaEls.push(copy)}
+    bindTrim(copy);copy.play().catch(()=>{});mediaEls.push(copy)}
   box.appendChild(copy);
   return box;
 }
@@ -1742,6 +1941,87 @@ function dustLayer(parent,T,{rate=2,red=0,dark=0,scratches=.3,hz=18}={}){
   });
   return box;
 }
+
+/* ================= 貓眼：WebGL 魚眼變形（整頁共用一個） =================
+   CSS 沒有「把畫面弓起來」這種東西，所以貓眼濾鏡另外開一條路：把照片／影片當貼圖，
+   用一小段 GPU 程式算出「輸出的每個像素該去來源的哪個位置取色」（越靠邊取得越遠＝往外弓），
+   畫到一塊畫布上，再把那塊畫布當素材放進格子裡。顏色的事（暖色、柔焦、顆粒）照舊交給 CSS。
+   整頁只開一個 WebGL 環境共用（瀏覽器對數量有上限，每一格各開一個、每次換場再開，很快就爆），
+   每一格自己有一塊 2D 畫布，算完從共用那塊複製過去。 */
+const FISH=(()=>{
+  let cv=null,gl=null,prog=null,U={};const texes=new WeakMap();
+  const VS='attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
+  const FS=`precision mediump float;varying vec2 v;uniform sampler2D t;
+uniform vec2 asp,cover;uniform float R,K,CA,edge,haze,zoom,con;uniform vec3 hazeCol;
+/* 輸出座標 → 來源貼圖座標。單位：輸出短邊的一半 = 1，圓半徑 R 也用這個單位 */
+vec2 mapUV(vec2 uv,float k){
+  vec2 p=(uv-.5)*2.*asp; float r=length(p)/R;
+  float rs=r*(1.+k*r*r)/(1.+k);            /* 圓的邊緣對齊、中心放大 → 直線往外弓 */
+  vec2 q=r>0.0001?p/r*(rs*R):p;
+  vec2 uvq=q/(2.*asp)+.5;
+  return .5+(uvq-.5)*cover/zoom;           /* cover：來源比輸出寬或高的部分裁掉；zoom：放大 */
+}
+void main(){
+  vec2 p=(v-.5)*2.*asp; float r=length(p)/R;
+  vec3 col=vec3(texture2D(t,mapUV(v,K*(1.+CA))).r,texture2D(t,mapUV(v,K)).g,texture2D(t,mapUV(v,K*(1.-CA))).b);
+  col=(col-.5)*con+.5;                       /* 對比在這裡做：CSS 的 contrast() 會把圓外的黑抬成灰 */
+  col=mix(col,hazeCol,haze*(1.-col));        /* 霧：越暗抬越多，只在圓內 */
+  float m=smoothstep(1.+edge*.2,1.-edge,r)*(.72+.28*smoothstep(1.,.55,r));   /* 圓的邊緣：量測 r 0.8→1.0 亮度 120→50→9 */
+  vec3 halo=vec3(1.,.75,.6)*.035*smoothstep(1.5,1.,r)*step(1.,r);           /* 圓外一圈很暗的暖色：鏡筒 */
+  gl_FragColor=vec4(clamp(col,0.,1.)*m+halo,1.);
+}`;
+  function init(){
+    if(gl)return true; if(gl===false)return false;
+    cv=document.createElement('canvas');
+    gl=cv.getContext('webgl',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false})||false;
+    if(!gl)return false;
+    try{
+      const sh=(ty,src)=>{const s=gl.createShader(ty);gl.shaderSource(s,src);gl.compileShader(s);
+        if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s};
+      prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
+      gl.linkProgram(prog);gl.useProgram(prog);
+      const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+      ['t','asp','cover','R','K','CA','edge','haze','zoom','con','hazeCol'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    }catch(e){console.warn('貓眼：WebGL 初始化失敗',e);gl=false;return false}
+    return true;
+  }
+  const ready=e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0);
+  function texFor(src){
+    let t=texes.get(src);
+    if(!t){t={tex:gl.createTexture(),up:false};texes.set(src,t);
+      gl.bindTexture(gl.TEXTURE_2D,t.tex);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR)}
+    else gl.bindTexture(gl.TEXTURE_2D,t.tex);
+    /* 影片每次都要重新上傳（畫面在動）；照片上傳一次就好 */
+    if(src.tagName==='VIDEO'||!t.up){try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);t.up=true}catch(e){}}
+  }
+  /* st = {src, out}：src 是藏起來的真正素材，out 是這一格顯示用的 2D 畫布 */
+  function render(st,p){
+    const {src,out}=st;
+    if(!ready(src)||!init())return false;
+    const box=out.parentElement?out.parentElement.getBoundingClientRect():null;
+    const ar=(box&&box.width>0&&box.height>0)?box.width/box.height:0.8;   /* 還沒排版（縮圖）就當 4:5 */
+    const W=ar>=1?1080:Math.round(1080*ar), H=ar>=1?Math.round(1080/ar):1080;  /* 短邊 1080，跟輸出同級 */
+    if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+    if(out.width!==W||out.height!==H){out.width=W;out.height=H}
+    gl.viewport(0,0,W,H);
+    const As=(src.videoWidth||src.naturalWidth)/(src.videoHeight||src.naturalHeight), Ao=W/H;
+    texFor(src);gl.uniform1i(U.t,0);
+    gl.uniform2f(U.asp,Math.max(1,Ao),Math.max(1,1/Ao));
+    gl.uniform2f(U.cover,Math.min(1,Ao/As),Math.min(1,As/Ao));
+    gl.uniform1f(U.R,p.size);gl.uniform1f(U.K,p.bulge*1.2);gl.uniform1f(U.CA,p.ca*40);
+    gl.uniform1f(U.edge,p.edge);gl.uniform1f(U.haze,p.haze);gl.uniform1f(U.zoom,p.zoom);gl.uniform1f(U.con,p.con);
+    gl.uniform3f(U.hazeCol,1,.92,.82);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    out.getContext('2d').drawImage(cv,0,0);
+    return true;
+  }
+  return {render,ready};
+})();
 
 /* ================= 預設定義 ================= */
 const PRESETS={
@@ -1890,9 +2170,15 @@ PRESETS.sun={name:'陽光褪色',desc:'暗部抬起不壓黑、動態範圍壓�
   /* 量測（參考影片 2026-09-15 02:56，48 格取樣）：
      L p1=41 p5=59 p50=147 p95=207 p99=218；<16 僅 0.05%
      中位 RGB 149/152/87、暗部 44/65/25、亮部 215/210/170；飽和 .376、鄰接差 9.03 */
+  /* 飽和：原本寫死 1.05，改成滑桿 —— Lily 拿一張真的用這種色調拍的照片對照，
+     量到她那張飽和 0.40、這個濾鏡只有 0.23，需要調得上去（2026-09-25）。
+     預設維持 1.05，所以原本調好的樣子不受影響。
+     「淡入長度」依 Lily 指示拿掉；那支滑桿只有交叉淡入換場在讀，
+     拿掉之後換場會用預設的 0.9 秒（見 nextScene() 的 p?.fade ?? .9） */
   params:[['exp','曝光',.9,1.6,.02,1.28],['lift','暗部抬升',0,1,.05,.25],['cast','黃綠色偏',0,1,.05,.8],
+    ['sat','飽和',0,2,.05,1.05],
     ['haze','霧化',0,.5,.02,.16],['soft','柔焦',0,1,.05,.3],['grain','顆粒',0,.8,.02,.14],
-    ['vig','暗角',0,1,.05,.5],['fade','淡入長度',.3,2.5,.1,.8,'s']],
+    ['vig','暗角',0,1,.05,.5]],
   build(p,T,root,item){
     const gate=el('gate',root);gate.appendChild(makeMedia(item));
     el('fx lift',gate);
@@ -1906,7 +2192,7 @@ PRESETS.sun={name:'陽光褪色',desc:'暗部抬起不壓黑、動態範圍壓�
   update(p){this.p=p;
     setVar('exp',p.exp);setVar('lift',p.lift);setVar('cast',p.cast);setVar('haze',p.haze);
     setVar('soft',p.soft);setVar('grain',p.grain);setVar('vig',p.vig);
-    setVar('sat2',1.05);setVar('con2',.78);}
+    setVar('sat2',p.sat);setVar('con2',.78);}
 };
 
 PRESETS.bloom={name:'花田時光',desc:'亮部滾降不到純白、暗部壓死、暖調、重顆粒與柔焦光暈',transition:'dissolve',
@@ -2001,6 +2287,71 @@ PRESETS.cool={name:'霧裡微亮',desc:'低飽和冷調、柔霧發光，暗部�
     setVar('con',(.96+Math.max(0,p.depth-.35)*.30).toFixed(3));}
 };
 
+PRESETS.night={name:'那晚的紅',desc:'夜裡的紅色漏光燒掉大半張照片；暗部青綠、亮部到不了純白',
+  transition:'burn',
+  /* 量測見 CSS 的「預設 14」註解。漏光色是 [熱端, 深端] 一對，預設那對就是照片量到的 */
+  params:[['exp','曝光',.7,1.5,.02,1],
+    ['leak','漏光強度',0,1,.05,.95],['rise','漏光高度',.15,1.1,.05,.6],
+    ['heat','熱度',0,1,.05,.85],['lx','漏光位置',0,1,.02,.45],
+    ['teal','暗部青綠',0,1,.05,.65],['ceil','亮部收斂',0,1,.05,.9],
+    ['grain','顆粒',0,.8,.02,.1],['vig','暗角',0,1,.05,.4],
+    ['color','漏光色',[['#ff9a2e','#fa0800','紅橘'],['#ffd24a','#ff6a00','金橘'],
+      ['#ff8ab0','#e0106a','玫紅'],['#f2a8ff','#8a12d8','粉紫'],['#9adcff','#0b57d0','冷藍']]]],
+  build(p,T,root,item){
+    root.appendChild(makeMedia(item));
+    ['teal','ceil','wash','core','spill'].forEach(c=>el('fx '+c,root));
+    const g=el('grain',root);
+    el('fx vig',root);
+    grainTick([g],T,20);
+    /* 每一張素材的漏光角度／位置／高度都稍微不一樣 —— 真實底片不會每張燒得一模一樣。
+       亂數用 state.index 當種子算出來，所以拉參數滑桿重建畫面時不會每次跳一個位置。
+       寫在 root（這一格）而不是 frame 上，多格載體每一格才各有各的 */
+    const sd=n=>{const v=Math.sin((state.index+1)*12.9898+n*78.233)*43758.5453;return v-Math.floor(v)};
+    root.style.setProperty('--lang',(353+(sd(1)-.5)*9).toFixed(1)+'deg');
+    root.style.setProperty('--lxj',((sd(2)-.5)*.16).toFixed(3));
+    root.style.setProperty('--rsj',((sd(3)-.5)*.12).toFixed(3));
+    /* 很慢的呼吸（±5%），讓靜態照片上的漏光有一點活著的感覺。
+       逐格自己算、不用 CSS 動畫，預覽跟輸出才會是同一套 */
+    tick(T,12,t=>root.style.setProperty('--bre',(1+Math.sin(t/2700+sd(4)*6.28)*.05).toFixed(3)));
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('leak',p.leak);setVar('rise',p.rise);setVar('heat',p.heat);
+    setVar('lx',p.lx);setVar('teal',p.teal);setVar('ceil',p.ceil);
+    setVar('grain',p.grain);setVar('vig',p.vig);
+    setVar('na',p.color[0]);setVar('nb',p.color[1]);}
+};
+
+PRESETS.peep={name:'貓眼',desc:'從門上的貓眼看出去：圓形取景圈、畫面往外弓、暖色、霧霧的；換場像按了一下快門',
+  transition:'shutter', lock:{mask:''},   /* 圓框自己就是載體，再疊會打架 */
+  /* 量測見 CSS「預設 15」的註解。size 1 = 圓剛好碰到短邊；參考截圖是 16:9、圓佔短邊 133% */
+  params:[['size','圈的大小',.6,1.6,.02,1],['bulge','彎曲',0,1,.05,.45],['zoom','放大',1,2,.05,1.3],
+    ['edge','邊緣柔化',.05,.4,.01,.17],['ca','色散',0,.03,.001,.004],
+    ['con','對比',.5,1.2,.02,.72],['haze','霧化',0,.4,.02,.08],
+    ['warm','暖色',0,1,.05,.55],['soft','柔焦',0,2,.05,.9],['grain','顆粒',0,.6,.02,.06]],
+  build(p,T,root,item){
+    if(!item){root.appendChild(makeMedia(null));return}
+    /* 真正的照片／影片藏起來、只當貼圖來源（display:none 的影片照樣會解碼，
+       輸出時 syncVideos() 也一樣找得到它來逐格 seek） */
+    const src=makeMedia(item);
+    el('fishsrc',root).appendChild(src);
+    const out=document.createElement('canvas');out.className='media fish';root.appendChild(out);
+    const st={src,out,dirty:true};
+    const draw=()=>{if(FISH.render(st,this.p||p))st.dirty=false};
+    out._refresh=draw;   /* 輸出渲染器畫這塊畫布之前會先叫它（見 paintMedia） */
+    /* 照片：載入好畫一次，之後只有參數改了才重畫；影片：每格重畫 */
+    if(FISH.ready(src))draw();else src.addEventListener(src.tagName==='VIDEO'?'loadeddata':'load',draw,{once:true});
+    tick(T,30,()=>{if(src.tagName==='VIDEO'||st.dirty)draw()});
+    this.slots=(this.slots||[]).filter(s=>s.out.isConnected);this.slots.push(st);
+    const g=el('grain',root);grainTick([g],T,18);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('warm',p.warm);setVar('soft',p.soft);setVar('grain',p.grain);
+    (this.slots||[]).forEach(s=>{s.dirty=true});   /* 幾何參數改了，照片也要重畫 */
+  }
+};
+
 PRESETS.party={name:'舊派對',desc:'亮部收得乾淨接近白；暗部統一偏紫藍——落在白色上看得出紫、落在暖色物體上變成濁橄欖',
   transition:'dissolve',
   params:[['exp','曝光',.8,1.5,.02,1.05],['violet','陰影紫調',0,1,.05,.6],['warm','濁暖',0,.8,.05,.16],
@@ -2051,7 +2402,7 @@ PRESETS.finder={name:'方寸之間',desc:'從觀景窗裡看出去；機身反�
     const refl=el('refl',rig), copy=win0.cloneNode(false);
     copy.className=win0.className;
     if(copy.tagName==='VIDEO'){copy.loop=true;copy.muted=true;copy.playsInline=true;copy.autoplay=true;
-      copy.play().catch(()=>{});mediaEls.push(copy)}
+      bindTrim(copy);copy.play().catch(()=>{});mediaEls.push(copy)}
     refl.appendChild(copy);
     /* 相機（機身＋取景窗）照舊一起晃 —— 洞跟窗的對位是量出來的，不能拆開。
        照片改成反向位移，抵銷掉相機的晃動，看起來就是「景站著不動、相機在飄」。
@@ -2151,7 +2502,7 @@ PRESETS.split={name:'今天的小星星',desc:'上下對切、同一組星星：
     const m0=makeMedia(item); top.appendChild(m0);
     const m1=m0.cloneNode(false); m1.className=m0.className;
     if(m1.tagName==='VIDEO'){m1.muted=true;m1.playsInline=true;m1.autoplay=true;m1.loop=m0.loop;
-      m1.play().catch(()=>{});mediaEls.push(m1)}
+      bindTrim(m1);m1.play().catch(()=>{});mediaEls.push(m1)}
     bot.appendChild(m1);
     const inkL=document.createElement('img'); inkL.className='starlay'; inkL.alt='';
     const holeL=document.createElement('img'); holeL.className='starlay'; holeL.alt='';
@@ -2589,7 +2940,7 @@ function renderParams(){
 }
 /* 濾鏡在清單上的擺放順序。跟 PRESETS 的定義順序分開，要調順序改這裡就好。
    沒列到的會自動接在後面，所以之後新增濾鏡不會憑空消失 */
-const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','party','split','finder','bw'];
+const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','party','night','split','finder','peep','bw'];
 const presetIds=[...new Set([...PRESET_ORDER.filter(id=>PRESETS[id]),...Object.keys(PRESETS)])];
 presetIds.forEach(id=>{
   const P=PRESETS[id];
@@ -2834,6 +3185,211 @@ Object.defineProperty(HTMLSelectElement.prototype,'value',{
       if(b)b.textContent=this.options[this.selectedIndex]?.textContent||''}}
 });
 document.querySelectorAll('aside select, .expanel select').forEach(enhanceSelect);
+
+/* ================= 裁切／秒數對話框 =================
+   點縮圖右下角的秒數標籤打開。
+   影片：像相簿的影片剪輯一樣，膠卷上拖兩個把手選「播哪一段」（起點 + 長度）。
+   照片：照片沒有時間軸，只要選停幾秒。
+   裁切結果存在素材上：影片是 it.t0／it.t1，照片是 it.secs。
+   預覽跟輸出都會照這個走——makeMedia() 把 t0／t1 寫進 <video> 的 dataset，
+   預覽靠 timeupdate 收邊，輸出靠 syncVideos() 逐格 seek（見輸出管線）。 */
+(()=>{
+  const panel=$('#trimpanel'), backdrop=$('#trimBackdrop');
+  const strip=$('#trimStrip'), film=$('#trimFilm'), sel=$('#trimSel');
+  const shL=$('#trimShadeL'), shR=$('#trimShadeR'), playhead=$('#trimPlay');
+  const prevBox=$('#trimPrevBox'), prev=$('#trimPrev');
+  const photoBox=$('#trimPhoto'), quick=$('#trimQuick'), secsInp=$('#trimSecs');
+  const fromEl=$('#trimFrom'), lenEl=$('#trimLen'), title=$('#trimTitle');
+  const doneBtn=$('#trimDone'), resetBtn=$('#trimReset');
+  let idx=-1, it=null, dur=0, t0=0, t1=0, probe=null, drawTimer=null, myRun=0;
+
+  const fmt=v=>String(v>=10?Math.round(v):Math.round(v*10)/10);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+  /* ---- 影片：抓一排畫面當膠卷底圖 ---- */
+  async function loadProbe(src){
+    const v=document.createElement('video');
+    v.muted=true;v.playsInline=true;v.preload='auto';v.src=src;v.setAttribute('disablepictureinpicture','');
+    await new Promise(r=>{let d=false;const f=()=>{if(d)return;d=true;r()};
+      v.addEventListener('loadeddata',f);v.addEventListener('error',f);setTimeout(f,6000)});
+    return v;
+  }
+  const seekProbe=(v,t)=>new Promise(r=>{
+    if(!(v.readyState>=1)){r();return}
+    let d=false;const f=()=>{if(d)return;d=true;v.removeEventListener('seeked',f);r()};
+    v.addEventListener('seeked',f);setTimeout(f,1500);
+    try{v.currentTime=t}catch(e){f()}
+  });
+  async function buildFilm(v,run){
+    /* 畫布做成「實際顯示的寬度」，不然橫向被拉開會整條糊掉。
+       每一格照影片自己的長寬比，剛好鋪滿整條 */
+    const dpr=Math.min(2,devicePixelRatio||1);
+    const SW=Math.max(200,strip.clientWidth), H=54;
+    const ar=(v.videoWidth&&v.videoHeight)?v.videoWidth/v.videoHeight:1.5;
+    const fw=Math.max(16,H*ar);
+    const n=Math.max(6,Math.min(40,Math.ceil(SW/fw)));
+    film.width=Math.round(SW*dpr);film.height=Math.round(H*dpr);
+    const ctx=film.getContext('2d');
+    ctx.fillStyle='#1a1416';ctx.fillRect(0,0,film.width,film.height);
+    const w=film.width/n;
+    for(let i=0;i<n;i++){
+      if(run!==myRun)return;                    /* 中途換了素材就不要再畫了 */
+      await seekProbe(v,dur*(i+.5)/n);
+      if(run!==myRun)return;
+      /* 來源裁成這一格的比例（等同 object-fit:cover），畫面才不會變形 */
+      const sAr=w/film.height, vw=v.videoWidth||1, vh=v.videoHeight||1;
+      let sw=vw, sh=vh;
+      if(vw/vh>sAr)sw=vh*sAr; else sh=vw/sAr;
+      try{ctx.drawImage(v,(vw-sw)/2,(vh-sh)/2,sw,sh,i*w,0,w,film.height)}catch(e){}
+    }
+  }
+  /* 預覽：影片就把抓畫面用的那支直接放進預覽框，真的播選取的那一段（循環）。
+     拖把手的時候暫停、跟著 seek（像刮盤），放開就從起點重新播。
+     原本這裡是「畫一張靜止的畫面到 canvas」，看不出實際會播成什麼樣子 */
+  let scrubbing=false, loopTimer=null;
+  function startLoop(){
+    if(!probe)return;
+    clearInterval(loopTimer);
+    try{probe.currentTime=t0}catch(e){}
+    probe.play().catch(()=>{});
+    /* 用計時器收邊而不是 timeupdate —— timeupdate 大約每 0.25 秒才來一次，會播過頭 */
+    loopTimer=setInterval(()=>{
+      if(!probe||scrubbing)return;
+      if(probe.currentTime>=t1-.04||probe.currentTime<t0-.2){try{probe.currentTime=t0}catch(e){}}
+    },40);
+  }
+  function stopLoop(){clearInterval(loopTimer);loopTimer=null;if(probe){try{probe.pause()}catch(e){}}}
+  /* 拖曳中：節流地把畫面跳到手指的位置 */
+  const schedulePrev=t=>{
+    if(!probe)return;
+    clearTimeout(drawTimer);
+    drawTimer=setTimeout(()=>{if(probe&&scrubbing){try{probe.currentTime=clamp(t,0,Math.max(0,dur-.05))}catch(e){}}},40);
+  };
+
+  /* ---- 畫面同步 ---- */
+  function paint(){
+    if(!it)return;
+    if(it.kind==='video'){
+      const a=t0/dur*100, b=t1/dur*100;
+      sel.style.left=a+'%';sel.style.width=(b-a)+'%';
+      shL.style.left='0';shL.style.width=a+'%';
+      shR.style.left=b+'%';shR.style.width=(100-b)+'%';
+      fromEl.textContent='從 '+fmt(t0)+' 秒開始（整支 '+fmt(dur)+' 秒）';
+      lenEl.textContent=fmt(t1-t0);
+    }else{
+      fromEl.textContent=it.secs>0?'這一張單獨設定':'跟著「照片停留」';
+      lenEl.textContent=fmt(it.secs>0?it.secs:state.dwell);
+      const v=it.secs>0?it.secs:state.dwell;
+      secsInp.value=clamp(v,+secsInp.min,+secsInp.max);
+      [...quick.children].forEach(b=>b.classList.toggle('on',+b.dataset.v===v));
+    }
+    /* 「改回預設」要看「現在拖到哪」，不是看已經寫回去的值——
+       拖曳中還沒 commit，用 itemCustom() 會一直是 false */
+    const custom=it.kind==='video'?(t0>.01||t1<dur-.01):(it.secs>0);
+    resetBtn.style.display=custom?'':'none';
+  }
+
+  /* ---- 拖曳膠卷 ---- */
+  let drag=null;
+  const xToT=e=>{const r=strip.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1)*dur};
+  strip.addEventListener('pointerdown',e=>{
+    if(!it||it.kind!=='video'||!dur)return;
+    const h=e.target.dataset&&e.target.dataset.h;
+    drag=h?{mode:h}:(e.target===sel||sel.contains(e.target))?{mode:'move',grab:xToT(e)-t0}:null;
+    if(!drag)return;
+    scrubbing=true;if(probe){try{probe.pause()}catch(e2){}}
+    strip.setPointerCapture(e.pointerId);e.preventDefault();
+  });
+  strip.addEventListener('pointermove',e=>{
+    if(!drag)return;
+    const t=xToT(e), MIN=.2;
+    if(drag.mode==='l'){t0=clamp(t,0,t1-MIN);schedulePrev(t0)}
+    else if(drag.mode==='r'){t1=clamp(t,t0+MIN,dur);schedulePrev(t1)}
+    else{const len=t1-t0;t0=clamp(t-drag.grab,0,dur-len);t1=t0+len;schedulePrev(t0)}
+    paint();
+  });
+  const endDrag=()=>{if(!drag)return;drag=null;scrubbing=false;startLoop()};
+  strip.addEventListener('pointerup',endDrag);
+  strip.addEventListener('pointercancel',endDrag);
+
+  /* ---- 照片：快捷秒數 ---- */
+  [2,3,4,5,6,8,10,15].forEach(v=>{
+    const b=document.createElement('button');b.type='button';b.dataset.v=v;b.textContent=v+' 秒';
+    b.onclick=()=>{it.secs=v;paint()};
+    quick.appendChild(b);
+  });
+  secsInp.oninput=()=>{if(it&&it.kind!=='video'){it.secs=+secsInp.value;paint()}};
+
+  /* ---- 開／關 ---- */
+  function close(){
+    myRun++;clearTimeout(drawTimer);stopLoop();scrubbing=false;
+    if(probe){try{probe.pause();probe.remove();probe.removeAttribute('src');probe.load()}catch(e){}probe=null}
+    prev.style.display='';
+    panel.removeAttribute('data-open');backdrop.removeAttribute('data-open');
+    it=null;idx=-1;
+  }
+  doneBtn.onclick=()=>{close()};
+  resetBtn.onclick=()=>{
+    if(!it)return;
+    if(it.kind==='video'){delete it.t0;delete it.t1;t0=0;t1=dur}
+    else delete it.secs;
+    paint();renderItems();build();scheduleScene();
+  };
+  backdrop.onclick=()=>close();
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.hasAttribute('data-open'))close()});
+  /* 關掉的時候才把結果寫回去並重建畫面（拖曳過程中不要一直 build()，會卡） */
+  const commit=()=>{
+    if(!it)return;
+    if(it.kind==='video'){
+      if(t0>.01||t1<dur-.01){it.t0=t0;it.t1=t1}else{delete it.t0;delete it.t1}
+    }
+    renderItems();build();scheduleScene();
+  };
+  const _close=close;
+  close=function(){commit();_close()};
+  doneBtn.onclick=()=>close();
+  backdrop.onclick=()=>close();
+
+  openTrim=async function(i){
+    idx=i;it=state.items[i];if(!it)return;
+    const run=++myRun;
+    panel.setAttribute('data-open','');backdrop.setAttribute('data-open','');
+    const isV=it.kind==='video';
+    title.textContent=isV?'剪這支影片':'這張停幾秒';
+    strip.style.display=isV?'':'none';
+    photoBox.style.display=isV?'none':'';
+    prevBox.style.display='';
+    playhead.style.display='none';
+    if(isV){
+      dur=it.dur>0?it.dur:0;
+      t0=it.t0>0?it.t0:0;
+      t1=it.t1>0?it.t1:(dur||1);
+      paint();
+      probe=await loadProbe(it.src);
+      if(run!==myRun)return;
+      if(!dur&&isFinite(probe.duration)){dur=probe.duration;it.dur=dur;t1=it.t1>0?it.t1:dur}
+      paint();
+      /* 先把膠卷抓完（會一直 seek），抓完才讓它開始播，不然兩件事會打架 */
+      await buildFilm(probe,run);
+      if(run!==myRun)return;
+      prev.style.display='none';
+      probe.className='trimvid';
+      prevBox.appendChild(probe);
+      startLoop();
+    }else{
+      prev.style.display='';
+      /* 照片：預覽就放原圖 */
+      const im=new Image();im.src=it.src;
+      await new Promise(r=>{im.onload=r;im.onerror=r});
+      if(run!==myRun)return;
+      const ar=(im.naturalWidth&&im.naturalHeight)?im.naturalWidth/im.naturalHeight:.8;
+      const H=Math.min(220,prevBox.clientHeight||220), W=Math.round(H*ar);
+      prev.width=W;prev.height=H;
+      try{prev.getContext('2d').drawImage(im,0,0,W,H)}catch(e){}
+      paint();
+    }
+  };
+})();
 
 /* ================= 區塊摺疊 ================= */
 (()=>{
@@ -3161,8 +3717,11 @@ let drawPreview=null;
   }
   function paintMedia(ctx,el,s,b,k){
     const tag=el.tagName;
-    if(tag!=='IMG'&&tag!=='VIDEO')return;
-    const nw=el.videoWidth||el.naturalWidth||0,nh=el.videoHeight||el.naturalHeight||0;
+    if(tag!=='IMG'&&tag!=='VIDEO'&&tag!=='CANVAS')return;
+    /* 自己算畫面的畫布（貓眼）：畫它之前先叫它重畫一次，
+       畫出來的才是這一格（影片 seek 之後）的樣子，不是上一格殘留的 */
+    if(tag==='CANVAS'&&typeof el._refresh==='function')el._refresh();
+    const nw=el.videoWidth||el.naturalWidth||(tag==='CANVAS'?el.width:0),nh=el.videoHeight||el.naturalHeight||(tag==='CANVAS'?el.height:0);
     if(!nw||!nh)return;
     const fit=s.objectFit||'fill';
     let dw=b.w,dh=b.h,dx=b.x,dy=b.y;
@@ -3502,9 +4061,17 @@ let drawPreview=null;
           if(!vBirth.has(v))vBirth.set(v,f);
           let held=vHeld.get(v)||0;
           if(v.dataset.hold){held++;vHeld.set(v,held)}
-          let t=(f-vBirth.get(v)-held)/FPS;
+          const rel=(f-vBirth.get(v)-held)/FPS;
+          /* 裁切：a=起點、b=終點（沒裁就是 0 到整支長度）。
+             影片素材的時間軸是「從 a 開始，每格往前 1/FPS 秒」 */
           const d=v.duration;
-          if(isFinite(d)&&d>0)t=v.loop?(t%d):Math.min(t,Math.max(0,d-0.001));
+          const a=+v.dataset.t0||0;
+          const b=(+v.dataset.t1||0)||((isFinite(d)&&d>0)?d:0);
+          let t=a;
+          if(b>a){
+            const span=b-a;
+            t=(v.dataset.wrap==='1')?a+((rel%span)+span)%span:a+Math.min(rel,Math.max(0,span-0.001));
+          }
           await seekTo(v,Math.max(0,t));
         }
       };
