@@ -25,9 +25,10 @@
 |---|---|---|
 | `assets/` | 程式執行時會載入的圖，全部 WebP（含濾鏡縮圖樣張、郵票框、蕾絲框一格／兩格） | 3.0 MB |
 | `masks/` | 載體 12 個 SVG ＋ `slots.json`，`_preview.html` 可預覽 | 84 KB |
-| `media/` | 兩支預設影片 | 16 MB |
+| `media/` | 兩支示範影片。**2026-09-27 起程式不會自動載入了**，但測試還在用 | 16 MB |
 | `my-media/` | Lily 自己的照片與影片 | 51 MB |
 | `source/` | 原始高解析檔，**不參與執行**，是重做用的底 | 26 MB |
+| `tools/測試/` | 量測工具（無頭 Chrome 出圖／出影片、逐格量 mp4），見裡面的 README | 20 KB |
 | `tools/` | `genmask.py` 遮罩產生器 | — |
 | `experiments/` | 做一半的：`film_light_leak.html`、`super8_film.html` | — |
 

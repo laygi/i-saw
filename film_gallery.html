@@ -85,6 +85,15 @@
     font-family:var(--cff,Georgia,"Songti TC",serif);
     letter-spacing:var(--cls,.5px);
     color:var(--c,#e0a23a);text-shadow:0 0 12px rgba(0,0,0,.35)}
+  /* 辰宇落雁體：先用系統已經裝的（秒開），沒裝才載 assets/fonts/ 裡打包的那份（9.1 MB）。
+     授權 SIL OFL 1.1，完整條文在 assets/fonts/OFL-辰宇落雁體.txt —— 那份不能刪，OFL 要求隨檔散布。
+     swap：字還沒載進來之前先用後備字體顯示，不要讓字幕整段空白 */
+  @font-face{
+    font-family:"辰宇落雁體";
+    src:local("辰宇落雁體 2.0 Thin"), local("ChenYuluoyan-2.0-Thin"),
+        url("assets/fonts/ChenYuluoyan-2.0-Thin.ttf") format("truetype");
+    font-weight:normal;font-style:normal;font-display:swap;
+  }
   .caption.dragging{outline:1px dashed rgba(255,255,255,.6);outline-offset:4px}
   /* 拖曳字幕時的對齊輔助線。只有拖的當下存在（放開就整個移除），
      所以不可能被畫進輸出 —— 輸出期間也不會有人在拖 */
@@ -419,7 +428,7 @@
   .p-party .vig{background:radial-gradient(ellipse at 50% 48%,transparent 44%,rgba(28,20,26,.42) 80%,rgba(10,6,10,.82) 100%);
     opacity:var(--vig,.4)}
 
-  /* ============ 預設 14：那晚的紅（量測自 Lily 給的參考照片 IMG_0347.jpg，2026-09-25）============
+  /* ============ 預設 14：漏光底片（量測自 Lily 給的參考照片 IMG_0347.jpg，2026-09-25）============
      照片 1206×1043，上緣 207px 是沒曝到光的黑邊（掃描的底片邊，不做進濾鏡）。
      底色（只量完全沒漏光的上三分之一）：
        · 暗部 (1,11,10)：紅被壓到 0、綠青抬起約 11 —— 夜景的黑不是純黑，是偏青綠的黑
@@ -463,7 +472,7 @@
   .p-night .vig{background:radial-gradient(ellipse at 50% 46%,transparent 46%,rgba(0,8,6,.45) 82%,rgba(0,4,3,.85) 100%);
     opacity:var(--vig,.4)}
 
-  /* ============ 預設 15：貓眼（量測自 Lily 給的參考截圖 IMG_0333.PNG，2026-09-25）============
+  /* ============ 預設 15：偷看（量測自 Lily 給的參考截圖 IMG_0333.PNG，2026-09-25）============
      截圖 2622×1206。圓心在正中（x 50.3%），圓的直徑 = 短邊的 133%（上下被畫框切掉）。
      圓的邊緣：r/R 0.80→1.00 亮度 120→50→9；圓外還有一圈很暗的暖色暈到 r/R≈1.4 才全黑（鏡筒）。
      圓內：暗部 (33,30,30) 抬起、亮部最亮只到 (195,202,185)、中間調 (113,91,60) 偏暖棕、飽和 0.4；
@@ -475,7 +484,7 @@
   .p-peep .fishsrc,.p-riso .fishsrc{display:none}
   .p-peep .fish{filter:sepia(var(--warm,.55)) saturate(1.05) brightness(1.02) blur(calc(var(--soft,.9)*.9cqw))}
 
-  /* ============ 預設 16：Riso 疊印（量測自 Lily 給的參考圖 IMG_0278.jpg，2026-09-26）============
+  /* ============ 預設 16：印象日記（Riso 風，量測自 Lily 給的參考圖 IMG_0278.jpg，2026-09-26）============
      量到的：
        · 網點間距 對角 4.2px（圖寬 1206）→ 全寬約 200 線；換算到短邊 1080 約 3.8px
        · 網點角度 45°，而且 R/G/B 三個通道是同一個網格 —— 那張是「一個網點蓋在彩色畫面上」，
@@ -699,6 +708,9 @@
   .expgroup h4+*{border-top:var(--bw) solid var(--hair);padding-top:9px}
   .expanel .spec{margin:0 0 12px;display:grid;grid-template-columns:auto 1fr;gap:5px 10px;
     font:11px/1.5 var(--mono);color:var(--ink)}
+  /* 影片、照片都適用的共用資訊，放在兩組之上 */
+  .expanel .spec-shared{margin:0 0 16px;padding-bottom:12px;
+    border-bottom:var(--bw) solid var(--hair)}
   .expanel .spec dt{color:var(--muted);letter-spacing:.06em}
   .expanel .spec dd{margin:0;text-align:right;font-family:var(--num);
     font-variant-numeric:tabular-nums;font-size:12px}
@@ -1215,6 +1227,7 @@
   <div class="expbody">
     <div class="prevbox"><canvas id="prev"></canvas></div>
     <div class="expinfo">
+      <dl class="spec spec-shared" id="specShared"></dl>
       <div class="expgroup">
         <h4>影片 <span>video</span></h4>
         <dl class="spec" id="spec"></dl>
@@ -1668,7 +1681,7 @@ function nextScene(){
     return;
   }
   if(type==='shutter'){   /* 快門：黑 3 格（1/10 秒）就回來，中間那一格換照片——像按下快門眨了一下。
-                             沒有斜角遮片、沒有過曝回穩，就只是黑一下（貓眼濾鏡預設用它） */
+                             沒有斜角遮片、沒有過曝回穩，就只是黑一下（「偷看」濾鏡預設用它） */
     const nx=state.items[stepIndex(state.index)];
     if(nx.kind==='image'){const pre=new Image();pre.src=nx.src;pre.decode().catch(()=>{})}
     const fill=trans.querySelector('.t-fill'), F=1000/30;
@@ -1741,7 +1754,7 @@ const CAPTION_FONTS=[
      換一台沒裝的電腦會退回後面的宋體。要讓每台都能用就得把 9.1MB 的 ttf 放進 repo（OFL 允許）*/
   /* 名字一定要加引號：ChenYuluoyan-2.0-Thin 裡有「2.0」，不加引號在 CSS 裡不是合法的識別字，
      整條 font-family 會直接作廢、退回繼承的字體（踩過，畫面上變成無襯線） */
-  ['luoyan','辰宇落雁體','normal','"辰宇落雁體 2.0 Thin","ChenYuluoyan-2.0-Thin","Songti TC",serif','.04em'],
+  ['luoyan','辰宇落雁體','normal','"辰宇落雁體","Songti TC",serif','.04em'],
 ];
 function renderCaptionsPanel(){
   const box=$('#captions');box.innerHTML='';
@@ -1822,7 +1835,9 @@ function applyCaptions(){
         targetsX.push({v:o.cx,mid:1},{v:o.cx-o.w/2},{v:o.cx+o.w/2});
         targetsY.push({v:o.cy,mid:1},{v:o.cy-o.h/2},{v:o.cy+o.h/2});
       });
-      const TOL=6/Math.min(R.width,R.height)*100;            /* 6px 換算成 % */
+      /* 吸附的容差。6px 太小、在縮小的畫板上很難觸發（Lily 實測後說要調），改成 10px。
+         嫌太黏就把這個數字調小，嫌抓不到就調大 —— 只有這一個數字要改 */
+      const TOL=10/Math.min(R.width,R.height)*100;
       let gv=null,gh=null;
       const guide=(cls,pos)=>{const g=el('snapline '+cls,frame);
         if(cls==='v')g.style.left=pos+'%'; else g.style.top=pos+'%'; return g};
@@ -2155,8 +2170,8 @@ function dustLayer(parent,T,{rate=2,red=0,dark=0,scratches=.3,hz=18}={}){
   return box;
 }
 
-/* ================= 貓眼：WebGL 魚眼變形（整頁共用一個） =================
-   CSS 沒有「把畫面弓起來」這種東西，所以貓眼濾鏡另外開一條路：把照片／影片當貼圖，
+/* ================= 偷看：WebGL 魚眼變形（整頁共用一個） =================
+   CSS 沒有「把畫面弓起來」這種東西，所以「偷看」濾鏡另外開一條路：把照片／影片當貼圖，
    用一小段 GPU 程式算出「輸出的每個像素該去來源的哪個位置取色」（越靠邊取得越遠＝往外弓），
    畫到一塊畫布上，再把那塊畫布當素材放進格子裡。顏色的事（暖色、柔焦、顆粒）照舊交給 CSS。
    整頁只開一個 WebGL 環境共用（瀏覽器對數量有上限，每一格各開一個、每次換場再開，很快就爆），
@@ -2198,7 +2213,7 @@ void main(){
       const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
       ['t','asp','cover','R','K','CA','edge','haze','zoom','con','hazeCol'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-    }catch(e){console.warn('貓眼：WebGL 初始化失敗',e);gl=false;return false}
+    }catch(e){console.warn('偷看：WebGL 初始化失敗',e);gl=false;return false}
     return true;
   }
   const ready=e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0);
@@ -2236,7 +2251,7 @@ void main(){
   return {render,ready};
 })();
 
-/* ================= Riso 疊印：WebGL 分色 + 網點 =================
+/* ================= 印象日記：WebGL 分色 + 網點（Riso 風） =================
    為什麼要 GPU：CSS 做不出網點，而網點是這個風格的全部。
    每個像素要做的事：
      1. 取樣（先微微柔化，不然畫面細節會跟網格打架長出摩爾紋）
@@ -2245,7 +2260,7 @@ void main(){
      4. 每個油墨各自位移一點點（套準偏移），各自用自己的角度上網點
      5. 減色疊回紙色：紙 × Π(1 − 覆蓋率×(1−墨色))
    網點是「釘在畫面上」的，不跟著內容跑 —— 真的印刷也是這樣，而且影片才不會滋滋滋地閃。
-   刻意跟 FISH 各自開一個 WebGL 環境：把兩者合併要動到已經驗過的貓眼，不划算。 */
+   刻意跟 FISH 各自開一個 WebGL 環境：把兩者合併要動到已經驗過的「偷看」，不划算。 */
 const RISO=(()=>{
   let cv=null,gl=null,prog=null,U={};const texes=new WeakMap();
   const VS='attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
@@ -2323,7 +2338,7 @@ void main(){
       ['t','px','cover','off0','off1','off2','offK','paper','ink0','ink1','ink2','inkK','m0','m1','m2','kA',
        'pitch','ang0','ang1','ang2','angK','soft','dens','con','ex','edge','kAmt','kStart'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-    }catch(e){console.warn('Riso：WebGL 初始化失敗',e);gl=false;return false}
+    }catch(e){console.warn('印象日記：WebGL 初始化失敗',e);gl=false;return false}
     return true;
   }
   const ready=e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0);
@@ -2711,7 +2726,7 @@ PRESETS.cool={name:'霧裡微亮',desc:'低飽和冷調、柔霧發光，暗部�
     setVar('con',(.96+Math.max(0,p.depth-.35)*.30).toFixed(3));}
 };
 
-PRESETS.night={name:'那晚的紅',desc:'夜裡的紅色漏光燒掉大半張照片；暗部青綠、亮部到不了純白',
+PRESETS.night={name:'漏光底片',desc:'夜裡的紅色漏光燒掉大半張照片；暗部青綠、亮部到不了純白',
   transition:'burn',
   /* 量測見 CSS 的「預設 14」註解。漏光色是 [熱端, 深端] 一對，預設那對就是照片量到的 */
   params:[['exp','曝光',.7,1.5,.02,1],
@@ -2746,7 +2761,7 @@ PRESETS.night={name:'那晚的紅',desc:'夜裡的紅色漏光燒掉大半張照
     setVar('na',p.color[0]);setVar('nb',p.color[1]);}
 };
 
-PRESETS.peep={name:'貓眼',desc:'從門上的貓眼看出去：圓形取景圈、畫面往外弓、暖色、霧霧的；換場像按了一下快門',
+PRESETS.peep={name:'偷看',desc:'從門上的貓眼看出去：圓形取景圈、畫面往外弓、暖色、霧霧的；換場像按了一下快門',
   transition:'shutter', lock:{mask:''},   /* 圓框自己就是載體，再疊會打架 */
   /* 量測見 CSS「預設 15」的註解。size 1 = 圓剛好碰到短邊；參考截圖是 16:9、圓佔短邊 133% */
   params:[['size','圈的大小',.6,1.6,.02,1],['bulge','彎曲',0,1,.05,.45],['zoom','放大',1,2,.05,1.3],
@@ -2776,7 +2791,7 @@ PRESETS.peep={name:'貓眼',desc:'從門上的貓眼看出去：圓形取景圈�
   }
 };
 
-PRESETS.riso={name:'Riso 疊印',desc:'孔版印刷：整張圖壓進兩三個油墨、上網點、各自錯開一點點；紙是米白的',
+PRESETS.riso={name:'印象日記',desc:'孔版印刷：整張圖壓進兩三個油墨、上網點、各自錯開一點點；紙是米白的',
   transition:'cut', 
   /* 量測見 CSS「預設 16」的註解。預設值＝量到的那張：網點 3.8px、角度 45°、偏移 0.25% */
   params:[
@@ -2795,7 +2810,7 @@ PRESETS.riso={name:'Riso 疊印',desc:'孔版印刷：整張圖壓進兩三個�
     ['mois','柔化（防摩爾紋）',0,3,.1,1]],
   build(p,T,root,item){
     if(!item){root.appendChild(makeMedia(null));return}
-    /* 真正的素材藏起來只當貼圖來源（跟貓眼同一招）；格子裡放算好的畫布 */
+    /* 真正的素材藏起來只當貼圖來源（跟「偷看」同一招）；格子裡放算好的畫布 */
     const src=makeMedia(item);
     el('fishsrc',root).appendChild(src);
     const out=document.createElement('canvas');out.className='media riso';root.appendChild(out);
@@ -3475,8 +3490,11 @@ setTimeout(playIntro,300);
     const v=$('#aspect').value;
     const size={'0.8':'1080×1350','0.5625':'1080×1920','1':'1080×1080','1.7778':'1920×1080'}[v]||'跟素材一樣';
     /* 長度一定要跟輸出用的是同一個算法，不然多格載體會顯示成好幾倍 */
-    const rows=[['尺寸',size],['長度',totalSecs().toFixed(1)+' 秒'],['素材',state.items.length+' 個'],['格式','MP4']];
-    spec.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+    /* 尺寸與素材數影片、照片都適用，放在兩組上面當共用資訊；
+       長度與格式只跟影片有關，留在影片那一組（Lily 2026-09-27 指定） */
+    const draw=(box,rows)=>box.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+    draw($('#specShared'),[['尺寸',size],['素材',state.items.length+' 個']]);
+    draw(spec,[['長度',totalSecs().toFixed(1)+' 秒'],['格式','MP4']]);
   };
   let prevTimer=null;
   const open=v=>{
@@ -4229,7 +4247,7 @@ let drawPreview=null;
   function paintMedia(ctx,el,s,b,k){
     const tag=el.tagName;
     if(tag!=='IMG'&&tag!=='VIDEO'&&tag!=='CANVAS')return;
-    /* 自己算畫面的畫布（貓眼）：畫它之前先叫它重畫一次，
+    /* 自己算畫面的畫布（偷看／印象日記）：畫它之前先叫它重畫一次，
        畫出來的才是這一格（影片 seek 之後）的樣子，不是上一格殘留的 */
     if(tag==='CANVAS'&&typeof el._refresh==='function')el._refresh();
     const nw=el.videoWidth||el.naturalWidth||(tag==='CANVAS'?el.width:0),nh=el.videoHeight||el.naturalHeight||(tag==='CANVAS'?el.height:0);
