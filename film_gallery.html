@@ -1734,6 +1734,14 @@ const CAPTION_FONTS=[
   ['serif','襯線斜體','italic','Georgia,"Songti TC",serif','.5px'],
   ['classic','古典大寫','normal','"Hoefler Text",Georgia,serif','.18em'],
   ['sans','無襯線','normal','"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif','.02em'],
+  /* 辰宇落雁體：手寫毛筆感，中文用。SIL Open Font License 1.1
+     （劉韋辰書寫、王立宇製作，(c) 2022），可商用、可嵌入。
+     只有 Thin 一個字重，所以「粗細」拉粗會是瀏覽器假粗體，會糊掉——維持「細」最好看。
+     字體沒有打包進這個檔案，是從系統讀的：Lily 自己的電腦有裝，
+     換一台沒裝的電腦會退回後面的宋體。要讓每台都能用就得把 9.1MB 的 ttf 放進 repo（OFL 允許）*/
+  /* 名字一定要加引號：ChenYuluoyan-2.0-Thin 裡有「2.0」，不加引號在 CSS 裡不是合法的識別字，
+     整條 font-family 會直接作廢、退回繼承的字體（踩過，畫面上變成無襯線） */
+  ['luoyan','辰宇落雁體','normal','"辰宇落雁體 2.0 Thin","ChenYuluoyan-2.0-Thin","Songti TC",serif','.04em'],
 ];
 function renderCaptionsPanel(){
   const box=$('#captions');box.innerHTML='';
