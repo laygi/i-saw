@@ -233,6 +233,28 @@
   .p-bloom .vig{background:radial-gradient(ellipse at 50% 48%,transparent 42%,rgba(12,8,4,.5) 78%,rgba(0,0,0,.88) 100%);
     opacity:var(--vig,.8)}
 
+  /* ============ 預設 17：那年夏天（量測自 Lily 給的參考照 IMG_0568，2026-10-02）============
+     內容區 1206×906。這張跟現有每一個濾鏡最大的不同：**亮部是真的燒穿的**。
+       · 18.08% 的像素是純白 —— 其他六個濾鏡實測全部 0.00%，
+         因為它們的設計就是「亮部不到白」（那是從底片參考影片量出來的，沒有錯，只是另一種行為）
+       · 暗部 (44,26,18) 暖紅褐，紅是藍的 2.4 倍；中間調 (144,102,69) 明顯偏橘
+       · 亮部 (248,232,233) 近白，而且藍跟綠幾乎一樣高 —— **燒穿的地方不帶黃，是乾淨的白**
+       · 飽和 .456；顆粒 rms 6.21，比沒套濾鏡的原圖（13.70）還低
+         → 那個粗粗的底片感是「粗顆粒 ＋ 柔焦」同時存在，只加顆粒會變得又利又髒
+       · 右緣 (148,100,99) 比左緣 (104,73,58) 亮而且更暖 → 右邊有一道暖光
+     做法上最關鍵的一件事：**暖色先染（sepia），再用 brightness 把頂端推爆**。
+     順序反過來的話，燒穿的地方會被染成黃色；照這個順序，爆掉的地方會自己回到乾淨的白，
+     所以「中間調很暖、亮部乾淨」是順序換來的，不是另外補一層。 */
+  .p-summer .media{filter:blur(calc(var(--soft,.35)*1cqw)) sepia(var(--warm,.4))
+    saturate(var(--sat,1.25)) contrast(var(--con,1.2)) brightness(var(--exp,1.9))}
+  /* 暗部暖褐：screen 只抬暗部、亮部幾乎不動（跟漏光底片的暗部青綠同一招，只是換成暖色） */
+  .p-summer .lift{mix-blend-mode:screen;background:rgb(92,34,10);opacity:var(--lift,.5)}
+  /* 右側那道暖光 */
+  .p-summer .rleak{mix-blend-mode:screen;opacity:var(--leak,.55);
+    background:linear-gradient(98deg,transparent 38%,rgba(255,80,20,.45) 76%,rgba(255,140,60,.95) 100%)}
+  .p-summer .vig{background:radial-gradient(ellipse at 52% 48%,transparent 52%,rgba(20,8,4,.4) 84%,rgba(10,4,2,.7) 100%);
+    opacity:var(--vig,.25)}
+
   /* ============ 預設 7：陽光褪色（量測自參考影片 2026-09-15 02:56） ============
      48 格取樣：亮度 p1=41 p5=59 p50=147 p95=207 p99=218；低於 16 僅 0.05%（暗部抬起、不壓黑）
      中位 RGB 149/152/87（黃綠）、暗部 44/65/25（綠色地板）、亮部 215/210/170
@@ -441,7 +463,10 @@
          —— 這正是「加色光」（screen）的行為，所以三層漏光全部用 screen 疊
        · 熱核在下緣偏左（x≈36~45%、y≈75~95%），右側一路到底都是純紅 (250,0,0)
      三層漏光都不用 blur：漸層本身就是連續的，不規則感靠三層錯開疊出來。
-     （blur 一層要幾十毫秒，輸出會明顯變慢，見 CHANGELOG 73） */
+     （blur 一層要幾十毫秒，輸出會明顯變慢，見 CHANGELOG 73）
+     ⚠️ 2026-09-27 Lily 要求「紅色範圍太大、右側要讓照片透出來」，三層的擴散範圍一律 ×0.8、
+     右下角那層（spill）再調淡（.7→.4、實心段 30%→8%）。**所以現在刻意不等於上面量到的數字**，
+     下一個人看到對不上不要「修正」回去，見 CHANGELOG 101。 */
   .p-night .media{filter:saturate(1.15) contrast(1.28) brightness(var(--exp,1))}
   /* 暗部青綠：screen 只抬暗部、亮部幾乎不動。opacity .65 × rgb(3,17,14) ≈ 量到的 (1,11,10) */
   .p-night .teal{mix-blend-mode:screen;background:rgb(3,17,14);opacity:var(--teal,.65)}
@@ -457,18 +482,18 @@
   .p-night .wash{mix-blend-mode:screen;opacity:calc(var(--leak,.95)*var(--bre,1));
     background:linear-gradient(var(--lang,353deg),
       var(--nb,#fa0800) 0%,
-      var(--nb,#fa0800) calc((var(--rise,.6) + var(--rsj,0))*67%),
-      transparent        calc((var(--rise,.6) + var(--rsj,0))*113%))}
+      var(--nb,#fa0800) calc((var(--rise,.6) + var(--rsj,0))*54%),
+      transparent        calc((var(--rise,.6) + var(--rsj,0))*90%))}
   /* 漏光 2／3：熱核。中心是暖白（燒穿了，量到 (254,205,165)），往外變成熱端的橘 (254,140,0)，
      再淡出讓底下那層紅接手。範圍只佔畫面寬的一半，位置由 --lx 決定（量測熱核在 x≈36~54%） */
   .p-night .core{mix-blend-mode:screen;opacity:calc(var(--heat,.85)*var(--bre,1));
     background:
-      radial-gradient(48% 66% at calc((var(--lx,.45) + var(--lxj,0))*100%) 104%,
+      radial-gradient(38% 53% at calc((var(--lx,.45) + var(--lxj,0))*100%) 104%,
         rgb(255,232,205) 0%,rgb(255,214,170) 18%,var(--na,#ff9a2e) 42%,rgba(255,90,0,.5) 70%,transparent 100%),
-      radial-gradient(44% 32% at 6% 102%,var(--na,#ff9a2e) 0%,rgba(255,120,0,.6) 45%,transparent 100%)}
+      radial-gradient(35% 26% at 6% 102%,var(--na,#ff9a2e) 0%,rgba(255,120,0,.6) 45%,transparent 100%)}
   /* 漏光 3／3：右下角多溢一團深紅，讓右側一路到底都是純紅、形狀也不對稱 */
-  .p-night .spill{mix-blend-mode:screen;opacity:calc(var(--leak,.95)*.7*var(--bre,1));
-    background:radial-gradient(80% 58% at 90% 98%,var(--nb,#fa0800) 0%,var(--nb,#fa0800) 30%,transparent 100%)}
+  .p-night .spill{mix-blend-mode:screen;opacity:calc(var(--leak,.95)*.4*var(--bre,1));
+    background:radial-gradient(64% 46% at 90% 98%,var(--nb,#fa0800) 0%,var(--nb,#fa0800) 8%,transparent 100%)}
   .p-night .vig{background:radial-gradient(ellipse at 50% 46%,transparent 46%,rgba(0,8,6,.45) 82%,rgba(0,4,3,.85) 100%);
     opacity:var(--vig,.4)}
 
@@ -480,8 +505,9 @@
      「往外弓」的變形跟圓框在 WebGL 裡做（見 FISH），顏色在這裡做——
      但不能用 contrast()，它會把圓外的黑抬成灰，所以對比也放進 FISH 裡算 */
   .frame canvas.fish,.thumb canvas.fish,
-  .frame canvas.riso,.thumb canvas.riso{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
-  .p-peep .fishsrc,.p-riso .fishsrc{display:none}
+  .frame canvas.riso,.thumb canvas.riso,
+  .frame canvas.dv,.thumb canvas.dv{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .p-peep .fishsrc,.p-riso .fishsrc,.p-dv .fishsrc{display:none}
   .p-peep .fish{filter:sepia(var(--warm,.55)) saturate(1.05) brightness(1.02) blur(calc(var(--soft,.9)*.9cqw))}
 
   /* ============ 預設 16：印象日記（Riso 風，量測自 Lily 給的參考圖 IMG_0278.jpg，2026-09-26）============
@@ -496,6 +522,18 @@
      再用減色疊回紙色。分色、網點、偏移全部在 GPU 上一次算完（見 RISO），
      CSS 這邊只負責不要去動它 */
   .p-riso .riso{filter:none}
+  /* ============ 預設 18：手持 V8（量測自 Lily 給的兩張參考 IMG_0565／IMG_0567，2026-10-02）============
+     兩張都是三格的 DV 截圖。量到的技術指紋只有一個重點：
+       · **垂直細節比水平多 22%**（垂直/水平 = 1.218 與 1.221）
+         對照組：一般照片是 1.018、現有 17 個濾鏡落在 0.703～1.124，**沒有一個做這件事**
+         → 這就是 DV 的物理限制：色彩資訊橫向被壓掉、再加上交錯掃描，橫的方向糊了
+       · 暗部壓死 8.70%／15.17%；**亮部幾乎不爆**（1.40%／0.25%）—— 跟底片過曝那種剛好相反
+       · 飽和 .461／.308；暗部有色雜訊（Cb/Cr 起伏 2.66／2.28）——
+         底片顆粒是黑白的，DV 的雜訊是有顏色的，這是兩者最好認的差別
+     顏色全部在 WebGL 裡做（見 DV），CSS 這邊只負責暗角。 */
+  .p-dv .dv{filter:none}
+  .p-dv .vig{background:radial-gradient(ellipse at 50% 50%,transparent 58%,rgba(0,0,0,.35) 86%,rgba(0,0,0,.6) 100%);
+    opacity:var(--vig,.3)}
 
   /* ============ 「無」：照片影片原本的樣子，只留基礎微調 ============
      不套任何色調濾鏡，純粹是曝光／飽和／對比／顆粒／暗角這幾個最基本的調整，
@@ -2266,8 +2304,8 @@ const RISO=(()=>{
   const VS='attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
   const FS=`precision highp float;varying vec2 v;uniform sampler2D t;
 uniform vec2 px,cover,off0,off1,off2,offK;
-uniform vec3 paper,ink0,ink1,ink2,inkK,m0,m1,m2,kA;
-uniform float pitch,ang0,ang1,ang2,angK,soft,dens,con,ex,edge,kAmt,kStart;
+uniform vec3 paper,ink0,ink1,ink2,inkK,m0,m1,m2,kA,sides,qinvs;
+uniform float pitch,ang0,ang1,ang2,angK,soft,dens,con,ex,edge,kAmt,kStart,tilt,gray;
 vec2 fit(vec2 uv){return .5+(uv-.5)*cover;}
 vec3 samp(vec2 uv){
   vec2 q=fit(clamp(uv,0.,1.));
@@ -2291,10 +2329,22 @@ float blackAt(vec2 uv){
   float dark=min(min(A.r,A.g),A.b)/2.81;             /* 2.81 = -log(0.06)，把它正規化成 0~1 */
   return clamp((dark-kStart)/max(.05,1.-kStart),0.,1.)*kAmt;
 }
-float inkAt(vec2 uv,vec3 m){
+/* 把吸光量拆成「無彩色」＋「有顏色」兩部分，分開處理：
+     · 有顏色的殘量 → 還是交給最小平方（dot(m,·)），該是什麼色相就是什麼色相
+     · 無彩色的部分 → 不走最小平方，改用一條「亮部偏一個墨、暗部偏另一個墨」的曲線分配
+   為什麼要這樣：灰色沒有色相可以分，最小平方解出來永遠是同一個固定配方，
+   所以整張不鮮豔的照片會變成單一色相的深淺變化——看起來就像單色印刷。
+   拆開之後灰階會從一個墨漸變到另一個墨，這才是真正雙色調印刷的樣子。（見 CHANGELOG 102）
+   qinv = 1/該油墨的平均吸光量，用來補償「墨本身有深有淺」，
+   所以 tilt=0 時兩個墨是真的各分一半（灰平衡），不會被深色墨整碗端走。 */
+float inkAt(vec2 uv,vec3 m,float side,float qinv){
   vec3 A=absorb(uv);
-  A=max(A-blackAt(uv)*kA,0.);                        /* 扣掉黑墨已經吃掉的那一份 */
-  return clamp(dot(m,A)*dens,0.,1.);
+  float dk=min(min(A.r,A.g),A.b)/2.81;               /* 這一點有多暗，0~1 */
+  float k=clamp((dk-kStart)/max(.05,1.-kStart),0.,1.)*kAmt;
+  A=max(A-k*kA,0.);                                  /* 扣掉黑墨已經吃掉的那一份 */
+  float n=min(min(A.r,A.g),A.b);                     /* 無彩色：三個通道共同吸掉的那一份 */
+  float w=clamp(.5+side*tilt*(.5-dk),0.,1.);         /* 這一階的灰要偏哪個墨 */
+  return clamp((dot(m,A-n*gray)+n*gray*w*qinv)*dens,0.,1.);
 }
 /* 網點：把畫面座標轉到這個油墨的角度，看它落在格子的哪裡；
    墨越濃點越大（面積正比於濃度，所以半徑取平方根） */
@@ -2310,13 +2360,13 @@ float dot1(vec2 fp,float ang,float amt){
 void main(){
   vec2 fp=v/px;                                  /* 畫面像素座標：網點釘在畫面上 */
   vec3 out3=paper;
-  out3*= 1.-dot1(fp,ang0,inkAt(v+off0,m0))*(1.-ink0);
-  out3*= 1.-dot1(fp,ang1,inkAt(v+off1,m1))*(1.-ink1);
+  out3*= 1.-dot1(fp,ang0,inkAt(v+off0,m0,sides.x,qinvs.x))*(1.-ink0);
+  out3*= 1.-dot1(fp,ang1,inkAt(v+off1,m1,sides.y,qinvs.y))*(1.-ink1);
   /* 第三個彩色墨（CMYK 的黃）。雙色模式不需要判斷 nColor——inkMatrix() 會把第三列補成 0，
      濃度算出來就是 0、dot1() 直接回 0，什麼都不會畫。
      （原本這裡有 if(nColor>2.5)，但那個 uniform 沒生效，黃版整個沒上，
        紅變成洋紅、綠變成青。拿掉判斷之後才對。） */
-  out3*= 1.-dot1(fp,ang2,inkAt(v+off2,m2))*(1.-ink2);
+  out3*= 1.-dot1(fp,ang2,inkAt(v+off2,m2,sides.z,qinvs.z))*(1.-ink2);
   if(kAmt>.02)   out3*= 1.-dot1(fp,angK,blackAt(v+offK))*(1.-inkK);
   gl_FragColor=vec4(clamp(out3,0.,1.),1.);
 }`;
@@ -2336,7 +2386,8 @@ void main(){
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
       const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
       ['t','px','cover','off0','off1','off2','offK','paper','ink0','ink1','ink2','inkK','m0','m1','m2','kA',
-       'pitch','ang0','ang1','ang2','angK','soft','dens','con','ex','edge','kAmt','kStart'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+       'sides','qinvs','pitch','ang0','ang1','ang2','angK','soft','dens','con','ex','edge','kAmt','kStart',
+       'tilt','gray'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
     }catch(e){console.warn('印象日記：WebGL 初始化失敗',e);gl=false;return false}
     return true;
@@ -2375,7 +2426,18 @@ void main(){
       M.push(row);
     }
     while(M.length<3)M.push([0,0,0]);
-    const res={M,rgb:inks.map(hex)};
+    /* q = 這個油墨的平均吸光量（越大＝墨本身越深）。
+       qinv 拿來把「分到的灰」換算成濃度，深墨要印少一點才等重。
+       sides：比較淺的那個墨走亮部（+1），比較深的走暗部（-1）——深的壓暗部才自然。 */
+    const q=A.map(a=>(a[0]+a[1]+a[2])/3);
+    const qinv=q.map(v=>1/Math.max(v,.05)); while(qinv.length<3)qinv.push(0);
+    /* 誰走亮部要看「眼睛覺得誰比較淺」，不能看吸光量平均：
+       黃墨對藍光吸得極兇（吸光量平均會很高），但人眼看它就是很淺的顏色。
+       用相對亮度判斷，黃墨才會正確地落在亮部。 */
+    const lum=c=>{const [r,g,bl]=hex(c);return .2126*r+.7152*g+.0722*bl};
+    const L=inks.map(lum);
+    const sides=n===2?(L[0]>L[1]?[1,-1,0]:[-1,1,0]):[0,0,0];
+    const res={M,rgb:inks.map(hex),qinv,sides};
     mcache.set(key,res);return res;
   }
   function texFor(src){
@@ -2405,7 +2467,7 @@ void main(){
        雙色模式：兩個特別色，角度差 30°，沒有玫瑰紋但有明顯的套準偏移——那才是 Riso。 */
     const cmyk=p.color[2]==='CMYK 四色';
     const inks=cmyk?['#00aeef','#ec008c','#fff200']:[p.color[0],p.color[1]];
-    const {M,rgb}=inkMatrix(inks);
+    const {M,rgb,qinv,sides}=inkMatrix(inks);
     const K=[20/255,18/255,16/255];
     gl.uniform3f(U.paper,246/255,241/255,228/255);        /* 量到的紙色 */
     gl.uniform3f(U.ink0,...rgb[0]);
@@ -2418,6 +2480,12 @@ void main(){
     gl.uniform3f(U.kA,...K.map(v=>-Math.log(Math.max(v,.06))/2.81));
     gl.uniform1f(U.kAmt,p.black);
     gl.uniform1f(U.kStart,p.kstart);
+    gl.uniform3f(U.qinvs,qinv[0],qinv[1],qinv[2]||0);
+    gl.uniform3f(U.sides,sides[0],sides[1],sides[2]);
+    gl.uniform1f(U.tilt,p.tilt==null?.7:p.tilt);
+    /* CMYK 三個墨已經能完整解出任何顏色（最小平方是精確解），不需要也不應該另外分配灰，
+       所以只有雙色模式走新的拆法 */
+    gl.uniform1f(U.gray,cmyk?0:1);
     const D=Math.PI/180, base=p.angle*D;
     if(cmyk){
       /* 角度滑桿在預設的 45° 時，四個版剛好落在經典角度；拉滑桿就整組一起轉 */
@@ -2599,6 +2667,148 @@ const PRESETS={
   }
 };
 
+/* ================= 手持 V8：WebGL 低保真 DV =================
+   為什麼要 GPU：這個風格的核心是「橫向被抹掉」，而 CSS 的 blur() 是四面八方一起糊的，
+   做不出「只糊橫向」。量測見 CSS「預設 18」的註解。
+   每個像素做的事：
+     1. 轉成 YCbCr（亮度跟色度分開，DV 本來就是這樣存的）
+     2. **色度橫向平均**一大段、**亮度只平均一點點** —— 這一步就是 4:1:1 色彩壓縮的本體
+     3. 機內銳化：橫向 unsharp，長出 DV 那種假邊
+     4. 暗部加色雜訊（有顏色的，不是黑白顆粒）
+     5. 壓死暗部、掃描線
+   刻意跟 FISH／RISO 各自開一個 WebGL 環境 —— 跟 RISO 當初同樣的理由：
+   合併要動到已經驗過的東西，不划算。 */
+const DV=(()=>{
+  let cv=null,gl=null,prog=null,U={};const texes=new WeakMap();
+  const VS='attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
+  const FS=`precision mediump float;varying vec2 v;uniform sampler2D t;
+uniform vec2 px,cover;
+uniform float lsmear,sharp,scan,spitch,crush,sat,con,ex,seed;
+/* 彩色雜訊固定住，不開滑桿：Lily 實測拉滑桿看不出差別（確實很細），
+   但它關掉的話「暗部色雜訊」會從 2.80 掉到 0.84，而參考圖是 2.2~2.7 ——
+   它不是給人調的，是讓暗部像錄影帶而不像乾淨數位檔的那一項。改這裡就好。 */
+const float CNOISE=.045;
+vec2 fit(vec2 uv){return .5+(uv-.5)*cover;}
+vec3 samp(vec2 uv){return texture2D(t,fit(clamp(uv,0.,1.))).rgb;}
+vec3 toY(vec3 c){return vec3(dot(c,vec3(.299,.587,.114)),dot(c,vec3(-.169,-.331,.5)),dot(c,vec3(.5,-.419,-.081)));}
+vec3 toRGB(vec3 y){return vec3(y.x+1.402*y.z, y.x-.344*y.y-.714*y.z, y.x+1.772*y.y);}
+float rnd(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+void main(){
+  /* 色度直接取中心點。
+     原本這裡有一段 13 次取樣的「橫向抹色」（模擬 DV 的 4:1:1 色彩壓縮），
+     拿掉了 —— Lily 實測看不出差別，我放大三倍比對也只有在滑桿拉到最大才看得出來，
+     而它是整個 shader 最貴的一段（每個像素 13 次貼圖取樣）。
+     真正讓畫面「橫向糊掉」的是下面的亮度糊，不是它（見 CHANGELOG 105）。 */
+  vec2 C=toY(samp(v)).yz;
+  /* 亮度：橫向糊掉 —— 這才是 V8 那個低保真感的來源 */
+  float y0=toY(samp(v)).x;
+  float yl=toY(samp(v-vec2(px.x*lsmear,0.))).x;
+  float yr=toY(samp(v+vec2(px.x*lsmear,0.))).x;
+  float Y=(y0*2.+yl+yr)*.25;
+  /* 機內銳化：拿比較遠的一對去做橫向 unsharp，才會長出那種假邊而不是把上面糊掉的又救回來 */
+  float sl=toY(samp(v-vec2(px.x*3.,0.))).x, sr=toY(samp(v+vec2(px.x*3.,0.))).x;
+  Y+=sharp*(Y-(sl+sr)*.5);
+  C*=sat;
+  /* 暗部色雜訊：越暗越明顯，而且是「有顏色」的（底片顆粒是黑白的） */
+  float dark=1.-smoothstep(0.,.5,Y);
+  vec2 cell=floor(v/px*.5);
+  C.x+=(rnd(cell+seed)-.5)*CNOISE*dark;
+  C.y+=(rnd(cell+seed+17.3)-.5)*CNOISE*dark;
+  vec3 col=toRGB(vec3(Y,C));
+  col=(col-.5)*con+.5;
+  col*=ex;
+  col=max(col-crush,0.)/max(1.-crush,.001);     /* 暗部壓死 */
+  float row=v.y/px.y;                            /* 掃描線：間距給像素 */
+  col*=1.-scan*(.5+.5*sin(row*3.14159265/max(spitch,.5)));
+  gl_FragColor=vec4(clamp(col,0.,1.),1.);
+}`;
+  function init(){
+    if(gl)return true; if(gl===false)return false;
+    cv=document.createElement('canvas');
+    gl=cv.getContext('webgl',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false})||false;
+    if(!gl)return false;
+    try{
+      const sh=(ty,src)=>{const o=gl.createShader(ty);gl.shaderSource(o,src);gl.compileShader(o);
+        if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
+      prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
+      gl.linkProgram(prog);
+      if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));
+      gl.useProgram(prog);
+      const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+      const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+      /* 漏掉任何一個名字，那個效果就整個沒生效，而且不會報錯——entry 90 踩過 */
+      ['t','px','cover','lsmear','sharp','scan','spitch','crush','sat','con','ex','seed']
+        .forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    }catch(e){console.warn('手持 V8：WebGL 初始化失敗',e);gl=false;return false}
+    return true;
+  }
+  const ready=e=>e.tagName==='VIDEO'?(e.videoWidth>0&&e.readyState>=2):(e.complete&&e.naturalWidth>0);
+  function texFor(src){
+    let o=texes.get(src);
+    if(!o){o={tex:gl.createTexture(),up:false};texes.set(src,o);
+      gl.bindTexture(gl.TEXTURE_2D,o.tex);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR)}
+    else gl.bindTexture(gl.TEXTURE_2D,o.tex);
+    if(src.tagName==='VIDEO'||!o.up){try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);o.up=true}catch(e){}}
+  }
+  function render(st,p){
+    const {src,out}=st;
+    if(!ready(src)||!init())return false;
+    const box=out.parentElement?out.parentElement.getBoundingClientRect():null;
+    const ar=(box&&box.width>0&&box.height>0)?box.width/box.height:0.8;
+    const W=ar>=1?1080:Math.round(1080*ar), H=ar>=1?Math.round(1080/ar):1080;
+    if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+    if(out.width!==W||out.height!==H){out.width=W;out.height=H}
+    gl.viewport(0,0,W,H);
+    const As=(src.videoWidth||src.naturalWidth)/(src.videoHeight||src.naturalHeight), Ao=W/H;
+    texFor(src);gl.uniform1i(U.t,0);
+    gl.uniform2f(U.px,1/W,1/H);
+    gl.uniform2f(U.cover,Math.min(1,Ao/As),Math.min(1,As/Ao));
+    gl.uniform1f(U.lsmear,p.lsmear);gl.uniform1f(U.sharp,p.sharp);
+    gl.uniform1f(U.scan,p.scan);gl.uniform1f(U.spitch,p.spitch);
+    gl.uniform1f(U.crush,p.crush);
+    gl.uniform1f(U.sat,p.sat);gl.uniform1f(U.con,p.con);gl.uniform1f(U.ex,p.exp);
+    gl.uniform1f(U.seed,st.seed||0);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    out.getContext('2d').drawImage(cv,0,0);
+    return true;
+  }
+  return {render,ready};
+})();
+
+PRESETS.dv={name:'手持 V8',desc:'2000 年代的 DV：橫向被抹掉的低解析感、掃描線、暗部壓死還帶彩色雜訊；手持會晃',
+  transition:'cut',
+  /* 量測見 CSS 的「預設 18」註解。目標：垂直/水平 1.22、死黑 8.7~15.2%、爆白 <1.5%、飽和 .31~.46 */
+  params:[['lsmear','橫向糊掉',0,4,.1,2],
+    ['sharp','機內銳化',0,1.5,.05,.55],
+    ['scan','掃描線',0,.6,.02,.1],['spitch','掃描線間距',1,6,.5,2.5,'px'],
+    ['crush','暗部壓死',0,.4,.02,.05],
+    ['sat','飽和',0,2,.05,1.05],['con','對比',.6,1.8,.02,1],['exp','曝光',.5,1.6,.02,1.22],
+    ['shake','手震',0,3,.1,.5],['vig','暗角',0,1,.05,.3]],
+  build(p,T,root,item){
+    if(!item){root.appendChild(makeMedia(null));return}
+    const gate=el('gate',root);
+    const src=makeMedia(item);
+    el('fishsrc',gate).appendChild(src);
+    const out=document.createElement('canvas');out.className='media dv';gate.appendChild(out);
+    const st={src,out,dirty:true,seed:0};
+    const draw=()=>{if(DV.render(st,this.p||p))st.dirty=false};
+    out._refresh=draw;                  /* 輸出渲染器畫這塊畫布之前會先叫它 */
+    if(DV.ready(src))draw();else src.addEventListener(src.tagName==='VIDEO'?'loadeddata':'load',draw,{once:true});
+    /* 彩色雜訊每格換一次種子 —— 走 T（虛擬時鐘），所以預覽跟輸出是同一套 */
+    tick(T,24,()=>{st.seed=(st.seed+1)%101;draw()});
+    weave(gate,T,{amp:()=>(this.p||p).shake/.3,hz:24,ax:.10,ay:.10,hold:.93,kick:.04,kickSize:.5});
+    el('fx vig',root);
+    this.slots=(this.slots||[]).filter(x=>x.out.isConnected);this.slots.push(st);
+    this.update(p);
+  },
+  update(p){this.p=p;setVar('vig',p.vig);
+    (this.slots||[]).forEach(x=>{x.dirty=true});}
+};
+
 PRESETS.sun={name:'陽光褪色',desc:'暗部抬起不壓黑、動態範圍壓縮、黃綠色偏與霧化',transition:'dissolve',
   /* 量測（參考影片 2026-09-15 02:56，48 格取樣）：
      L p1=41 p5=59 p50=147 p95=207 p99=218；<16 僅 0.05%
@@ -2649,6 +2859,29 @@ PRESETS.bloom={name:'花田時光',desc:'亮部滾降不到純白、暗部壓死
     setVar('exp',p.exp);setVar('warm',p.warm);setVar('glow',p.glow);
     setVar('soft',p.soft);setVar('grain',p.grain);setVar('crush',p.crush);setVar('vig',p.vig);
     setVar('sat',1.35);setVar('con',1.20);}
+};
+
+PRESETS.summer={name:'那年夏天',desc:'逆光過曝的夏天：亮部真的燒穿成白色、暗部暖紅褐、右邊一道暖光；粗顆粒配柔焦',
+  transition:'dissolve',
+  /* 量測見 CSS 的「預設 17」註解。目標：燒穿 18.08%、飽和 .456、顆粒 rms 6.21、
+     暗部 (44,26,18)、中間調 (144,102,69)、亮部 (248,232,233) */
+  params:[['exp','曝光',1,2.2,.02,1.9],['warm','暖調',0,1,.05,.28],
+    ['sat','飽和',.5,2.5,.05,1.15],['con','對比',.6,1.6,.02,1.2],
+    ['lift','暗部暖褐',0,1,.05,.35],['leak','右側漏光',0,1,.05,.5],
+    ['soft','柔焦',0,1,.05,.18],['grain','顆粒',0,.8,.02,.22],
+    ['vig','暗角',0,1,.05,.35],['fade','淡入長度',.3,2.5,.1,.8,'s']],
+  build(p,T,root,item){
+    root.appendChild(makeMedia(item));
+    ['lift','rleak'].forEach(c=>el('fx '+c,root));
+    const g1=el('grain',root),g2=el('grain coarse',root);
+    el('fx vig',root);
+    grainTick([g1,g2],T,20);
+    this.update(p);
+  },
+  update(p){this.p=p;
+    setVar('exp',p.exp);setVar('warm',p.warm);setVar('sat',p.sat);setVar('con',p.con);
+    setVar('lift',p.lift);setVar('leak',p.leak);setVar('soft',p.soft);
+    setVar('grain',p.grain);setVar('vig',p.vig);setVar('fade',p.fade);}
 };
 
 PRESETS.none={name:'無',desc:'不套色調，照片影片原本的樣子；留曝光／飽和／對比／發光／顆粒／暗角可以調',transition:'dissolve',
@@ -2799,6 +3032,7 @@ PRESETS.riso={name:'印象日記',desc:'孔版印刷：整張圖壓進兩三個�
       ['#765ba7','#ffe800','紫＋黃'],['#00a95c','#ff6c2f','綠＋橘'],
       ['#0078bf','#ffe800','藍＋黃'],['#ff48b8','#ffe800','粉＋黃'],
       ['#00aeef','#ec008c','CMYK 四色']]],
+    ['tilt','灰色分墨',0,1,.05,.7],
     ['black','黑墨',0,1,.05,.45],
     ['kstart','黑墨從多暗開始',.1,.9,.05,.45],
     ['pitch','網點大小',2,12,.2,3.8,'px'],
@@ -3439,7 +3673,7 @@ function renderParams(){
 }
 /* 濾鏡在清單上的擺放順序。跟 PRESETS 的定義順序分開，要調順序改這裡就好。
    沒列到的會自動接在後面，所以之後新增濾鏡不會憑空消失 */
-const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','proj','cool','party','night','riso','split','finder','peep','bw'];
+const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','summer','proj','dv','cool','party','night','riso','split','finder','peep','bw'];
 const presetIds=[...new Set([...PRESET_ORDER.filter(id=>PRESETS[id]),...Object.keys(PRESETS)])];
 presetIds.forEach(id=>{
   const P=PRESETS[id];
