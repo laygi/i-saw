@@ -1406,6 +1406,8 @@
       <div class="rowline param"><div class="top"><label class="k" for="fadeSecs">淡出到黑長度</label><span class="num" id="vFadeSecs">2 秒</span></div><input type="range" id="fadeSecs" min=".5" max="6" step=".5" value="2"></div>
       <div class="rowline"><label class="k" for="autoFade">輸出時加上結尾</label><div class="v">
         <button class="toggle" id="autoFade" role="switch" aria-checked="true" aria-label="輸出時加上結尾"></button></div></div>
+      <div class="rowline"><label class="k" for="keepAudio">保留原始收音</label><div class="v">
+        <button class="toggle" id="keepAudio" role="switch" aria-checked="true" aria-label="保留原始收音"></button></div></div>
     </section>
 
   </div>
@@ -1428,7 +1430,9 @@ const cur=()=>state.items[state.index];
 function addFiles(files){
   [...files].forEach(file=>{
     if(!file||!(file.type.startsWith('image/')||file.type.startsWith('video/')))return;
-    const it={src:URL.createObjectURL(file),kind:file.type.startsWith('video/')?'video':'image',natAR:0.8,name:file.name};
+    /* file：原始檔本身也留著 —— 輸出要保留原音時，聲音是直接從原檔抽的（見 renderAudioTrack()），
+       不是從畫面上那個 <video> 錄的（畫面上那個一直是靜音的） */
+    const it={src:URL.createObjectURL(file),kind:file.type.startsWith('video/')?'video':'image',natAR:0.8,name:file.name,file};
     const probe=it.kind==='video'?document.createElement('video'):new Image();
     probe.onloadedmetadata=probe.onload=()=>{it.natAR=it.kind==='video'?probe.videoWidth/probe.videoHeight:probe.naturalWidth/probe.naturalHeight;
       if(it.kind==='video'&&isFinite(probe.duration))it.dur=probe.duration;   /* 影片長度：算輸出總長、每個場景幾格都要用 */
@@ -1918,7 +1922,7 @@ $('#addCaption').onclick=()=>{state.captions.push({text:'',color:'#f2ead8',weigh
    結尾 2 秒亮度 57→21 且穿插 2～3 格偏紫 */
 /* autoFade：輸出影片時要不要在最後加上結尾（預設要）。
    exporting：只有在輸出的時候才會真的走到結尾 —— 畫板上永遠一直輪播，方便邊看邊調 */
-const proj={flicker:.2,fadeSecs:2,autoFade:true,exporting:false,ended:false,fading:false,
+const proj={flicker:.2,fadeSecs:2,autoFade:true,keepAudio:true,exporting:false,ended:false,fading:false,
   introStyle:'leak',endStyle:'leak',transStyle:''};
 /* frameMode：「一格一格算、不即時」的輸出管線（exportVideoFrames()）正在跑。
    凡是靠真實時間自己跳出來的東西——放映機閃動、影片播完自動換場——這時候都要讓路，
@@ -2028,6 +2032,7 @@ $('#endStyle').onchange=e=>{
 $('#flicker').oninput=e=>{proj.flicker=+e.target.value;$('#vFlicker').textContent=e.target.value;syncResetBtns()};
 $('#fadeSecs').oninput=e=>{proj.fadeSecs=+e.target.value;$('#vFadeSecs').textContent=e.target.value+' 秒';syncResetBtns()};
 $('#autoFade').onclick=e=>{proj.autoFade=!proj.autoFade;e.currentTarget.setAttribute('aria-checked',String(proj.autoFade));syncResetBtns()};
+$('#keepAudio').onclick=e=>{proj.keepAudio=!proj.keepAudio;e.currentTarget.setAttribute('aria-checked',String(proj.keepAudio));syncResetBtns()};
 
 /* ---- 兩顆「重設」 ---- */
 /* 標題本身是「收合／展開」的開關，所以按鈕要擋住冒泡，不然按重設會順便把區塊收起來 */
@@ -2056,6 +2061,8 @@ $('#resetProj').addEventListener('click',()=>{
   proj.endStyle=PROJ_DEFAULTS.endStyle;     $('#endStyle').value=proj.endStyle;
   proj.autoFade=PROJ_DEFAULTS.autoFade;
   $('#autoFade').setAttribute('aria-checked',String(proj.autoFade));
+  proj.keepAudio=PROJ_DEFAULTS.keepAudio;
+  $('#keepAudio').setAttribute('aria-checked',String(proj.keepAudio));
   renderItems();scheduleScene();syncResetBtns();
 });
 
@@ -3632,7 +3639,7 @@ function presetDefaults(id){
   return Object.fromEntries(PRESETS[id].params.map(([k,,min,max,step,def])=>[k,Array.isArray(min)?min[0]:def]));
 }
 /* 放映區的預設值。重設跟「有沒有被改過」的比對共用這一份，不會各寫一套 */
-const PROJ_DEFAULTS={dwell:4,flicker:.2,introStyle:'leak',transStyle:'',endStyle:'leak',fadeSecs:2,autoFade:true};
+const PROJ_DEFAULTS={dwell:4,flicker:.2,introStyle:'leak',transStyle:'',endStyle:'leak',fadeSecs:2,autoFade:true,keepAudio:true};
 const sameVal=(a,b)=>Array.isArray(a)||Array.isArray(b)
   ? (Array.isArray(a)&&Array.isArray(b)&&a[0]===b[0]&&a[1]===b[1])
   : a===b;
@@ -4759,6 +4766,88 @@ let drawPreview=null;
     rec.start();tick();
   }
 
+  /* ============ 輸出影片的原音 ============
+     2026-10-06 加。畫面是一格一格算出來的，聲音沒有「格」可言，不能用同一套做法，
+     所以拆成兩段：輸出跑畫面的時候順便記一本帳（哪一支影片、在成品的第幾秒出現、
+     出現到第幾秒、它自己要從第幾秒播起），畫面全部跑完之後再照這本帳把聲音排起來，
+     最後整段一次餵進音軌。聲音是從使用者丟進來的原始檔直接抽的（it.file，見 addFiles()），
+     不是從畫面上那個 <video> 錄的 —— 畫面上那個從頭到尾都是靜音。
+
+     幾個刻意的決定（2026-10-06 跟 Lily 確認）：
+       ・同一幕有兩支影片同時出現 → 兩邊聲音疊著放，不挑一支。
+       ・每一段的頭尾各 0.25 秒淡入淡出；換場時前後兩段本來就會重疊，自然就是交叉淡出。
+       ・「黑白老電影」會凍住畫面幾格（dataset.hold），聲音凍不了也不該凍，
+         所以聲音一律照真實速度跑、不扣掉凍住的格數 —— 寧可讓嘴型差一點點，
+         也不要讓聲音一頓一頓。
+       ・影片比停留時間短、畫面會繞回去重播時，聲音也跟著繞，接縫加 20 毫秒淡入淡出，
+         不然會聽到「喀」一聲。
+       ・結尾淡到黑的那段，聲音一起淡出。 */
+  async function renderAudioTrack(clips,totalSec,fadeSec,MB,onProgress){
+    const {Input,ALL_FORMATS,BlobSource,AudioBufferSink}=MB;
+    const SR=48000, FADE=.25, SEAM=.02;
+    const ctx=new OfflineAudioContext(2,Math.max(1,Math.ceil(totalSec*SR)),SR);
+    const master=ctx.createGain();master.gain.value=1;master.connect(ctx.destination);
+    if(fadeSec>.05&&totalSec>fadeSec){                 /* 結尾：跟畫面一起淡出 */
+      master.gain.setValueAtTime(1,totalSec-fadeSec);
+      master.gain.linearRampToValueAtTime(0,totalSec);
+    }
+    /* 同一支影片只解一次、整支解成一塊，之後每一段只是從這塊裡挑一個區間播，
+       不用為了每一段各解一次（同一支影片出現兩次、或繞圈重播時差很多） */
+    const cache=new Map();
+    const decode=async it=>{
+      if(cache.has(it))return cache.get(it);
+      let buf=null;
+      try{
+        const input=new Input({formats:ALL_FORMATS,source:new BlobSource(it.file)});
+        const tr=await input.getPrimaryAudioTrack();
+        if(tr&&await tr.canDecode()){
+          const parts=[];let sr=0,ch=1,end=0;
+          for await(const w of new AudioBufferSink(tr).buffers()){
+            parts.push(w);sr=w.buffer.sampleRate;
+            ch=Math.max(ch,w.buffer.numberOfChannels);
+            end=Math.max(end,w.timestamp+w.duration);
+          }
+          if(parts.length&&sr>0){
+            buf=new AudioBuffer({length:Math.ceil(end*sr)+sr,numberOfChannels:ch,sampleRate:sr});
+            for(const w of parts){
+              const off=Math.round(w.timestamp*sr);if(off<0)continue;
+              for(let c=0;c<ch;c++){
+                const d=w.buffer.getChannelData(Math.min(c,w.buffer.numberOfChannels-1));
+                const n=Math.min(d.length,buf.length-off);
+                if(n>0)buf.copyToChannel(n===d.length?d:d.subarray(0,n),c,off);
+              }
+            }
+          }
+        }
+      }catch(e){}
+      cache.set(it,buf);return buf;
+    };
+    let used=0;
+    for(let i=0;i<clips.length;i++){
+      const cl=clips[i];
+      if(onProgress)onProgress(i,clips.length);
+      const buf=await decode(cl.item);
+      if(!buf||cl.span<=.02||cl.len<=.02)continue;
+      used++;
+      let pos=cl.start;const stop=cl.start+cl.len;let first=true;
+      while(pos<stop-.02){
+        const dur=Math.min(cl.span,stop-pos);
+        const last=(pos+dur>=stop-.02);
+        const fi=Math.min(first?FADE:SEAM,dur/3), fo=Math.min(last?FADE:SEAM,dur/3);
+        const n=ctx.createBufferSource();n.buffer=buf;
+        const g=ctx.createGain();n.connect(g);g.connect(master);
+        g.gain.setValueAtTime(0,pos);
+        g.gain.linearRampToValueAtTime(1,pos+fi);
+        g.gain.setValueAtTime(1,Math.max(pos+fi,pos+dur-fo));
+        g.gain.linearRampToValueAtTime(0,pos+dur);
+        n.start(pos,cl.a,dur);n.stop(pos+dur);
+        pos+=dur;first=false;
+        if(!cl.wrap)break;                              /* 不繞圈：影片播完就沒聲音了（畫面停在最後一格） */
+      }
+    }
+    return {buffer:await ctx.startRendering(),used};
+  }
+
   /* ============ 輸出影片：「一格一格算、不即時」的管線 ============
      2026-09-23 起所有濾鏡都走這條路（在那之前只有「時間光漏」是試驗品）。
      跟舊的 exportVideo() 最大的差別：不用 MediaRecorder＋captureStream 即時錄，
@@ -4808,7 +4897,8 @@ let drawPreview=null;
       st.textContent='編碼元件載不下來（可能是沒有網路），改用舊的錄製方式輸出…';
       return exportVideo();
     }
-    const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality}=Mediabunny;
+    const {Output,Mp4OutputFormat,BufferTarget,CanvasSource,Quality,
+           Input,ALL_FORMATS,BlobSource,AudioBufferSink,AudioBufferSource}=Mediabunny;
 
     const FPS=24;
     const frameMs=1000/FPS;
@@ -4842,6 +4932,25 @@ let drawPreview=null;
       const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
       const videoSource=new CanvasSource(c,{codec:'avc',quality:new Quality({bitrate:12e6})});
       output.addVideoTrack(videoSource,{frameRate:FPS});
+
+      /* 原音：只有在「保留原始收音」開著、而且真的有素材帶聲音的時候才開一條音軌。
+         音軌必須在 output.start() 之前宣告，但聲音內容要等整段畫面跑完才排得出來
+         （每一支影片在成品的第幾秒出現、出現多久，是跑的過程中才知道的），
+         所以這裡只先把軌開好，資料留到最後一次餵進去 */
+      let audioSource=null, audioUsed=0;
+      if(proj.keepAudio){
+        for(const it of state.items){
+          if(it.kind!=='video'||!it.file)continue;
+          try{
+            const inp=new Input({formats:ALL_FORMATS,source:new BlobSource(it.file)});
+            if(await inp.getPrimaryAudioTrack()){
+              audioSource=new AudioBufferSource({codec:'aac',quality:new Quality({bitrate:128e3})});
+              output.addAudioTrack(audioSource);
+              break;
+            }
+          }catch(e){}
+        }
+      }
       await output.start();
 
       /* 影片素材：新管線是自己控制時間、一格一格畫，影片不會自己播（早就被暫停），
@@ -4853,6 +4962,10 @@ let drawPreview=null;
          dataset.hold 是「黑白老電影」的卡頓效果掛上來的記號：那幾格不要往前推（凍住），
          被凍住的格數要記下來扣掉，解凍之後才會從剛剛停住的地方接著播、而不是跳過去 */
       const vBirth=new WeakMap(), vHeld=new WeakMap();
+      /* 原音的帳本：每個影片元素第一次／最後一次出現在哪一格。
+         用 src 對回原始素材——換場時複製出來的那一份 src 一樣，對得回去 */
+      const vClip=new WeakMap(), audioClips=[];
+      const itemBySrc=new Map(state.items.filter(it=>it.file).map(it=>[it.src,it]));
       const seekTo=(v,t)=>new Promise(res=>{
         if(!(v.readyState>=1)||!isFinite(v.duration)){res();return}
         if(Math.abs(v.currentTime-t)<0.002){res();return}
@@ -4864,7 +4977,17 @@ let drawPreview=null;
         const vids=[...FRAME.querySelectorAll('video.media')];
         for(const v of vids){
           if(!v.paused)v.pause();
-          if(!vBirth.has(v))vBirth.set(v,f);
+          if(!vBirth.has(v)){
+            vBirth.set(v,f);
+            const it=audioSource?itemBySrc.get(v.getAttribute('src')):null;
+            if(it){
+              const a0=+v.dataset.t0||0;
+              const b0=(+v.dataset.t1||0)||((isFinite(v.duration)&&v.duration>0)?v.duration:(it.dur||0));
+              const cl={item:it,start:f,endF:f,a:a0,span:Math.max(0,b0-a0),wrap:v.dataset.wrap==='1'};
+              vClip.set(v,cl);audioClips.push(cl);
+            }
+          }
+          { const cl=vClip.get(v); if(cl)cl.endF=f }
           let held=vHeld.get(v)||0;
           if(v.dataset.hold){held++;vHeld.set(v,held)}
           const rel=(f-vBirth.get(v)-held)/FPS;
@@ -4968,6 +5091,22 @@ let drawPreview=null;
       if(cancelReq){
         st.textContent='已取消，沒有存檔。';
       }else{
+        if(audioSource){
+          st.textContent='正在處理聲音…';
+          let r=null;
+          try{
+            const clips=audioClips.map(cl=>({item:cl.item,a:cl.a,span:cl.span,wrap:cl.wrap,
+              start:cl.start/FPS,len:(cl.endF+1-cl.start)/FPS}));
+            r=await renderAudioTrack(clips,f/FPS,proj.autoFade?Math.min(endSecs,1.5):0,Mediabunny,
+              (i,n)=>{st.textContent=`正在處理聲音… ${i+1}/${n}`});
+          }catch(e){ r=null }
+          /* 萬一聲音整個排不出來：還是要餵一段無聲進去，不然這條空音軌會讓封裝失敗，
+             整支影片連畫面都存不出來 */
+          if(!r)r={buffer:await new OfflineAudioContext(2,4800,48000).startRendering(),used:0};
+          await audioSource.add(r.buffer);
+          audioSource.close();
+          audioUsed=r.used;
+        }
         await output.finalize();
         const buffer=output.target.buffer;
         const blob=new Blob([buffer],{type:'video/mp4'});
@@ -4976,7 +5115,8 @@ let drawPreview=null;
         a.download=`i-saw-${state.preset}-${W}x${H}.mp4`;
         document.body.appendChild(a);a.click();a.remove();
         setTimeout(()=>URL.revokeObjectURL(a.href),60000);
-        st.textContent=`完成：${(f/FPS).toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps · ${(blob.size/1048576).toFixed(1)} MB`;
+        const aMsg=audioSource?(audioUsed?` · 含原音（${audioUsed} 段）`:' · 聲音抽不出來，這支是無聲的'):'';
+        st.textContent=`完成：${(f/FPS).toFixed(1)} 秒 · ${W}×${H} · ${FPS}fps · ${(blob.size/1048576).toFixed(1)} MB`+aMsg;
       }
     }catch(e){
       st.textContent='輸出失敗：'+(e&&e.message||e);

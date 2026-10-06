@@ -1,0 +1,61 @@
+<!doctype html><meta charset="utf-8"><title>音訊可行性測試</title>
+<body style="font:13px/1.8 ui-monospace,monospace;padding:20px;white-space:pre-wrap"></body>
+<script type="module">
+/* 第 0 步：確認「從 .MOV 抽得出聲音」＋「編得出有聲音的 mp4」。
+   只讀本機檔案，不上傳任何東西。 */
+const out=document.body, L=[];
+const log=(...a)=>{const s=a.join(' ');L.push(s);out.textContent+=s+'\n';console.log(s)};
+window.__log=L; window.__done=false; window.__ok=false; window.__mp4=null;
+
+const FILE=new URLSearchParams(location.search).get('f')||'/my-media/vfuns 2026-01-01 001628.595.MOV';
+try{
+  log('1. 載入編碼元件…');
+  const MB=await import('https://cdn.jsdelivr.net/npm/mediabunny@1.59.0/+esm');
+  const {Input,ALL_FORMATS,BlobSource,AudioBufferSink,Output,Mp4OutputFormat,
+         BufferTarget,AudioBufferSource,Quality,canEncodeAudio}=MB;
+  log('   ok');
+
+  log('2. 讀原始檔 '+FILE);
+  const res=await fetch(encodeURI(FILE));
+  if(!res.ok)throw new Error('抓不到檔案 HTTP '+res.status);
+  const blob=await res.blob();
+  log('   '+(blob.size/1048576).toFixed(1)+' MB');
+
+  log('3. 解析容器…');
+  const input=new Input({formats:ALL_FORMATS,source:new BlobSource(blob)});
+  const fmt=await input.getFormat();
+  log('   容器 = '+fmt.name);
+  const at=await input.getPrimaryAudioTrack();
+  if(!at)throw new Error('這支影片沒有音軌');
+  log('   音軌 codec='+at.codec+'  聲道='+at.numberOfChannels+'  取樣率='+at.sampleRate);
+  log('   能解碼 = '+await at.canDecode());
+  log('   音軌長度 = '+(await at.computeDuration()).toFixed(2)+' 秒');
+
+  log('4. 抽前 3 秒的聲音…');
+  const sink=new AudioBufferSink(at);
+  const bufs=[];
+  for await (const w of sink.buffers(0,3)) bufs.push(w);
+  log('   抽到 '+bufs.length+' 塊，第一塊 t='+bufs[0].timestamp.toFixed(3)+' 長='+bufs[0].duration.toFixed(3));
+  let peak=0,frames=0;
+  for(const w of bufs){frames+=w.buffer.length;const d=w.buffer.getChannelData(0);
+    for(let i=0;i<d.length;i+=13){const v=Math.abs(d[i]);if(v>peak)peak=v}}
+  log('   總長 '+(frames/bufs[0].buffer.sampleRate).toFixed(3)+' 秒，音量峰值 '+peak.toFixed(4)
+      +(peak>0.001?'（有聲音）':'（疑似全靜音）'));
+
+  log('5. 編成有聲音的 mp4…');
+  log('   AAC 能編碼 = '+await canEncodeAudio('aac'));
+  const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
+  const src=new AudioBufferSource({codec:'aac',quality:new Quality({bitrate:128e3})});
+  output.addAudioTrack(src);
+  await output.start();
+  for(const w of bufs) await src.add(w.buffer);
+  src.close();
+  await output.finalize();
+  const mp4=new Blob([output.target.buffer],{type:'video/mp4'});
+  log('   成品 '+(mp4.size/1024).toFixed(1)+' KB');
+  const fr=new FileReader();
+  await new Promise(r=>{fr.onload=()=>{window.__mp4=fr.result.split(',')[1];r()};fr.readAsDataURL(mp4)});
+  window.__ok=true; log('全部通過 ✓');
+}catch(e){ log('✗ 失敗：'+(e&&e.message||e)); }
+window.__done=true;
+</script>
