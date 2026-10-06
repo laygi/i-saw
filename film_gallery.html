@@ -65,6 +65,7 @@
     font:10px/24px var(--mono);letter-spacing:.12em;
     transition:border-color .12s,color .12s,background-color .12s}
   .barclear:hover{background:transparent;border-color:var(--ink);color:var(--ink)}
+  .barclear[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
   .frame img,.frame video,.thumb img,.thumb video{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
   /* 主文字跟小提示是兩個 grid 項目（<small> 是 block，會自成一列）。
      原本 place-items:center 讓兩列各自平分高度、各自置中，中間就空了一大段。
@@ -1338,6 +1339,8 @@
     <div class="stagebar">
       <input type="file" id="file" accept="image/*,video/*" multiple>
       <div class="items" id="items"></div>
+      <button class="barclear" id="sound" type="button" aria-pressed="false"
+        title="預覽時要不要聽到影片的聲音（存檔的聲音另外設定，在輸出面板）">聲音 關</button>
       <button class="barclear" id="clear" title="清除全部素材">清除</button>
     </div>
   </div>
@@ -1525,7 +1528,8 @@ function makeMedia(it,cls=''){
   if(!it){const d=document.createElement('div');d.className='placeholder';d.innerHTML='把照片或影片拖進來<br>或點一下選擇檔案<small>可以一次放多個，會自動輪播<br>也可以直接 ⌘V 貼上照片</small>';d.onclick=()=>$('#file').click();return d}
   let el;
   if(it.kind==='video'){
-    el=document.createElement('video');el.muted=true;el.playsInline=true;el.autoplay=true;el.src=it.src;
+    el=document.createElement('video');el.__primary=true;el.muted=previewMuted();
+    el.playsInline=true;el.autoplay=true;el.src=it.src;
     /* 只有一幕的時候讓影片自己循環（不然看一次就定住了）。
        兩幕以上不循環：播完停在最後一格，等這一幕該停的時間到才換。
        以前這裡還會掛一個 ended → nextScene（播完就換），現在拿掉了——
@@ -1549,6 +1553,12 @@ function makeMedia(it,cls=''){
 function applyAspect(){const v=$('#aspect').value;document.documentElement.style.setProperty('--ar',v==='auto'?(cur()?.natAR||0.8):v)}
 $('#aspect').onchange=()=>{applyAspect();build()};
 $('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('#sound').onclick=e=>{
+  previewSound=!previewSound;
+  e.currentTarget.setAttribute('aria-pressed',String(previewSound));
+  e.currentTarget.textContent='聲音 '+(previewSound?'開':'關');
+  syncPreviewSound();   /* 按鈕本身就是使用者動作，這時候呼叫 play() 瀏覽器才肯讓它出聲 */
+};
 $('#clear').onclick=()=>{state.items.forEach(i=>URL.revokeObjectURL(i.src));state.items=[];state.index=0;renderItems();build()};
 $('#dwell').oninput=e=>{state.dwell=+e.target.value;$('#vDwell').textContent=e.target.value+' 秒';renderItems();scheduleScene();syncResetBtns()};
 ['dragenter','dragover'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.add('dragover')}));
@@ -1924,6 +1934,24 @@ $('#addCaption').onclick=()=>{state.captions.push({text:'',color:'#f2ead8',weigh
    exporting：只有在輸出的時候才會真的走到結尾 —— 畫板上永遠一直輪播，方便邊看邊調 */
 const proj={flicker:.2,fadeSecs:2,autoFade:true,keepAudio:true,exporting:false,ended:false,fading:false,
   introStyle:'leak',endStyle:'leak',transStyle:''};
+/* 預覽要不要出聲。預設不出聲 —— 編排的時候影片一直輪播，有聲音很吵；
+   但有時候需要聽一下素材的收音狀態，所以素材列上給一顆開關。
+   兩件事要小心：
+     ・只有畫面上那一份「正本」會出聲（el.__primary）。發光層、倒影那些是 cloneNode
+       複製出來的副本，它們一律保持靜音，不然同一段聲音會疊好幾次、聽起來像迴音。
+       （__primary 是 JS 屬性不是 HTML 屬性，cloneNode 不會複製過去，正好拿來分辨）
+     ・輸出中一律靜音。輸出的聲音是另外從原始檔抽的（renderAudioTrack()），
+       跟畫面上這個 <video> 完全沒有關係，讓它出聲只會在轉存時吵到人 */
+let previewSound=false;
+const previewMuted=()=>!previewSound||proj.exporting||frameMode;
+function syncPreviewSound(){
+  frame.querySelectorAll('video.media').forEach(v=>{
+    if(!v.__primary)return;
+    const m=previewMuted();
+    if(v.muted!==m)v.muted=m;
+    if(!m&&v.paused)v.play().catch(()=>{});
+  });
+}
 /* frameMode：「一格一格算、不即時」的輸出管線（exportVideoFrames()）正在跑。
    凡是靠真實時間自己跳出來的東西——放映機閃動、影片播完自動換場——這時候都要讓路，
    改由輸出迴圈按虛擬時鐘一格一格推；不然輸出的節奏會跟著這台電腦畫得快不快跑掉 */
@@ -4687,7 +4715,7 @@ let drawPreview=null;
        常常錄到入場還沒退完、整格都還是橘紅色的畫面，看起來像「整支都是橘色光」，
        而且只有「畫板剛好停在結尾」才會踩到，所以感覺起來時好時壞。
        改成真的等 resumeFromEnd() 的入場動畫播完再往下走 */
-    proj.exporting=true;
+    proj.exporting=true;syncPreviewSound();   /* 轉存中一律靜音 */
     if(proj.ended||proj.fading){proj.fading=false;await resumeFromEnd()}
     else{state.index=firstIndex();renderItems();build()}
     scheduleScene();
@@ -4750,7 +4778,7 @@ let drawPreview=null;
     rec.onstop=()=>{
       clearTimeout(raf);busy=false;setBusyUI(null);
       /* 畫板復原：輸出時跑到的結尾不要留在預覽上 */
-      proj.exporting=false;
+      proj.exporting=false;syncPreviewSound();   /* 還原成開關目前的狀態 */
       if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
       /* 按了取消就只收尾、不存檔 */
       if(cancelReq){cancelReq=false;st.textContent='已取消，沒有存檔。';return}
@@ -4906,7 +4934,7 @@ let drawPreview=null;
     const c=document.createElement('canvas');c.width=W;c.height=H;
     const ctx=c.getContext('2d',{alpha:false});
 
-    proj.exporting=true;
+    proj.exporting=true;syncPreviewSound();   /* 轉存中一律靜音 */
     proj.ended=false;proj.fading=false;
     /* #trans 不能藏——燒片換場的畫面（.t-fill／.t-wipe／.t-over）就掛在它底下，
        藏起來換場就整個看不到了。#fade 也不能藏，結尾（漏光停格／淡到黑）畫在它上面。
@@ -5125,7 +5153,7 @@ let drawPreview=null;
       frameMode=false;sceneFromExport=false;
       scheduleScene=savedScheduleScene;   /* 還原成真的會排真實計時器的版本，回到平常預覽模式 */
       overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
-      proj.exporting=false;
+      proj.exporting=false;syncPreviewSound();   /* 還原成開關目前的狀態 */
       proj.ended=false;proj.fading=false;resetFade();   /* 結尾那層還原，不然畫板會留在結束畫面 */
       /* 剛才為了跟著虛擬時鐘走，畫面裡的 CSS 動畫全被暫停了，還原成自己跑 */
       try{ FRAME.getAnimations({subtree:true}).forEach(a=>{try{a.play()}catch(e){}}) }catch(e){}
@@ -5152,7 +5180,7 @@ let drawPreview=null;
     /* 放映跑完一輪會停在「結尾」那一格 —— 漏光停格是一整片 rgb(132,38,2)，
        整個畫板都被它蓋住。不先還原的話，每張存下來都是一片橘褐色。
        跟輸出影片用同一套還原邏輯 */
-    proj.exporting=true;
+    proj.exporting=true;syncPreviewSound();   /* 轉存中一律靜音 */
     if(proj.ended||proj.fading){proj.fading=false;resumeFromEnd()}
 
     /* 入場／換場／結尾這三層是「時間上」的效果，靜態圖不該有。
@@ -5216,7 +5244,7 @@ let drawPreview=null;
       st.textContent='輸出圖片失敗：'+(e&&e.message||e);
     }finally{
       overlays.forEach((nd,j)=>nd.style.display=savedDisp[j]);
-      proj.exporting=false;
+      proj.exporting=false;syncPreviewSound();   /* 還原成開關目前的狀態 */
       state.index=keep;renderItems();build();
       busy=false;cancelReq=false;setBusyUI(null);
     }
