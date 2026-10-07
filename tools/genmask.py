@@ -69,9 +69,19 @@ def _catmull(pts):
     d.append("Z")
     return "".join(d)
 
-def wobble(x,y,w,h,r,off=0.0,amp=5.5,seed=7,N=56):
-    """圓角矩形的不規則版本。off = 整體外擴（描邊用），amp = 起伏振幅（px）"""
+def wobble(x,y,w,h,r,off=0.0,amp=5.5,seed=7,N=None):
+    """圓角矩形的不規則版本。off = 整體外擴（描邊用），amp = 起伏振幅（px）
+
+    N（取樣點數）依周長決定，不能用固定值：固定 56 點時每點相隔約 58px，
+    但一個圓角的弧長只有 60~80px —— 整個角只分到一個取樣點，
+    Catmull-Rom 等於直接從「角前」拉一條直線到「角後」，四個角就變成切角，
+    而且描邊（外擴 sw/2）跟洞（外擴 0）的切角對不起來，角落會漏出咖啡色。
+    改成每 8px 一點，每個圓角約 8 個點，角才會是圓的。"""
     rd=random.Random(seed)
+    if N is None:
+        r_=min(r,w/2,h/2)
+        peri=2*(w-2*r_)+2*(h-2*r_)+2*math.pi*r_
+        N=max(56,round(peri/8))
     # 低頻為主：整體微微起伏。高頻壓低，否則圓角會變得像融化的一樣
     waves=[(rd.uniform(1.5,2.3), rd.uniform(0,6.283), 1.0),
            (rd.uniform(3.2,4.6), rd.uniform(0,6.283), .38),
