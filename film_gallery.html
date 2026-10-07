@@ -56,16 +56,14 @@
     max-height:calc(100vh - 98px - var(--barh,0px) - var(--padt) - var(--hdh));
     
   }
-  /* 素材條：貼在成品正下方，只放縮圖與「＋」，右端一個清除 */
+  /* 素材條：貼在成品正下方，放縮圖、「＋」與預覽聲音開關 */
   .stagebar{display:flex;align-items:center;gap:10px;height:var(--barh);padding-top:16px}
   .stagebar .items{flex:1 1 auto;min-width:0;padding:0;border-bottom:0}
-  .barclear{flex:0 0 auto;align-self:center;width:auto;height:26px;padding:0 10px;cursor:pointer;
-    background:transparent;border:1px solid var(--hair);border-bottom:1px solid var(--hair);
-    color:var(--muted);text-align:center;
-    font:10px/24px var(--mono);letter-spacing:.12em;
-    transition:border-color .12s,color .12s,background-color .12s}
-  .barclear:hover{background:transparent;border-color:var(--ink);color:var(--ink)}
-  .barclear[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+  #sound{flex:0 0 auto;align-self:center;width:52px;height:52px;padding:0;cursor:pointer;
+    background:transparent;border:0;box-shadow:none;transition:none}
+  #sound:hover{background:transparent;border:0;box-shadow:none;filter:none;transform:none}
+  #sound:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+  #sound img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
   .frame img,.frame video,.thumb img,.thumb video{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
   /* 主文字跟小提示是兩個 grid 項目（<small> 是 block，會自成一列）。
      原本 place-items:center 讓兩列各自平分高度、各自置中，中間就空了一大段。
@@ -207,6 +205,9 @@
   .p-bw .fadeL{background:#161616;mix-blend-mode:lighten;opacity:.9}
   .p-bw .vig{background:radial-gradient(ellipse at 50% 50%,transparent 50%,rgba(0,0,0,.4) 82%,rgba(0,0,0,.75) 100%);opacity:var(--vig,1)}
   .p-bw .grain{opacity:var(--grain,.4);mix-blend-mode:overlay}
+  /* Safari 的 lighten 疊層會遮掉影片；這兩個濾鏡改在 GPU 畫布內混色。 */
+  .frame canvas.filmcolor,.thumb canvas.filmcolor{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:none}
+  .film-source{display:none}
 
   /* ============ 預設 5：褪色暖調（第三支參考：幾乎無顆粒無閃動、亮部不到白、暗部抬到暖褐） ============ */
   .p-faded .media{filter:contrast(.84) saturate(.82) sepia(.22) brightness(1.02) hue-rotate(-4deg)}
@@ -1192,8 +1193,7 @@
     .stagebar .item,.stagebar .item.add{width:52px;height:52px}
     /* 「＋」改釘在直排的最下面（原本是橫排、釘在最右邊） */
     .stagebar .addwrap{position:sticky;top:auto;right:auto;bottom:0;padding-left:0}
-    .barclear{flex:0 0 auto;width:100%;height:24px;padding:0;font-size:9px;line-height:22px;
-      letter-spacing:.06em}
+    #sound{width:52px;height:52px}
 
     /* ---- 中：濾鏡橫向選擇（固定） ---- */
     .panel-l{order:2;flex:none;height:auto;max-height:none;overflow:visible;
@@ -1361,9 +1361,9 @@
     <div class="stagebar">
       <input type="file" id="file" accept="image/*,video/*" multiple>
       <div class="items" id="items"></div>
-      <button class="barclear" id="sound" type="button" aria-pressed="false"
-        title="預覽時要不要聽到影片的聲音（存檔的聲音另外設定，在輸出面板）">聲音 關</button>
-      <button class="barclear" id="clear" title="清除全部素材">清除</button>
+      <button id="sound" type="button" aria-pressed="false" aria-label="開啟預覽聲音">
+        <img src="assets/sound-off.webp" alt="" aria-hidden="true">
+      </button>
     </div>
   </div>
 </div>
@@ -1578,10 +1578,10 @@ $('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 $('#sound').onclick=e=>{
   previewSound=!previewSound;
   e.currentTarget.setAttribute('aria-pressed',String(previewSound));
-  e.currentTarget.textContent='聲音 '+(previewSound?'開':'關');
+  e.currentTarget.setAttribute('aria-label',previewSound?'關閉預覽聲音':'開啟預覽聲音');
+  e.currentTarget.querySelector('img').src=previewSound?'assets/sound-on.webp':'assets/sound-off.webp';
   syncPreviewSound();   /* 按鈕本身就是使用者動作，這時候呼叫 play() 瀏覽器才肯讓它出聲 */
 };
-$('#clear').onclick=()=>{state.items.forEach(i=>URL.revokeObjectURL(i.src));state.items=[];state.index=0;renderItems();build()};
 $('#dwell').oninput=e=>{state.dwell=+e.target.value;$('#vDwell').textContent=e.target.value+' 秒';renderItems();scheduleScene();syncResetBtns()};
 ['dragenter','dragover'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.add('dragover')}));
 ['dragleave','drop'].forEach(ev=>frame.addEventListener(ev,e=>{e.preventDefault();frame.classList.remove('dragover')}));
@@ -2582,6 +2582,87 @@ void main(){
 })();
 
 /* ================= 預設定義 ================= */
+/* Safari 專用混色：把底色、柔焦與漏光合成為單一不透明畫布。
+   Chrome 保留原 CSS 路徑；輸出透過 _refresh 使用同一張已合成的畫布。 */
+const safariFilm=/AppleWebKit/.test(navigator.userAgent)&&!/Chrome|Chromium|Edg\//.test(navigator.userAgent);
+function safariFilmLayer(src,gate,T,P,id,hz){
+  if(!safariFilm)return null;
+  const out=document.createElement('canvas');out.className='media filmcolor';
+  const gl=out.getContext('webgl',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false});
+  if(!gl)return null;
+  const vs='attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
+  const fs=`precision mediump float;varying vec2 v;uniform sampler2D t;
+uniform vec2 cover,blurStep;uniform float bw,tone,flick,fade,leak,pulse;uniform vec3 la,lb;
+vec3 sampleAt(vec2 q){return texture2D(t,.5+(clamp(q,0.,1.)-.5)*cover).rgb;}
+vec3 softlight(vec3 d,vec3 s){
+ vec3 g=mix(((16.*d-12.)*d+4.)*d,sqrt(d),step(vec3(.25),d));
+ return mix(d-(1.-2.*s)*d*(1.-d),d+(2.*s-1.)*(g-d),step(vec3(.5),s));
+}
+void main(){
+ vec3 c=sampleAt(v)*.25;
+ c+=(sampleAt(v+vec2(blurStep.x,0.))+sampleAt(v-vec2(blurStep.x,0.))+
+     sampleAt(v+vec2(0.,blurStep.y))+sampleAt(v-vec2(0.,blurStep.y)))*.125;
+ c+=(sampleAt(v+blurStep)+sampleAt(v-blurStep)+sampleAt(v+vec2(blurStep.x,-blurStep.y))+
+     sampleAt(v+vec2(-blurStep.x,blurStep.y)))*.0625;
+ if(bw>.5){
+   c=vec3(dot(c,vec3(.2126,.7152,.0722)));
+   c=clamp((c-.5)*1.05+.5,0.,1.)*.92;
+   vec3 sep=vec3(dot(c,vec3(.393,.769,.189)),dot(c,vec3(.349,.686,.168)),dot(c,vec3(.272,.534,.131)));
+   c=clamp(mix(c,sep,tone)*flick,0.,1.);
+   c=mix(c,max(c,vec3(22./255.)),.9);
+ }else{
+   c=clamp((c-.5)*.62+.5,0.,1.)*.9;
+   c=mix(vec3(dot(c,vec3(.2126,.7152,.0722))),c,.95);
+   c=clamp(c*flick,0.,1.);
+   c=mix(c,max(c,vec3(26.,34.,54.)/255.),fade);
+   c=mix(c,softlight(c,vec3(110.,160.,135.)/255.),.85);
+   c=mix(c,c*vec3(250.,236.,165.)/255.,.8);
+   c*=1.-.22*clamp((v.x-.88)/.12,0.,1.);
+   float edge=1.-clamp(v.x/mix(.13,.14,pulse),0.,1.);
+   c=1.-(1.-c)*(1.-mix(la,lb,pulse)*edge*leak*mix(.3,1.,pulse));
+ }
+ gl_FragColor=vec4(clamp(c,0.,1.),1.);
+}`;
+  const shader=(type,code)=>{const s=gl.createShader(type);gl.shaderSource(s,code);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s};
+  let prog;
+  try{prog=gl.createProgram();gl.attachShader(prog,shader(gl.VERTEX_SHADER,vs));gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));}
+  catch(e){console.warn('Safari film shader',e);return null}
+  gl.useProgram(prog);
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  const a=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+  const U=Object.fromEntries(['t','cover','blurStep','bw','tone','flick','fade','leak','pulse','la','lb'].map(k=>[k,gl.getUniformLocation(prog,k)]));
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  for(const k of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE);
+  for(const k of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,k,gl.LINEAR);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  el('film-source',gate).appendChild(src);gate.appendChild(out);
+  const color=s=>[1,3,5].map(i=>parseInt(s.slice(i,i+2),16)/255);
+  let uploaded=false;
+  const draw=()=>{
+    const video=src.tagName==='VIDEO',sw=src.videoWidth||src.naturalWidth,sh=src.videoHeight||src.naturalHeight;
+    if(!sw||!sh||(video?src.readyState<2:!src.complete))return;
+    const p=P.p,box=gate.getBoundingClientRect(),ar=box.width&&box.height?box.width/box.height:.8;
+    const W=ar>=1?1080:Math.round(1080*ar),H=ar>=1?Math.round(1080/ar):1080;
+    if(out.width!==W||out.height!==H){out.width=W;out.height=H}
+    gl.viewport(0,0,W,H);gl.useProgram(prog);gl.bindTexture(gl.TEXTURE_2D,tex);
+    if(video||!uploaded){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);uploaded=true}
+    gl.uniform1i(U.t,0);gl.uniform2f(U.cover,Math.min(1,ar/(sw/sh)),Math.min(1,(sw/sh)/ar));
+    const soft=id==='bw'?.12:p.soft;gl.uniform2f(U.blurStep,soft/100,soft/100*ar);
+    gl.uniform1f(U.bw,id==='bw'?1:0);gl.uniform1f(U.tone,p.tone||0);
+    gl.uniform1f(U.flick,parseFloat(getComputedStyle(out).getPropertyValue('--flick'))||1);
+    gl.uniform1f(U.fade,p.fade||0);gl.uniform1f(U.leak,p.eleak||0);
+    gl.uniform1f(U.pulse,out._pulse?1:0);
+    gl.uniform3fv(U.la,color(p.color?.[0]||'#ff9678'));gl.uniform3fv(U.lb,color(p.color?.[1]||'#ff506e'));
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  };
+  out._refresh=draw;src.addEventListener(src.tagName==='VIDEO'?'loadeddata':'load',draw,{once:true});
+  /* 注册在 build 結束後，讓同格的閃爍／漏光先更新再畫。 */
+  out._start=()=>{tick(T,hz,draw);draw()};
+  return out;
+}
+
 const PRESETS={
   leak:{name:'時間光漏',desc:'橘紅光從左緣不規則地閃進來，暖色褪色',transition:'burn',
     params:[
@@ -2642,9 +2723,12 @@ const PRESETS={
     params:[['shake','抖動',0,3,.1,.3],['grain','顆粒',0,.7,.02,.1],['flick','閃爍',0,1,.05,.6],['fade','褪色程度',0,1,.05,.7],['eleak','左邊漏光',0,1,.05,.7],['soft','柔焦',0,1,.05,.25],
       ['color','光漏色',[['#ff9678','#ff506e','鮭橘'],['#ffb347','#ff5e3a','橘紅'],['#ffd27a','#ff8c3a','金黃'],['#ff6b6b','#c2185b','玫紅'],['#e9ec8a','#7fc24a','黃綠'],['#f3b6e2','#8f5fd0','粉紫']]]],
     build(p,T,root,item){
-      const gate=el('gate',root);gate.appendChild(makeMedia(item));
-      ['fadeL','cast','cast2','edgeR'].forEach(x=>el('fx '+x,gate));
-      const leak=el('fx edgeleak',gate);
+      this.p=p;
+      const gate=el('gate',root),src=makeMedia(item);
+      const film=item?safariFilmLayer(src,gate,T,this,'strip',18):null;
+      if(!film)gate.appendChild(src);
+      if(!film)['fadeL','cast','cast2','edgeR'].forEach(x=>el('fx '+x,gate));
+      const leak=film?null:el('fx edgeleak',gate);
       const g=el('grain',root);
       dustLayer(root,T,{rate:2,red:0,scratches:.3,hz:18});
       const HZ=18;
@@ -2652,8 +2736,9 @@ const PRESETS={
       flicker(T,{hz:HZ,sd:()=>.105*this.p.flick});
       grainTick([g],T,HZ);
       /* 左邊漏光脈衝：每張源格 1/5.5 機率亮一格（量測 30 個取樣 12 次脈衝 ≈ 每 0.3 s 一次） */
-      tick(T,HZ,()=>leak.classList.toggle('pulse',Math.random()<1/5.5));
+      tick(T,HZ,()=>{const pulse=Math.random()<1/5.5;if(film)film._pulse=pulse;else leak.classList.toggle('pulse',pulse)});
       this.update(p);
+      film?._start();
     },
     update(p){this.p=p;setVar('grain',p.grain);setVar('fade',p.fade);setVar('eleak',p.eleak);setVar('soft',p.soft);setVar('la',p.color[0]);setVar('lb',p.color[1])}
   },
@@ -2689,8 +2774,10 @@ const PRESETS={
     /* 沒有參考影片；抖動以垂直為主（默片片門）、閃爍逐格隨機 sd≈9%、卡頓感控制步進格率（0→24 Hz、1→12 Hz） */
     params:[['tone','偏褐色',0,1,.05,.25],['grain','顆粒',0,.8,.02,.22],['shake','跳動',0,3,.1,.3],['flick','閃爍',0,1,.05,.6],['scratch','刮痕',0,3,.1,1.5],['fps','卡頓感',0,1,.05,.5],['vig','暗角',0,1,.05,.8]],
     build(p,T,root,item){
-      const gate=el('gate',root);gate.appendChild(makeMedia(item));
-      el('fx fadeL',gate);
+      this.p=p;
+      const gate=el('gate',root),src=makeMedia(item);
+      const film=item?safariFilmLayer(src,gate,T,this,'bw',24-12*p.fps):null;
+      if(!film){gate.appendChild(src);el('fx fadeL',gate)}
       const g1=el('grain',gate),g2=el('grain coarse',gate);
       const HZ=24-12*p.fps;
       const dust=dustLayer(gate,T,{rate:3,red:0,dark:.5,scratches:.6,hz:HZ});
@@ -2719,6 +2806,7 @@ const PRESETS={
         }
       });
       this.update(p);
+      film?._start();
     },
     update(p){this.p=p;setVar('grain',p.grain);setVar('tone',p.tone);setVar('vig',p.vig)}
   }
@@ -2759,9 +2847,14 @@ void main(){
   vec2 C=toY(samp(v)).yz;
   /* 亮度：橫向糊掉 —— 這才是 V8 那個低保真感的來源 */
   float y0=toY(samp(v)).x;
-  float yl=toY(samp(v-vec2(px.x*lsmear,0.))).x;
-  float yr=toY(samp(v+vec2(px.x*lsmear,0.))).x;
-  float Y=(y0*2.+yl+yr)*.25;
+  /* 連續九點加權取樣；拉大範圍時維持柔順，不變成三份重影。
+     模糊距離以 1080 高度為基準，與畫質滑桿的縮圖解析度分開。 */
+  vec2 dx=vec2(px.x*lsmear*.5/(px.y*1080.),0.);
+  float Y=y0*.227027;
+  Y+=(toY(samp(v-dx)).x+toY(samp(v+dx)).x)*.1945946;
+  Y+=(toY(samp(v-dx*2.)).x+toY(samp(v+dx*2.)).x)*.1216216;
+  Y+=(toY(samp(v-dx*3.)).x+toY(samp(v+dx*3.)).x)*.054054;
+  Y+=(toY(samp(v-dx*4.)).x+toY(samp(v+dx*4.)).x)*.016216;
   /* 機內銳化：拿比較遠的一對去做橫向 unsharp，才會長出那種假邊而不是把上面糊掉的又救回來 */
   float sl=toY(samp(v-vec2(px.x*3.,0.))).x, sr=toY(samp(v+vec2(px.x*3.,0.))).x;
   Y+=sharp*(Y-(sl+sr)*.5);
@@ -2816,7 +2909,9 @@ void main(){
     if(!ready(src)||!init())return false;
     const box=out.parentElement?out.parentElement.getBoundingClientRect():null;
     const ar=(box&&box.width>0&&box.height>0)?box.width/box.height:0.8;
-    const W=ar>=1?1080:Math.round(1080*ar), H=ar>=1?Math.round(1080/ar):1080;
+    /* 先以低解析度渲染，成品與輸出再放大；不改最終檔案尺寸。 */
+    const res=Math.round(1080*Math.max(.2,Math.min(1,(p.quality??100)/100)));
+    const W=ar>=1?res:Math.round(res*ar), H=ar>=1?Math.round(res/ar):res;
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
     if(out.width!==W||out.height!==H){out.width=W;out.height=H}
     gl.viewport(0,0,W,H);
@@ -2825,7 +2920,8 @@ void main(){
     gl.uniform2f(U.px,1/W,1/H);
     gl.uniform2f(U.cover,Math.min(1,Ao/As),Math.min(1,As/Ao));
     gl.uniform1f(U.lsmear,p.lsmear);gl.uniform1f(U.sharp,p.sharp);
-    gl.uniform1f(U.scan,p.scan);gl.uniform1f(U.spitch,p.spitch);
+    /* 掃描線固定為原預設，不提供微調滑桿。 */
+    gl.uniform1f(U.scan,.1);gl.uniform1f(U.spitch,2.5);
     gl.uniform1f(U.crush,p.crush);
     gl.uniform1f(U.sat,p.sat);gl.uniform1f(U.con,p.con);gl.uniform1f(U.ex,p.exp);
     gl.uniform1f(U.seed,st.seed||0);
@@ -2839,9 +2935,9 @@ void main(){
 PRESETS.dv={name:'手持 V8',desc:'2000 年代的 DV：橫向被抹掉的低解析感、掃描線、暗部壓死還帶彩色雜訊；手持會晃',
   transition:'cut',
   /* 量測見 CSS 的「預設 18」註解。目標：垂直/水平 1.22、死黑 8.7~15.2%、爆白 <1.5%、飽和 .31~.46 */
-  params:[['lsmear','橫向糊掉',0,4,.1,2],
-    ['sharp','機內銳化',0,1.5,.05,.55],
-    ['scan','掃描線',0,.6,.02,.1],['spitch','掃描線間距',1,6,.5,2.5,'px'],
+  params:[['quality','畫質',20,100,1,67,'%'],
+    ['lsmear','橫向糊掉',0,12,.1,4],
+    ['sharp','機內銳化',0,1.5,.05,.3],
     ['crush','暗部壓死',0,.4,.02,.05],
     ['sat','飽和',0,2,.05,1.05],['con','對比',.6,1.8,.02,1],['exp','曝光',.5,1.6,.02,1.22],
     ['shake','手震',0,3,.1,.5],['vig','暗角',0,1,.05,.3]],
@@ -4433,14 +4529,15 @@ let drawPreview=null;
   const imgCache=new Map();
   function fillImage(ctx,url,el,s,b,k){
     const im=imgCache.get(url);
-    if(!im||!im.complete||!im.naturalWidth)return;
+    if(!im||!(im.naturalWidth||im.width)||('complete' in im&&!im.complete))return;
+    const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
     const bs=s.backgroundSize.split(' ');
-    const tw=bs[0]&&bs[0].endsWith('px')?parseFloat(bs[0])*k:im.naturalWidth*k;
-    const th=bs[1]&&bs[1].endsWith('px')?parseFloat(bs[1])*k:tw*(im.naturalHeight/im.naturalWidth);
+    const tw=bs[0]&&bs[0].endsWith('px')?parseFloat(bs[0])*k:iw*k;
+    const th=bs[1]&&bs[1].endsWith('px')?parseFloat(bs[1])*k:tw*(ih/iw);
     if(!(tw>0&&th>0))return;
     const p=ctx.createPattern(im,s.backgroundRepeat.includes('no-repeat')?'no-repeat':'repeat');
     if(!p)return;
-    p.setTransform(new DOMMatrix([tw/im.naturalWidth,0,0,th/im.naturalHeight,b.x,b.y]));
+    p.setTransform(new DOMMatrix([tw/iw,0,0,th/ih,b.x,b.y]));
     ctx.fillStyle=p;ctx.fillRect(b.x,b.y,b.w,b.h);
   }
 
@@ -4621,6 +4718,17 @@ let drawPreview=null;
     scan(FRAME,null);
     return Promise.all([...urls].map(u=>new Promise(res=>{
       if(imgCache.has(u))return res();
+      /* Safari 的帶濾鏡 SVG pattern 會污染輸出畫布，改用原生點陣顆粒。 */
+      if(safariFilm&&u.startsWith('data:image/svg+xml')&&u.includes('feTurbulence')){
+        const cv=document.createElement('canvas');cv.width=cv.height=300;
+        const cx=cv.getContext('2d'),pixels=cx.createImageData(300,300);let seed=7;
+        for(let i=0;i<pixels.data.length;i+=4){
+          seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+          const value=Math.max(0,Math.min(255,((seed/4294967296)*2.4-.7)*255));
+          pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=value;pixels.data[i+3]=255;
+        }
+        cx.putImageData(pixels,0,0);imgCache.set(u,cv);return res();
+      }
       const im=new Image();im.onload=im.onerror=()=>{imgCache.set(u,im);res()};im.src=u;
     })));
   }
