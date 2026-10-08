@@ -75,7 +75,8 @@
   .placeholder small{display:block;font:11px/1.7 var(--mono);color:var(--muted)}
   .frame.dragover .placeholder{background:var(--paper-2)}
   .frame.dragover{outline:2px dashed var(--paper);outline-offset:-10px}
-  .caption{position:absolute;left:var(--x,50%);top:var(--y,90%);transform:translate(-50%,-50%);z-index:40;text-align:center;white-space:nowrap;
+  /* 字幕與拖曳輔助線在外框（45）上方；畫布輸出沿用相同層級。 */
+  .caption{position:absolute;left:var(--x,50%);top:var(--y,90%);transform:translate(-50%,-50%);z-index:46;text-align:center;white-space:nowrap;
     pointer-events:auto;cursor:move;user-select:none;touch-action:none;max-width:96%;
     /* 字體、字形、字距由字幕自己的變數決定（見 CAPTION_FONTS）。
        拆成獨立屬性而不是 font 簡寫 —— 輸出渲染器是一個一個讀 computed style 的，這樣最穩 */
@@ -96,7 +97,7 @@
   .caption.dragging{outline:1px dashed rgba(255,255,255,.6);outline-offset:4px}
   /* 拖曳字幕時的對齊輔助線。只有拖的當下存在（放開就整個移除），
      所以不可能被畫進輸出 —— 輸出期間也不會有人在拖 */
-  .snapline{position:absolute;z-index:41;pointer-events:none;background:var(--red);
+  .snapline{position:absolute;z-index:47;pointer-events:none;background:var(--red);
     box-shadow:0 0 4px rgba(0,0,0,.5)}
   .snapline.v{top:0;bottom:0;width:1px;margin-left:-.5px}
   .snapline.h{left:0;right:0;height:1px;margin-top:-.5px}
