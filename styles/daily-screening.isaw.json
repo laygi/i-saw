@@ -1,0 +1,42 @@
+{
+  "type": "i-saw-settings",
+  "version": 1,
+  "name": "日常放映室",
+  "settings": {
+    "preset": "strip",
+    "params": {
+      "strip": {
+        "shake": 0.3,
+        "grain": 0.1,
+        "flick": 0.6,
+        "fade": 0.7,
+        "eleak": 0.7,
+        "soft": 0.25,
+        "color": [
+          "#ff9678",
+          "#ff506e",
+          "鮭橘"
+        ]
+      }
+    },
+    "aspect": "0.8",
+    "unlocked": null,
+    "frame": {
+      "id": "1",
+      "starColor": "#f2e3a3",
+      "customImage": null,
+      "starMask": null
+    },
+    "captions": [],
+    "playback": {
+      "dwell": 4,
+      "flicker": 0.2,
+      "introStyle": "leak",
+      "transStyle": "",
+      "endStyle": "leak",
+      "fadeSecs": 2,
+      "autoFade": true,
+      "keepAudio": true
+    }
+  }
+}

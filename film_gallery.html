@@ -54,12 +54,12 @@
     width:100%;
     max-width:100%;
     max-height:calc(100vh - 98px - var(--barh,0px) - var(--padt) - var(--hdh));
-    
+
   }
   /* 素材條：貼在成品正下方，放縮圖、「＋」與預覽聲音開關 */
   .stagebar{display:flex;align-items:center;gap:10px;height:var(--barh);padding-top:16px}
   .stagebar .items{flex:1 1 auto;min-width:0;padding:0;border-bottom:0}
-  #sound{flex:0 0 auto;align-self:center;width:44px;height:44px;padding:0;cursor:pointer;
+  #sound{flex:0 0 auto;align-self:flex-start;margin-top:6px;width:44px;height:44px;padding:0;cursor:pointer;
     background:transparent;border:0;box-shadow:none;transition:none}
   #sound:hover{background:transparent;border:0;box-shadow:none;filter:none;transform:none}
   #sound:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
@@ -71,7 +71,7 @@
   .placeholder{position:absolute;inset:0;display:grid;justify-items:center;align-content:center;gap:12px;
     text-align:center;padding:24px;cursor:pointer;z-index:50;
     color:var(--ink);font:13px/1.9 var(--mono);background:var(--paper);letter-spacing:.5px}
-  .placeholder::before{content:"";position:absolute;inset:14px;border:1px solid var(--rule)}
+  .placeholder::before{display:none}
   .placeholder small{display:block;font:11px/1.7 var(--mono);color:var(--muted)}
   .frame.dragover .placeholder{background:var(--paper-2)}
   .frame.dragover{outline:2px dashed var(--paper);outline-offset:-10px}
@@ -111,7 +111,8 @@
   /* 留白的格子：素材不夠時多出來的那一格。底色拿掉，露出後面（觀景窗＝框本身的底、
      圖框類＝框外面那張底圖），不要變成一塊突兀的黑色方塊 */
   .slot.empty{background:transparent}
-  .slot+.slot .placeholder{display:none}
+  .slot+.slot .placeholder{color:transparent}
+  .slot+.slot .placeholder small{visibility:hidden}
   /* 會抖動的圖層要比畫面大一點，抖的時候才不會露出邊 */
   .gate{position:absolute;inset:-3%;overflow:hidden;will-change:transform}
 
@@ -328,20 +329,6 @@
      遮罩層是 <img>，src 是程式當場用 canvas 合成出來的 data URL。
      為什麼不用 mask-image / clip-path：輸出影片的 canvas 渲染器兩個都不支援（見 README），
      但它畫得出 <img> 與 object-fit，所以走這條預覽跟輸出才會一致。 */
-  /* 直式／方形畫面對半橫切；橫式（16:9 那類，寬≥高）改成對半直切 ——
-     用 @container 讀 .frame 自己的長寬比（它有 aspect-ratio:var(--ar)），
-     不用 JS 判斷，畫面比例一改就自動切換，不會漏掉「跟素材一樣」這種算出來的比例。
-     canvas 輸出讀的是最終算好的版面（offsetLeft/Width…），跟畫面比例怎麼決定的無關，
-     所以這裡切換完，預覽跟輸出影片會是同一個版面 */
-  .p-split .half{position:absolute;left:0;top:0;width:100%;height:50%;overflow:hidden}
-  .p-split .half.bot{top:50%}
-  @container (min-aspect-ratio:1/1){
-    .p-split .half{width:50%;height:100%}
-    .p-split .half.bot{top:0;left:50%}
-  }
-  .p-split .starlay{position:absolute;inset:0;z-index:20;pointer-events:none}
-  .p-split .media{filter:saturate(var(--sat,1)) contrast(var(--con,1.06)) brightness(var(--exp,1))}
-
   /* ============ 郵票載體 ============
      郵票是「載體」不是濾鏡，所以可以跟任何濾鏡疊。
      它有兩格：第一格滿版（框外面的底圖，固定放第一張照片），第二格是票面的窗（輪播）。
@@ -596,6 +583,9 @@
     font:normal 300 13px/1 var(--mono);letter-spacing:.06em;
     color:var(--paper);opacity:.82;transition:opacity .2s,border-color .2s;
     border-bottom:1px solid rgba(235,231,221,.35)}
+  .hd-nav{display:flex;align-items:center;gap:22px;flex:0 0 auto;position:relative;z-index:50}
+  .hd-nav a{text-decoration:none}
+  @media(max-width:480px){.hd-nav{gap:14px}}
   .hd-story:hover{opacity:1;border-bottom-color:var(--paper)}
   @media (max-width:860px){.hd{padding:0 2px 12px}.hd .mark{height:30px}.hd .sub{display:none}.hd-story{font-size:12px}}
 
@@ -712,7 +702,7 @@
   .exportbar{display:none}
   /* 遮罩：跟面板共用 data-open 開關（見 open()），蓋住鐵盒跟底下的操作面板，
      讓「正在輸出」這件事更明確、也順便擋掉輸出中誤觸背後控制項 */
-  .expbackdrop{position:fixed;inset:0;z-index:6;background:rgba(0,0,0,.4);
+  .expbackdrop{position:fixed;inset:0;z-index:6;background:rgba(0,0,0,.48);
     opacity:0;pointer-events:none;transition:opacity .3s ease}
   .expbackdrop[data-open]{opacity:1;pointer-events:auto}
   /* 面板改成螢幕正中間的對話框（原本是釘在右下角）——
@@ -720,17 +710,21 @@
      Lily：「框框可以大一點，可能是左右排版，影片放左邊可以大一點，
      右邊目前資訊比較少，之後會補上」——原本 236px 是單欄堆疊時的寬度，
      改左右兩欄後整個放寬，見下面 .expbody */
-  .expanel{position:fixed;left:50%;top:50%;z-index:7;width:min(600px,94vw);padding:20px 24px 18px;
-    background:var(--paper);border:1px solid var(--rule);
+  .expanel{position:fixed;left:50%;top:50%;z-index:7;width:min(616px,94vw);padding:56px 32px 24px;
+    background:linear-gradient(rgba(244,241,232,.35),rgba(244,241,232,.35)),url(assets/dialog-linen.png) center/420px 420px; border:0;
     box-shadow:0 18px 44px rgba(30,8,10,.34);
     opacity:0;transform:translate(-50%,-50%) translateY(10px) scale(.98);pointer-events:none;
     transition:opacity .3s ease,transform .3s cubic-bezier(.22,.61,.36,1)}
+  /* 整幅手縫包邊保留自然轉角；九宮格避免邊角拉伸。 */
+  .dialog-stitch{position:absolute;inset:-2px;pointer-events:none;z-index:2;border:22px solid transparent;border-image:url(assets/dialog-whipstitch.png) 100 / 22px / 0 round;filter:saturate(.65) brightness(.95)}
+  .dialog-stitch.bottom,.dialog-stitch.left,.dialog-stitch.right{display:none}
+  .expanel>.dlgx{top:22px;right:22px}
   .expanel[data-open]{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}
   /* 左右兩欄：左邊預覽圖固定寬度、右邊資訊吃剩下的空間。
      窄螢幕（手機）疊回原本的上下排列 */
   .expbody{display:flex;gap:24px;align-items:flex-start}
   .expbody .expinfo{flex:1 1 auto;min-width:0}
-  @media (max-width:640px){.expbody{flex-direction:column}.expanel{width:min(340px,92vw);padding:16px 16px 12px}}
+  @media (max-width:640px){.expbody{flex-direction:column}.expanel{width:min(340px,92vw);padding:56px 26px 20px}}
   /* 輸出中的進度條：平常收著，setBusyUI() 開始輸出時才打開 */
   /* 下載圖片要出哪幾張：全部 / 範圍。
      上面留白、下面貼齊「下載圖片」，一看就知道這排是管圖片的，不是管影片的 */
@@ -1107,6 +1101,15 @@
   .item img,.item video{width:100%;height:100%;object-fit:cover;display:block}
   .item .x{position:absolute;top:0;right:0;width:16px;height:16px;text-align:center;background:var(--paper);color:var(--ink);font:11px/16px var(--mono);opacity:0;transition:opacity .12s;z-index:2}
   .item:hover .x{opacity:1}
+  .item .drag-handle{position:absolute;top:0;left:0;z-index:3;width:22px;height:22px;padding:3px;border:0;background:var(--paper);color:var(--ink);cursor:grab;opacity:0;touch-action:none;line-height:0}
+  .item:hover .drag-handle,.item:focus-within .drag-handle{opacity:1}
+  .item .drag-handle svg{width:100%;height:100%;pointer-events:none}
+  .item.reordering{opacity:.55;outline:1px dashed var(--red)}
+  .media-drag-ghost{position:fixed;z-index:1000;pointer-events:none;object-fit:cover;opacity:.94;transform:scale(1.08) rotate(-3deg);box-shadow:0 8px 18px rgba(0,0,0,.3);border:1px solid var(--paper)}
+  .media-insert-line{position:fixed;z-index:999;pointer-events:none;background:var(--red);border-radius:2px}
+  .item .drag-handle:active{cursor:grabbing}
+  @media(hover:none){.item .drag-handle{opacity:1}}
+
   .item .vid{position:absolute;left:3px;bottom:1px;font:9px/1.4 var(--mono);color:#fff;text-shadow:0 0 3px #000}
   /* 每個素材停多久：直接標在縮圖右下角。手動調過的會反白，一眼看得出哪幾個被動過。
      滑鼠移到縮圖上時，這個標籤會變成「編輯」——點它打開裁切／秒數對話框；
@@ -1245,13 +1248,75 @@
     /* 設定區最後要留白，不然最下面那排會被輸出鈕蓋住、點不到 */
     .panel-r{padding-bottom:84px}
   }
+
+/* 素材與字幕共用橫向捲動，格寬一致。 */
+.board{--barh:210px}
+.stagebar{align-items:flex-start;height:var(--barh)}
+.stagebar .items{overflow:auto;max-height:190px;padding:0 3px 6px}
+.stagebar .items .list{overflow:visible;width:max-content;min-width:100%;height:58px}
+.caption-tracks{width:max-content;min-width:100%;padding-top:6px}
+.caption-track{height:30px;position:relative;margin-bottom:4px;background:repeating-linear-gradient(90deg,rgba(238,230,215,.6) 0 55px,rgba(110,90,70,.22) 55px 56px,transparent 56px 64px)}
+.caption-clip{position:absolute;top:2px;height:26px;border:1px solid #9b7569;border-radius:3px;background:#cfb4a1;color:#382824;cursor:grab;touch-action:none;user-select:none;font:10px/24px var(--mono);overflow:hidden}
+.caption-clip.selected{background:#a04a4b;color:var(--paper)}
+.caption-clip .clip-label{display:block;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.caption-clip .clip-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;background:#0001}
+.clip-handle.left{left:0}.clip-handle.right{right:0}
+.clip-handle:after{content:'';position:absolute;left:3px;top:7px;bottom:7px;border-left:1px solid currentColor}
+.timeline-add{font:10px var(--mono);padding:4px 6px;margin-top:3px;border:1px solid var(--hair);background:var(--paper);cursor:pointer}
+@media(max-width:860px){
+ .board{flex-direction:column;align-items:center;width:100%;--barh:0px;gap:0}
+ .frame{flex:none;width:min(100%,calc(46dvh * var(--ar)));height:auto;max-height:none;aspect-ratio:var(--ar)}
+ .stagebar{order:0;flex:none;flex-direction:row;width:100%;height:auto;min-height:70px;padding-top:12px;align-items:flex-start}
+ .stagebar .items{flex:1 1 auto;max-height:150px;overflow:auto}
+ .stagebar .items .list{flex-direction:row;height:58px;overflow:visible;padding:0}
+ .stagebar .item,.stagebar .item.add{width:56px;height:56px;flex:0 0 56px}
+ .stagebar .addwrap{position:static;padding-left:0}
+}
+.caption-editor{width:min(340px,calc(100vw - 24px));z-index:150;max-height:calc(100dvh - 32px);overflow:auto;padding:56px 26px 24px}
+.caption-editor[hidden]{display:none}
+.caption-editor .capblock{margin:0;border:0;padding:0}
+.caption-editor input[type=text]{text-align:left;text-align-last:left}
+.caption-range-note{font:10px/1.6 var(--mono);color:var(--muted);margin:12px 0 0}
+#captionButtons{display:grid;gap:8px;margin-bottom:8px}
+#captionButtons button{display:block;width:100%;padding:10px 12px;text-align:left;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink);cursor:pointer;font:11px/1.5 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#captionButtons button:hover{background:var(--hover);border-color:var(--red)}
+#captionButtons button[aria-pressed="true"]{border-color:var(--red);box-shadow:inset 3px 0 var(--red)}
+#addCaption{margin-top:8px;border-bottom:1px solid var(--hair)}
+#addCaption:hover:not(:disabled){border-bottom-color:var(--rule)}
+#captionButtons .caption-button-row{position:relative;display:flex;gap:0;min-width:0}
+#captionButtons .caption-button-row>button:first-child{flex:1;min-width:0;padding-right:30px}
+#captionButtons .caption-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:22px;height:22px;padding:0;text-align:center;font-size:14px;line-height:1;letter-spacing:0;border:0;background:transparent;color:var(--muted);opacity:.45}
+#captionButtons .caption-delete:hover,#captionButtons .caption-delete:focus-visible{color:var(--ink);opacity:.85;background:transparent}
+@media(min-width:861px){
+ .stage>.board{--barh:170px;position:relative;top:20px}
+ .stagebar .items{max-height:150px}
+}
+.frame-picker:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:280px;max-width:calc(100vw - 16px);max-height:min(570px,70dvh);padding:12px;overflow-y:auto;white-space:normal}
+.frame-picker .csel-opt{display:block;height:auto;min-width:0;padding:5px;border:1px solid transparent;text-align:left;white-space:normal}
+.frame-picker .csel-opt::before{display:none}
+.frame-picker .csel-opt[aria-selected="true"]{border-color:var(--red);background:var(--paper-2)}
+.frame-choice-preview{position:relative;display:block;width:100%;aspect-ratio:4/5;overflow:hidden;background:#26221f}
+.frame-choice-preview>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.frame-choice-preview>.frame-choice-card{inset:19%;width:62%;height:62%;border:4px solid #fff}
+.frame-choice-preview>.frame-choice-line{height:auto;bottom:auto;transform:translateY(-50%)}
+.frame-choice-preview>.frame-choice-star{height:50%;bottom:auto}
+.frame-choice-upload{position:absolute;inset:15%;display:grid;place-items:center;border:1px dashed #fff;background:#0004;color:white;font-size:30px}
+.frame-choice-name{display:block;margin-top:6px;font:11px/1.5 var(--mono)}
+.settings-actions{display:flex;gap:8px;padding-top:12px}.settings-actions .btn{flex:1;min-width:0}#settingsStatus{font:11px/1.7 var(--sans);color:var(--muted);margin:10px 0 0;overflow-wrap:anywhere}#settingsName{font:inherit;background:var(--paper-2);border:0;padding:8px;color:var(--ink)}
+
+/* Underline marks the current page or the open story only. */
+.hd-nav .hd-story{border-bottom-color:transparent}
+.hd-nav .hd-story:hover{border-bottom-color:transparent}
+.hd-nav .hd-story[aria-current="page"],.hd-nav .hd-story[aria-expanded="true"]{border-bottom-color:var(--paper);opacity:1}
 </style>
 </head>
 <body>
 
 <header class="hd">
   <div class="hd-left"><h1><img class="mark" src="assets/logo@2x.webp" alt="I SAW"></h1><p class="sub">Look what I saw today.</p></div>
+  <nav class="hd-nav" aria-label="主要導覽"><a class="hd-story" href="gallery.html" target="_blank" rel="noopener" aria-label="Gallery（另開分頁）">Gallery</a>
   <button class="hd-story" id="storyBtn" aria-haspopup="dialog" aria-expanded="false">Our Story</button>
+  </nav>
 </header>
 
 <img class="iron" id="iron" src="assets/iron.webp" alt="">
@@ -1259,9 +1324,16 @@
 <button class="exportbar" id="exportBar" type="button">輸出影片 <span>Export</span></button>
 <div class="ironhint" aria-hidden="true">輸出影片<span>EXPORT</span></div>
 
+<div class="expanel caption-editor" id="captionEditor" role="dialog" aria-label="字幕設定" hidden>
+<span class="dialog-stitch" aria-hidden="true"></span>
+<button class="dlgx" id="captionEditorClose" type="button" aria-label="關閉字幕設定"></button>
+<h3>字幕設定</h3><div id="captions"></div>
+<p class="caption-range-note" id="captionRangeNote"></p>
+</div>
 <div class="expbackdrop" id="expBackdrop"></div>
 <div class="expbackdrop" id="trimBackdrop"></div>
 <div class="expanel trimpanel" id="trimpanel" role="dialog" aria-label="調整長度">
+  <span class="dialog-stitch" aria-hidden="true"></span><span class="dialog-stitch bottom" aria-hidden="true"></span><span class="dialog-stitch left" aria-hidden="true"></span><span class="dialog-stitch right" aria-hidden="true"></span>
   <button class="dlgx" id="trimX" type="button" aria-label="關閉"></button>
   <h3 id="trimTitle">長度</h3>
   <div class="trimprev" id="trimPrevBox"><canvas id="trimPrev"></canvas>
@@ -1284,6 +1356,7 @@
   <button class="btn btn-text" id="trimReset">改回預設長度</button>
 </div>
 <div class="expanel" id="expanel" role="dialog" aria-label="輸出">
+  <span class="dialog-stitch" aria-hidden="true"></span><span class="dialog-stitch bottom" aria-hidden="true"></span><span class="dialog-stitch left" aria-hidden="true"></span><span class="dialog-stitch right" aria-hidden="true"></span>
   <button class="dlgx" id="expX" type="button" aria-label="關閉"></button>
   <h3>輸出</h3>
   <div class="expbody">
@@ -1343,6 +1416,45 @@
 
 
 
+<section class="cell collapsed" id="settingsCell">
+ <h2>設定檔 <span>settings</span></h2>
+ <label class="rowline" for="settingsName"><span class="k">名稱</span><input id="settingsName" type="text" maxlength="80" value="我的風格" style="min-width:0;width:65%"></label>
+ <div class="settings-actions"><button type="button" class="btn btn-secondary" id="saveSettings">匯出設定</button><button type="button" class="btn btn-secondary" id="loadSettings">讀取設定</button></div>
+ <input id="settingsFile" type="file" accept=".json,application/json" hidden>
+
+ <p id="settingsStatus" role="status" aria-live="polite">保存效果、載體與字幕，不含照片及影片。</p>
+</section>
+    <section class="cell">
+      <h2>規格 <span>format</span></h2>
+      <div class="rowline"><label class="k" for="aspect">比例</label><div class="v">
+        <select id="aspect">
+          <option value="0.8">4:5 直式 1080×1350</option>
+          <option value="0.5625">9:16 限動 1080×1920</option>
+          <option value="1">1:1 方形 1080×1080</option>
+          <option value="1.7778">16:9 橫式 1920×1080</option>
+          <option value="auto">跟素材一樣</option>
+        </select></div></div>
+      <div class="rowline"><label class="k" for="maskSel">載體</label><div class="v">
+        <select id="maskSel">
+          <option value="">無</option>
+          <option value="1" selected>觀景窗一格</option>
+          <option value="2">觀景窗兩格</option>
+          <option value="3">觀景窗三格</option>
+          <option value="w">觀景窗4:3</option>
+          <option value="stamp">郵票</option>
+          <option value="lace">蕾絲一格</option>
+          <option value="lace2">蕾絲兩格</option>
+          <option value="memory">精裝記憶</option>
+          <option value="soon">敬請期待</option>
+          <option value="card">紙上時光</option>
+          <option value="wrap">片格之間</option>
+          <option value="stars">今天的小星星</option>
+          <option value="custom">自訂：上傳透明 PNG / SVG</option>
+        </select>
+        <input type="file" id="maskFile" accept="image/png,image/webp,image/svg+xml"></div></div>
+      <div class="rowline" id="starColorRow" style="display:none"><div><span class="k">星星顏色</span><button type="button" class="btn btn-secondary" id="randomStars" style="margin-top:8px;width:auto;height:28px;padding:0 8px;font-size:10px;line-height:26px">隨機</button></div><div class="v"><div class="row sws" id="starColors"></div></div></div>
+    </section>
+
 <section class="cell">
       <h2>效果 <span>preset</span></h2>
       <div class="presets" id="presets"></div>
@@ -1372,46 +1484,20 @@
 <aside class="panel panel-r">
   <div class="grid">
   <div class="col">
-    <section class="cell">
-      <h2>規格 <span>format</span></h2>
-      <div class="rowline"><label class="k" for="aspect">比例</label><div class="v">
-        <select id="aspect">
-          <option value="0.8">4:5 直式 1080×1350</option>
-          <option value="0.5625">9:16 限動 1080×1920</option>
-          <option value="1">1:1 方形 1080×1080</option>
-          <option value="1.7778">16:9 橫式 1920×1080</option>
-          <option value="auto">跟素材一樣</option>
-        </select></div></div>
-      <div class="rowline"><label class="k" for="maskSel">載體</label><div class="v">
-        <select id="maskSel">
-          <option value="">無</option>
-          <option value="1" selected>觀景窗一格</option>
-          <option value="2">觀景窗兩格</option>
-          <option value="3">觀景窗三格</option>
-          <option value="w">觀景窗4:3</option>
-          <option value="stamp">郵票</option>
-          <option value="lace">蕾絲一格</option>
-          <option value="lace2">蕾絲兩格</option>
-          <option value="memory">精裝記憶</option>
-          <option value="soon">敬請期待</option>
-          <option value="card">紙上時光</option>
-          <option value="wrap">片格之間</option>
-          <option value="custom">自訂：上傳透明 PNG / SVG</option>
-        </select>
-        <input type="file" id="maskFile" accept="image/png,image/webp,image/svg+xml"></div></div>
-    </section>
+
 
     <section class="cell" id="cellParams">
       <h2>微調 <button type="button" class="hreset" id="resetParams" disabled>重設</button> <span>parameters</span></h2>
       <div id="params"></div>
     </section>
 
-    <section class="cell">
-      <h2>字幕 <span>caption</span></h2>
-      <div id="captions"></div>
-      <button class="btn btn-text" id="addCaption">新增字幕</button>
-    </section>
 
+
+<section class="cell">
+<h2>字幕 <span>caption</span></h2>
+<div id="captionButtons"></div>
+<button class="btn btn-secondary" id="addCaption" type="button">＋ 新增字幕</button>
+</section>
     <section class="cell">
       <h2>放映 <button type="button" class="hreset" id="resetProj" disabled>重設</button> <span>projector</span></h2>
       <div class="rowline param"><div class="top"><label class="k" for="dwell">照片停留</label><span class="num" id="vDwell">4 秒</span></div><input type="range" id="dwell" min=".5" max="12" step=".5" value="4"></div>
@@ -1454,7 +1540,9 @@ const cur=()=>state.items[state.index];
 
 /* ================= 素材 ================= */
 function addFiles(files){
-  [...files].forEach(file=>{
+  const accepted=[...files].filter(file=>file&&(file.type.startsWith('image/')||file.type.startsWith('video/')));
+  if(!accepted.length)return;
+  accepted.forEach(file=>{
     if(!file||!(file.type.startsWith('image/')||file.type.startsWith('video/')))return;
     /* file：原始檔本身也留著 —— 輸出要保留原音時，聲音是直接從原檔抽的（見 renderAudioTrack()），
        不是從畫面上那個 <video> 錄的（畫面上那個一直是靜音的） */
@@ -1490,9 +1578,16 @@ function markCurrent(){
   cells.forEach((c,i)=>{c.classList.toggle('on',i===state.index);c.classList.toggle('dim',single&&i!==state.index)});
   return true;
 }
+function moveMediaItem(from,to){
+  if(from===to||to<0||to>=state.items.length)return;
+  const active=cur();
+  const [item]=state.items.splice(from,1);state.items.splice(to,0,item);
+  state.index=state.items.indexOf(active);
+  renderItems();build();
+}
 function renderItems(){
   const prev=itemsBox.querySelector('.list');
-  const keepScroll=prev?prev.scrollLeft:0;      /* 真的要重建時，至少把捲動位置留著 */
+  const keepScroll=itemsBox.scrollLeft;      /* 真的要重建時，至少把捲動位置留著 */
   itemsBox.innerHTML='';
   const list=el('list',itemsBox);
   /* 片格之間這種載體只會用到「目前這張」，其他張加了也不會顯示——
@@ -1502,6 +1597,52 @@ function renderItems(){
     const dim=single&&i!==state.index;
     const d=document.createElement('div');d.className='item'+(i===state.index?' on':'')+(dim?' dim':'');d.title=it.name||'';
     const m=it.kind==='video'?document.createElement('video'):new Image();m.src=it.src;m.muted=true;d.appendChild(m);
+    m.draggable=false;d.dataset.mediaIndex=String(i);
+    const handle=document.createElement('button');handle.type='button';handle.className='drag-handle';
+    handle.title='拖曳調整順序';handle.setAttribute('aria-label','調整素材順序：'+(it.name||String(i+1))+'，可使用方向鍵');
+    handle.innerHTML='<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="3" r="1.2"/><circle cx="11" cy="3" r="1.2"/><circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/><circle cx="5" cy="13" r="1.2"/><circle cx="11" cy="13" r="1.2"/></svg>';
+    handle.onclick=e=>e.stopPropagation();
+    handle.onkeydown=e=>{
+      const delta=['ArrowLeft','ArrowUp'].includes(e.key)?-1:['ArrowRight','ArrowDown'].includes(e.key)?1:0;
+      if(!delta)return;e.preventDefault();e.stopPropagation();
+      const target=Math.max(0,Math.min(state.items.length-1,i+delta));moveMediaItem(i,target);
+      itemsBox.querySelectorAll('.drag-handle')[target]?.focus();
+    };
+    handle.onpointerdown=e=>{
+      if(e.button!==0)return;e.preventDefault();e.stopPropagation();handle.setPointerCapture(e.pointerId);
+      let target=i,valid=false;
+      const rect=d.getBoundingClientRect(),ghost=m.cloneNode(true),line=document.createElement('div');
+      ghost.className='media-drag-ghost';ghost.removeAttribute('id');ghost.setAttribute('aria-hidden','true');
+      ghost.style.width=rect.width+'px';ghost.style.height=rect.height+'px';
+      line.className='media-insert-line';line.setAttribute('aria-hidden','true');
+      document.body.append(ghost,line);d.classList.add('reordering');
+      const offsetX=e.clientX-rect.left,offsetY=e.clientY-rect.top;
+      const update=ev=>{
+        ghost.style.left=(ev.clientX-offsetX)+'px';ghost.style.top=(ev.clientY-offsetY)+'px';
+        const box=list.getBoundingClientRect(),vertical=getComputedStyle(list).flexDirection==='column';
+        valid=ev.clientX>=box.left-20&&ev.clientX<=box.right+20&&ev.clientY>=box.top-30&&ev.clientY<=box.bottom+30;
+        line.style.display=valid?'block':'none';if(!valid)return;
+        if(vertical){if(ev.clientY<box.top+18)list.scrollTop-=10;else if(ev.clientY>box.bottom-18)list.scrollTop+=10;}
+        else{if(ev.clientX<box.left+18)list.scrollLeft-=10;else if(ev.clientX>box.right-18)list.scrollLeft+=10;}
+        const cells=[...list.querySelectorAll('[data-media-index]')],pos=vertical?ev.clientY:ev.clientX;
+        let slot=cells.findIndex(c=>{const r=c.getBoundingClientRect();return pos<(vertical?r.top+r.height/2:r.left+r.width/2)});
+        if(slot<0)slot=cells.length;
+        target=slot>i?slot-1:slot;
+        const r=cells[Math.min(slot,cells.length-1)].getBoundingClientRect();
+        if(vertical){line.style.cssText+=`;left:${r.left}px;top:${slot===cells.length?r.bottom+3:r.top-5}px;width:${r.width}px;height:3px`;}
+        else{line.style.cssText+=`;left:${slot===cells.length?r.right+3:r.left-5}px;top:${r.top}px;width:3px;height:${r.height}px`;}
+      };
+      update(e);handle.onpointermove=update;
+      const finish=ev=>{
+        handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.onlostpointercapture=null;
+        ghost.remove();line.remove();d.classList.remove('reordering');
+        if(handle.hasPointerCapture(ev.pointerId))handle.releasePointerCapture(ev.pointerId);
+        if(ev.type==='pointerup'&&valid)moveMediaItem(i,target);
+      };
+      handle.onlostpointercapture=finish;
+      handle.onpointerup=finish;handle.onpointercancel=finish;
+    };
+    d.appendChild(handle);
     if(it.kind==='video'){const v=document.createElement('span');v.className='vid';v.textContent='▶';d.appendChild(v)}
     const sec=document.createElement('span');
     sec.className='sec'+(itemCustom(i)?' own':'');
@@ -1526,7 +1667,8 @@ function renderItems(){
   add.title=blockAdd?'此載體只能有一個素材':'加入照片 / 影片';
   add.onclick=blockAdd?()=>alert('此載體只能有一個素材，同一張會重複出現在三個位置。\n要換照片，直接點掉現有那張的「×」再重加就好。'):()=>$('#file').click();
   wrap.appendChild(add);list.appendChild(wrap);
-  if(keepScroll)list.scrollLeft=keepScroll;
+  if(keepScroll)itemsBox.scrollLeft=keepScroll;
+  renderCaptionTimeline();
 }
 /* 把裁切（dataset.t0／t1）套到一個 <video> 上。
    預覽用：載好先跳到起點，播到終點就繞回起點（只有一幕）或停住。
@@ -1548,7 +1690,7 @@ function bindTrim(el){
   return el;
 }
 function makeMedia(it,cls=''){
-  if(!it){const d=document.createElement('div');d.className='placeholder';d.innerHTML='把照片或影片拖進來<br>或點一下選擇檔案<small>可以一次放多個，會自動輪播<br>也可以直接 ⌘V 貼上照片</small>';d.onclick=()=>$('#file').click();return d}
+  if(!it){const d=document.createElement('div');d.className='placeholder';d.innerHTML='加入照片或影片<small>拖曳或點選上傳</small>';d.onclick=()=>$('#file').click();return d}
   let el;
   if(it.kind==='video'){
     el=document.createElement('video');el.__primary=true;el.muted=previewMuted();
@@ -1604,14 +1746,14 @@ function firstIndex(){
   const n=state.items.length;
   const F=FRAMES[maskState.id];
   /* wrap（片格之間）不是「底圖+窗」，是同一張素材重複三次，不跳過第一張 */
-  const hasBg=(F&&F.mode!=='cover'&&F.mode!=='wrap')||PRESETS[state.preset]?.bgFirst;
+  const hasBg=(F&&F.mode!=='cover'&&F.mode!=='wrap'&&F.mode!=='stars')||PRESETS[state.preset]?.bgFirst;
   return (hasBg && n>1) ? 1 : 0;
 }
 /* 這個載體一次會顯示幾格「會輪播的」素材（框外面的底圖那格不算）。
    算法跟 build() 排格子用的是同一段式子，兩邊不會各說各話 */
 function cellCount(){
   const F=frameMask();
-  if(F&&F.mode==='wrap')return 1;                    /* 片格之間：同一張重複三次，還是一張 */
+  if(F&&(F.mode==='wrap'||F.mode==='stars'))return 1;                    /* 片格之間：同一張重複三次，還是一張 */
   const cells=(F ? frameSlots()
     : maskState.id&&maskState.id!=='custom' ? MASK_SLOTS[maskState.id+'-'+maskKey()]
     : null)||[[0,0,100,100]];
@@ -1812,7 +1954,7 @@ function nextScene(){
 }
 
 /* ================= 字幕：多個、可拖曳、可調粗細大小 ================= */
-const CAPTION_COLORS=[['#e0a23a','金黃'],['#f2ead8','米白'],['#ffffff','純白'],['#8a1414','深紅'],['#ff7a1f','橘'],['#141412','墨黑'],['#f0b8c8','淡粉'],['#8fd0b8','青綠']];
+const CAPTION_COLORS=[['#e0a23a','金黃'],['#f2ead8','米白'],['#ffffff','純白'],['#8a1414','深紅'],['#141412','墨黑'],['#e2f01e','螢光黃綠']];
 const CAPTION_WEIGHTS=[[300,'細'],[400,'一般'],[700,'粗'],[900,'特粗']];
 /* 字幕字體。每一組自己帶字形與字距 —— 味道是三件事一起決定的，分開選反而難調。
    「古典大寫」是比對 Lily 給的參考圖（BREATHE IN）挑出來的：
@@ -1831,13 +1973,98 @@ const CAPTION_FONTS=[
      整條 font-family 會直接作廢、退回繼承的字體（踩過，畫面上變成無襯線） */
   ['luoyan','辰宇落雁體','normal','"辰宇落雁體","Songti TC",serif','.04em'],
 ];
+let selectedCaption=0,captionTimelineDragging=false;
+function captionRange(c){
+ const n=Math.max(1,state.items.length);
+ const start=Math.max(0,Math.min(n-1,c.startSlot||0));
+ const end=Math.max(start+1,Math.min(n,c.endSlot??1));
+ return {start,end};
+}
+function captionInScene(c){
+ if(!state.items.length)return true;
+ const start=Math.max(0,c.startSlot||0),end=Math.max(start+1,c.endSlot??1);
+ // 保留尚未補齊的格位，避免讀取設定後將未來字幕提前顯示於最後一格。
+ // 多格載體：字幕範圍與當幕任一輪播素材相交，就在該幕出現。
+ return start<Math.min(state.items.length,state.index+cellCount())&&end>state.index;
+}
+function deleteCaption(i){
+ if(proj.exporting)return;
+ state.captions.splice(i,1);selectedCaption=Math.max(0,Math.min(selectedCaption,state.captions.length-1));
+ closeCaptionEditor();renderCaptionsPanel();applyCaptions();
+}
+function renderCaptionButtons(){
+ const box=$('#captionButtons');if(!box)return;box.replaceChildren();
+ state.captions.forEach((c,i)=>{
+  const row=document.createElement('div');row.className='caption-button-row';
+  const b=document.createElement('button');b.type='button';b.textContent=`${i+1} · ${c.text||'新字幕'}　✎`;b.title='編輯字幕 '+(i+1);b.setAttribute('aria-pressed',String(i===selectedCaption));b.onclick=()=>openCaptionEditor(i);
+  const del=document.createElement('button');del.type='button';del.className='caption-delete';del.textContent='×';del.title='刪除字幕 '+(i+1);del.setAttribute('aria-label',del.title);del.onclick=()=>deleteCaption(i);
+  row.append(b,del);box.append(row);
+ });
+}
+function renderCaptionTimeline(){
+ renderCaptionButtons();
+ if(captionTimelineDragging)return;
+ if(!itemsBox.querySelector('.list'))return;
+ let tracks=itemsBox.querySelector('.caption-tracks');
+ if(!tracks){tracks=document.createElement('div');tracks.className='caption-tracks';itemsBox.append(tracks)}
+ tracks.replaceChildren();const count=Math.max(1,state.items.length),unit=64;
+ state.captions.forEach((c,i)=>{
+  const lane=document.createElement('div');lane.className='caption-track';lane.style.width=count*unit+'px';
+  const clip=document.createElement('div');clip.className='caption-clip'+(i===selectedCaption?' selected':'');clip.tabIndex=0;clip.setAttribute('role','button');
+  const label=document.createElement('span');label.className='clip-label';label.textContent=c.text||'新字幕';clip.append(label);
+  for(const side of ['left','right']){const h=document.createElement('span');h.className='clip-handle '+side;h.dataset.side=side;clip.append(h)}
+  const layout=()=>{const r=captionRange(c);clip.style.left=r.start*unit+'px';clip.style.width=((r.end-r.start)*unit-8)+'px';clip.title=`素材 ${r.start+1} ～ ${r.end}：${c.text||'新字幕'}`;clip.setAttribute('aria-label',clip.title)};layout();
+  const choose=()=>{selectedCaption=i;tracks.querySelectorAll('.caption-clip').forEach(n=>n.classList.remove('selected'));clip.classList.add('selected')};
+  clip.onclick=()=>{choose();openCaptionEditor(i)};
+  clip.onpointerdown=e=>{
+   if(e.button!==0||proj.exporting)return;e.preventDefault();e.stopPropagation();choose();captionTimelineDragging=true;clip.setPointerCapture(e.pointerId);
+   const x=e.clientX,scroll=itemsBox.scrollLeft,r=captionRange(c),side=e.target.dataset.side;
+   const priorStart=c.startSlot,priorEnd=c.endSlot;let moved=false;
+   clip.onpointermove=ev=>{
+    if(Math.abs(ev.clientX-x)>3)moved=true;
+    const dx=Math.round((ev.clientX-x+itemsBox.scrollLeft-scroll)/unit);
+    if(side==='left'){c.startSlot=Math.max(0,Math.min(r.end-1,r.start+dx));c.endSlot=r.end}
+    else if(side==='right'){c.startSlot=r.start;c.endSlot=Math.min(count,Math.max(r.start+1,r.end+dx))}
+    else{c.startSlot=Math.max(0,Math.min(count-(r.end-r.start),r.start+dx));c.endSlot=c.startSlot+r.end-r.start}
+    layout();applyCaptions(false);
+   };
+   const finish=ev=>{captionTimelineDragging=false;clip.onpointermove=null;clip.onpointerup=null;clip.onpointercancel=null;clip.onlostpointercapture=null;
+    if(ev.type==='pointercancel'){c.startSlot=priorStart;c.endSlot=priorEnd}
+    if(clip.hasPointerCapture(ev.pointerId))clip.releasePointerCapture(ev.pointerId);applyCaptions();
+    if(ev.type==='pointerup'&&!moved&&!side)openCaptionEditor(i);
+   };clip.onpointerup=finish;clip.onpointercancel=finish;clip.onlostpointercapture=finish;
+  };
+  clip.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCaptionEditor(i);return}if(!['ArrowLeft','ArrowRight'].includes(e.key)||proj.exporting)return;e.preventDefault();const d=e.key==='ArrowRight'?1:-1,r=captionRange(c);if(e.shiftKey){c.startSlot=r.start;c.endSlot=Math.min(count,Math.max(r.start+1,r.end+d))}else{c.startSlot=Math.max(0,Math.min(count-(r.end-r.start),r.start+d));c.endSlot=c.startSlot+r.end-r.start}layout();applyCaptions(false)};
+  lane.append(clip);tracks.append(lane);
+ });
+
+}
+function openCaptionEditor(i){
+ if(proj.exporting||!state.captions[i])return;
+ selectedCaption=i;renderCaptionsPanel();renderCaptionButtons();
+ const panel=$('#captionEditor'),r=$('.panel-r').getBoundingClientRect();
+ panel.hidden=false;panel.setAttribute('data-open','');
+ const half=Math.min(340,innerWidth-24)/2;
+ panel.style.left=Math.max(half+12,Math.min(innerWidth-half-12,r.left+r.width/2))+'px';
+ panel.style.transform='translate(-50%,-50%)';
+ panel.style.top='50%';
+ const range=captionRange(state.captions[i]);$('#captionRangeNote').textContent=`素材 ${range.start+1} ～ ${range.end} 顯示 · 修改即時套用`;
+ panel.querySelector('input[type=text]')?.focus();
+}
+function closeCaptionEditor(){
+ const panel=$('#captionEditor');panel.removeAttribute('data-open');panel.hidden=true;
+ itemsBox.querySelectorAll('.caption-clip')[selectedCaption]?.focus();
+}
+$('#captionEditorClose').onclick=closeCaptionEditor;
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#captionEditor').hidden){e.preventDefault();closeCaptionEditor()}});
 function renderCaptionsPanel(){
   const box=$('#captions');box.innerHTML='';
   state.captions.forEach((c,i)=>{
+    if(i!==selectedCaption)return;
     const blk=el('capblock',box);
     const row=(label,...nodes)=>{const r=el('rowline',blk);const k=el('k',r,'label');k.textContent=label;const v=el('v',r);nodes.forEach(n=>n&&v.appendChild(n));return r};
     const t=document.createElement('input');t.type='text';t.value=c.text;t.placeholder='輸入可拖曳的文字';t.oninput=()=>{c.text=t.value;applyCaptions()};
-    const del=document.createElement('span');del.className='del';del.textContent='×';del.title='刪除這個字幕';del.onclick=()=>{state.captions.splice(i,1);if(!state.captions.length)state.captions.push({text:'',color:'#e0a23a',weight:700,size:4,x:50,y:90});renderCaptionsPanel();applyCaptions()};
+    const del=document.createElement('span');del.className='del';del.textContent='×';del.title='刪除這個字幕';del.onclick=()=>deleteCaption(i);
     row(state.captions.length>1?`文字 ${i+1}`:'文字',t,del);
     /* 顏色：一格一格的色票，最後一格點開系統選色器 */
     const swBox=document.createElement('div');swBox.className='row sws';
@@ -1884,9 +2111,11 @@ function renderCaptionsPanel(){
     sz.oninput=()=>{c.size=+sz.value;num.textContent=sz.value;applyCaptions()};
   });
 }
-function applyCaptions(){
+function applyCaptions(updateTimeline=true){
+  if(updateTimeline)renderCaptionTimeline();
   frame.querySelectorAll('.caption,.snapline').forEach(n=>n.remove());
   state.captions.forEach((c,i)=>{
+    if(!captionInScene(c))return;
     const n=el('caption',frame);n.textContent=c.text;n.dataset.i=i;
     n.style.setProperty('--x',c.x+'%');n.style.setProperty('--y',c.y+'%');n.style.setProperty('--c',c.color);n.style.setProperty('--w',c.weight);n.style.setProperty('--s',c.size);
     const F=CAPTION_FONTS.find(f=>f[0]===(c.font||'serif'))||CAPTION_FONTS[0];
@@ -1948,7 +2177,7 @@ function applyCaptions(){
     };
   });
 }
-$('#addCaption').onclick=()=>{state.captions.push({text:'',color:'#f2ead8',weight:400,size:3,font:'serif',x:50,y:50+state.captions.length*8});renderCaptionsPanel();applyCaptions();const last=$('#captions .capblock:last-child input[type=text]');last&&last.focus()};
+$('#addCaption').onclick=()=>{selectedCaption=state.captions.length;state.captions.push({startSlot:0,endSlot:1,text:'',color:'#f2ead8',weight:400,size:3,font:'serif',x:50,y:50+state.captions.length*8});renderCaptionsPanel();applyCaptions();openCaptionEditor(selectedCaption)};
 
 /* ================= 放映機：閃動 / 漏光閃光 / 結尾淡出 ================= */
 /* 數據來自參考影片逐格亮度：每格 ±8% 鋸齒（3～4 格一循環）、每 3～5 秒一格 -20%、每 4～8 秒一格 +15%；
@@ -3179,7 +3408,7 @@ PRESETS.peep={name:'偷看',desc:'從門上的貓眼看出去：圓形取景圈�
 };
 
 PRESETS.riso={name:'印象日記',desc:'孔版印刷：整張圖壓進兩三個油墨、上網點、各自錯開一點點；紙是米白的',
-  transition:'cut', 
+  transition:'cut',
   /* 量測見 CSS「預設 16」的註解。預設值＝量到的那張：網點 3.8px、角度 45°、偏移 0.25% */
   params:[
     ['color','油墨',[['#0078bf','#ff48b8','藍＋螢光粉'],['#00838a','#ff665e','青＋朱紅'],
@@ -3308,7 +3537,7 @@ PRESETS.finder={name:'方寸之間',desc:'從觀景窗裡看出去；機身反�
      hole = 整片顏色、星星的地方挖掉           → 蓋在下半，照片只從星星露出來
    合成結果依「顏色 + 模式」快取，拉滑桿不會每次重畫。 */
 const STAR_SRC='assets/stars-mask.webp';
-let starImg=null, starReady=null;
+let starImg=null, starReady=null, randomStarMask=null, starPieces=null;
 const starCache=new Map();
 function loadStarMask(){
   if(starReady)return starReady;
@@ -3320,6 +3549,53 @@ function loadStarMask(){
   });
   return starReady;
 }
+/* 擷取原圖中的獨立星星，保留原有形狀；兩半共用同一張隨機遮罩。 */
+function getStarPieces(){
+  if(starPieces)return starPieces;
+  const c=document.createElement('canvas');
+  c.width=starImg.naturalWidth;c.height=starImg.naturalHeight;
+  const x=c.getContext('2d');x.drawImage(starImg,0,0);
+  const {width:w,height:h}=c, a=x.getImageData(0,0,w,h).data;
+  const seen=new Uint8Array(w*h), queue=new Int32Array(w*h), pieces=[];
+  for(let k=0;k<w*h;k++){
+    if(seen[k]||a[k*4+3]<16)continue;
+    let head=0,tail=1,minX=w,minY=h,maxX=0,maxY=0;
+    queue[0]=k;seen[k]=1;
+    while(head<tail){
+      const i=queue[head++], px=i%w,py=Math.floor(i/w);
+      minX=Math.min(minX,px);maxX=Math.max(maxX,px);
+      minY=Math.min(minY,py);maxY=Math.max(maxY,py);
+      for(const n of [px?i-1:-1,px<w-1?i+1:-1,py?i-w:-1,py<h-1?i+w:-1]){
+        if(n>=0&&!seen[n]&&a[n*4+3]>=16){seen[n]=1;queue[tail++]=n;}
+      }
+    }
+    if(tail<20)continue;
+    const left=Math.max(0,minX-2),top=Math.max(0,minY-2);
+    pieces.push({x:left,y:top,w:Math.min(w,maxX+3)-left,h:Math.min(h,maxY+3)-top});
+  }
+  return starPieces=pieces.sort((a,b)=>b.w*b.h-a.w*a.h);
+}
+$('#randomStars').onclick=async function(){
+  this.disabled=true;
+  try{
+    if(!await loadStarMask())return;
+    const c=document.createElement('canvas');
+    c.width=starImg.naturalWidth;c.height=starImg.naturalHeight;
+    const x=c.getContext('2d'),placed=[];
+    for(const p of getStarPieces()){
+      let best=null,bestOverlap=Infinity;
+      for(let attempt=0;attempt<120;attempt++){
+        const q={x:Math.random()*(c.width-p.w),y:Math.random()*(c.height-p.h),w:p.w,h:p.h};
+        const overlap=placed.reduce((sum,r)=>sum+Math.max(0,Math.min(q.x+q.w+8,r.x+r.w+8)-Math.max(q.x,r.x))*Math.max(0,Math.min(q.y+q.h+8,r.y+r.h+8)-Math.max(q.y,r.y)),0);
+        if(overlap<bestOverlap){best=q;bestOverlap=overlap;}
+        if(!overlap)break;
+      }
+      placed.push(best);
+      x.drawImage(starImg,p.x,p.y,p.w,p.h,best.x,best.y,p.w,p.h);
+    }
+    randomStarMask=c;starCache.clear();paintStarMask();
+  }finally{this.disabled=false;}
+};
 /* landscape=true 時把遮罩整張旋轉 90 度再合成。
    遮罩原圖是寬扁形（1.6），直式/方形對切出來的格子也是寬扁形，貼合得剛好；
    橫式（16:9 那類）對切出來的格子卻是瘦高形（寬高比約 0.89），
@@ -3330,7 +3606,8 @@ function starLayerURL(color,mode,landscape){
   if(!starImg)return '';
   const key=mode+'|'+color+'|'+(landscape?1:0);
   if(starCache.has(key))return starCache.get(key);
-  const iw=starImg.naturalWidth, ih=starImg.naturalHeight;
+  const mask=randomStarMask||starImg;
+  const iw=mask.width, ih=mask.height;
   const c=document.createElement('canvas');
   c.width=landscape?ih:iw; c.height=landscape?iw:ih;
   const x=c.getContext('2d');
@@ -3340,56 +3617,57 @@ function starLayerURL(color,mode,landscape){
   x.globalCompositeOperation = mode==='ink' ? 'destination-in' : 'destination-out';
   if(landscape){
     x.translate(c.width/2,c.height/2); x.rotate(Math.PI/2);
-    x.drawImage(starImg,-iw/2,-ih/2);
+    x.drawImage(mask,-iw/2,-ih/2);
   }else{
-    x.drawImage(starImg,0,0);
+    x.drawImage(mask,0,0);
   }
   const url=c.toDataURL('image/png');
   starCache.set(key,url);
   return url;
 }
-/* 鎖住載體：這個濾鏡自己就是在切版面，再疊一個框會打架。比例不鎖，換什麼比例都行 */
-PRESETS.split={name:'今天的小星星',desc:'上下對切、同一組星星：上半實心、下半挖空露出畫面',transition:'cut',
-  lock:{mask:''}, flickerDefault:0,   /* 整片色塊配全域閃動會忽明忽暗很干擾，第一次選到就關掉 */
-  params:[
-    ['color','顏色',[['#f2e3a3','#f2e3a3','奶油黃'],['#a8ab45','#a8ab45','橄欖綠'],
-      ['#e8d5c4','#e8d5c4','裸粉'],['#7fa6a0','#7fa6a0','霧青'],
-      ['#e3714f','#e3714f','磚橘'],['#2b2a26','#2b2a26','墨黑'],
-      ['#f4f1e8','#f4f1e8','米白'],['#c2567d','#c2567d','桃紅']]],
-    ['exp','曝光',.8,1.4,.02,1],['sat','飽和',0,1.6,.05,1],['con','對比',.8,1.5,.02,1.06],
-    ['grain','顆粒',0,.6,.02,.08],['fade','淡入長度',.3,2.5,.1,.6,'s']],
-  build(p,T,root,item){
-    const top=el('half top',root), bot=el('half bot',root);
-    /* 上下放同一個素材、各播各的。第二份用 cloneNode —— 影片的 ended 只能註冊一次，
-       註冊兩次會連跳兩張（跟方寸之間、郵票同一個坑） */
-    const m0=makeMedia(item); top.appendChild(m0);
-    const m1=m0.cloneNode(false); m1.className=m0.className;
-    if(m1.tagName==='VIDEO'){m1.muted=true;m1.playsInline=true;m1.autoplay=true;m1.loop=m0.loop;
-      bindTrim(m1);m1.play().catch(()=>{});mediaEls.push(m1)}
-    bot.appendChild(m1);
-    const inkL=document.createElement('img'); inkL.className='starlay'; inkL.alt='';
-    const holeL=document.createElement('img'); holeL.className='starlay'; holeL.alt='';
-    top.appendChild(inkL); bot.appendChild(holeL);
-    this.layers={ink:inkL,hole:holeL};
-    const g=el('grain',root);
-    grainTick([g],T,22);
-    /* 遮罩圖是非同步載入的，載好再補上 */
-    loadStarMask().then(()=>this.paint(this.p||p));
-    this.update(p);
-  },
-  paint(p){
-    if(!this.layers||!starImg)return;
-    const col=Array.isArray(p.color)?p.color[0]:p.color;
-    /* 跟切版面用的 @container (min-aspect-ratio:1/1) 同一個門檻 —— 
-       版面切成左右的時候，遮罩也要轉成瘦高形，兩邊才會一起換 */
-    const landscape=currentAR()>=1;
-    this.layers.ink.src=starLayerURL(col,'ink',landscape);
-    this.layers.hole.src=starLayerURL(col,'hole',landscape);
-  },
-  update(p){this.p=p;
-    setVar('exp',p.exp);setVar('sat',p.sat);setVar('con',p.con);setVar('grain',p.grain);
-    this.paint(p);}
-};
+/* 星星只管理裝飾色；照片效果交給目前選中的濾鏡。 */
+const STAR_COLORS=[['#f2e3a3','奶油黃'],['#a8ab45','橄欖綠'],
+  ['#e8d5c4','裸粉'],['#7fa6a0','霧青'],['#e3714f','磚橘'],
+  ['#2b2a26','墨黑'],['#f4f1e8','米白'],['#c2567d','桃紅']];
+let starColor=STAR_COLORS[0][0];
+function renderStarControls(){
+  const row=$('#starColorRow');
+  row.style.display=maskState.id==='stars'?'':'none';
+  const sw=$('#starColors');sw.innerHTML='';
+  STAR_COLORS.forEach(([color,name])=>{
+    const button=el('sw'+(starColor===color?' on':''),sw,'button');
+    button.type='button';button.title=name;button.setAttribute('aria-label',name);
+    button.setAttribute('aria-pressed',String(starColor===color));button.style.background=color;
+    button.onclick=()=>{starColor=color;renderStarControls();paintStarMask()};
+  });
+}
+function paintStarMask(){
+  if(maskState.id!=='stars'||!starImg)return;
+  const landscape=currentAR()>=1;
+  frame.querySelectorAll('.star-overlay').forEach(im=>{
+    im.src=starLayerURL(starColor,im.dataset.starMode,landscape);
+  });
+}
+function buildStarZones(P,T){
+  const landscape=currentAR()>=1, item=cur();
+  ['ink','hole'].forEach((mode,i)=>{
+    const root=el('slot'+(dissolving?' entering':''),frame);
+    const geometry=landscape
+      ?`left:${i*50}%;top:0;width:50%;height:100%`
+      :`left:0;top:${i*50}%;width:100%;height:50%`;
+    root.style.cssText=geometry;
+    const firstMedia=mediaEls.length;
+    P.build(P.p,T,root,item);
+    /* 第二半是同一段影片的副本，保留播放／裁切但不重複出聲。 */
+    if(i)mediaEls.slice(firstMedia).forEach(m=>{
+      if(m.tagName==='VIDEO'){m.__primary=false;m.muted=true}
+    });
+    const im=new Image();im.className='masklayer star-overlay';im.alt='';
+    im.dataset.starMode=mode;im.style.cssText=geometry;im.style.objectFit='cover';
+    frame.appendChild(im);
+  });
+  loadStarMask().then(paintStarMask);
+}
 
 /* ================= 遮罩（載體） ================= */
 /* 遮罩改用外部 SVG（每個 1–2 KB，原本 base64 PNG 各約 850 KB）
@@ -3408,6 +3686,7 @@ const MASK_SLOTS={"1-4x5":[[0,0,100,100]],"2-4x5":[[5.6,2.2,88.8,46.0],[5.6,50.9
          可以有很多個窗（例如上下兩格的蕾絲），照順序輪播。
          四周各外擴了一點，讓照片的硬邊壓在不透明的框底下看不見 */
 const FRAMES={
+  stars:{mode:'stars'},
   stamp:{src:'assets/stamp-frame.webp', ar:1102/1428, scale:.70, dim:0,
     wins:[[13.43,86.93,10.40,89.32]]},
   lace: {src:'assets/lace-frame.webp',  ar: 913/1252, scale:.66, dim:0,
@@ -3513,7 +3792,8 @@ function frameSlots(){
 /* 這一幕的某一格要放第 k 張素材。超過最後一張就回 null —— 那一格留白，
    不會回頭補第一張（Lily 指定：兩格的載體放三張時，第二幕的第二格是空的）。
    空的格子在第二格以後只會是一片底色，不會冒出「把照片拖進來」那個提示
-   （CSS 的 .slot+.slot .placeholder{display:none} 已經擋掉） */
+   （CSS 的 .slot+.slot .placeholder{color:transparent}
+  .slot+.slot .placeholder small{visibility:hidden} 已經擋掉） */
 function slotItem(k){
   const n=state.items.length;
   return (k>=0 && k<n) ? state.items[k] : null;
@@ -3530,12 +3810,13 @@ function maskKey(){
 const maskState={id:'1',customSrc:null};
 function applyMask(){
   frame.querySelectorAll('.masklayer').forEach(n=>n.remove());  /* 一律先清掉舊的，不管切到哪個載體 */
+  renderStarControls();
   const id=maskState.id;if(!id)return;
   /* 片格之間的兩條線不是「一張圖決定形狀」，是兩張獨立的裝飾線，位置固定，
      buildWrapZones() 自己會建、自己管。這裡只負責清掉舊的，不要另外生一張，
      所以呼叫順序一定是「先 applyMask() 清乾淨，再 buildWrapZones() 建新的」，
      反過來就會把剛建好的線也清掉 */
-  if(FRAMES[id]&&FRAMES[id].mode==='wrap')return;
+  if(FRAMES[id]&&['wrap','stars'].includes(FRAMES[id].mode))return;
   const src=id==='custom'?maskState.customSrc
     :FRAMES[id]?FRAMES[id].src
     :`masks/mask-${id}cell-${maskKey()}.svg`;
@@ -3578,7 +3859,7 @@ $('#maskSel').onchange=e=>{
   /* 各比例都有對應的遮罩檔，不再強制切回 4:5 */
   build();
 };
-$('#maskFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(maskState.customSrc)URL.revokeObjectURL(maskState.customSrc);maskState.customSrc=URL.createObjectURL(f);maskState.id='custom';$('#maskSel').value='custom';applyMask()};
+$('#maskFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(maskState.customSrc?.startsWith('blob:'))URL.revokeObjectURL(maskState.customSrc);maskState.customSrc=URL.createObjectURL(f);maskState.id='custom';$('#maskSel').value='custom';applyMask()};
 
 /* ================= 建構 / UI ================= */
 /* 片格之間：同一張素材重複三次（不是三張不同素材）——
@@ -3680,6 +3961,12 @@ function build(){
   /* 槽位：遮罩 1 是上下兩格，各放一個素材；其他情況一格滿版 */
   /* 槽位幾何 [left%, top%, width%, height%]，與遮罩 SVG 同一份幾何算出，不會對不上 */
   const FM=frameMask();
+  if(FM&&FM.mode==='stars'){
+    applyMask();buildStarZones(P,T);
+    current={T};
+    applyAspect();applyCaptions();scheduleScene();
+    return;
+  }
   if(FM&&FM.mode==='wrap'){
     /* applyMask() 要先跑：清掉切換載體前留下的舊 .masklayer，
        buildWrapZones() 再建自己的兩條線——順序反過來，線會被 applyMask() 一起清掉 */
@@ -3827,7 +4114,7 @@ function renderParams(){
 }
 /* 濾鏡在清單上的擺放順序。跟 PRESETS 的定義順序分開，要調順序改這裡就好。
    沒列到的會自動接在後面，所以之後新增濾鏡不會憑空消失 */
-const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','summer','proj','dv','cool','party','night','riso','split','finder','peep','bw'];
+const PRESET_ORDER=['none','leak','sun','gold','strip','faded','bloom','summer','proj','dv','cool','party','night','riso','finder','peep','bw'];
 const presetIds=[...new Set([...PRESET_ORDER.filter(id=>PRESETS[id]),...Object.keys(PRESETS)])];
 presetIds.forEach(id=>{
   const P=PRESETS[id];
@@ -3926,7 +4213,7 @@ setTimeout(playIntro,300);
     if(!panel.hasAttribute('data-open')) iron.classList.toggle('hov',on);
   },{passive:true});
   /* 銀盒是 pointer-events:none（才不會擋住底下的面板），所以事件其實是打在底下的元件上。
-     必須在「捕獲階段」就攔下來，否則點銀盒會同時觸發底下的下拉選單或輸入框 —— 
+     必須在「捕獲階段」就攔下來，否則點銀盒會同時觸發底下的下拉選單或輸入框 ——
      原生 select 是在 pointerdown 就展開的，光擋 click 來不及 */
   /* 浮在銀盒上方、而且本來就該收得到點擊的東西。
      銀盒的判定是純幾何的（不看實際疊了什麼），所以這些要先排除，
@@ -3973,6 +4260,7 @@ function enhanceSelect(sel){
   btn.setAttribute('aria-haspopup','listbox');btn.setAttribute('aria-expanded','false');
   wrap.appendChild(btn);
   const list=document.createElement('div');list.className='csel-list';list.setAttribute('role','listbox');
+  if(sel.id==='maskSel'){list.classList.add('frame-picker');list.setAttribute('aria-label','選擇載體')}
   list.hidden=true;document.body.appendChild(list);
   let cursor=-1;
 
@@ -3997,7 +4285,25 @@ function enhanceSelect(sel){
       const b=document.createElement('button');b.type='button';b.className='csel-opt';
       b.setAttribute('role','option');b.setAttribute('aria-selected',String(i===sel.selectedIndex));
       b.classList.toggle('cursor',i===cursor);
-      b.textContent=o.textContent;
+      if(sel.id==='maskSel'){
+        const thumb=document.createElement('span');thumb.className='frame-choice-preview';thumb.setAttribute('aria-hidden','true');
+        const img=(src,cls)=>{const im=new Image();im.src=src;im.alt='';im.className=cls||'';thumb.append(im);return im};
+        img('assets/preset-sample.webp');const id=o.value,F=FRAMES[id];
+        if(['1','2','3','w'].includes(id))img(`masks/mask-${id}cell-4x5.svg`);
+        else if(F?.src){
+          if(F.mode==='polaroid')img('assets/preset-sample.webp','frame-choice-card');
+          const overlay=img(F.src);
+          if(F.mode!=='cover'&&F.mode!=='polaroid'){overlay.style.cssText=`width:${F.scale*100}%;height:${F.scale*100}%;left:${50-F.scale*50}%;top:${50-F.scale*50}%;object-fit:contain`}
+          if(F.mode==='polaroid')overlay.style.opacity=F.overlayOpacity||.2;
+        }else if(id==='wrap'){
+          for(const y of [14.6,84.4])img(F.lineSrc,'frame-choice-line').style.top=y+'%';
+        }else if(id==='stars'){
+          loadStarMask().then(()=>{if(!thumb.isConnected)return;for(const [i,mode] of ['ink','hole'].entries())img(starLayerURL(STAR_COLORS[0][0],mode,false),'frame-choice-star').style.top=i*50+'%'});
+        }else if(id==='custom'){
+          const mark=document.createElement('span');mark.className='frame-choice-upload';mark.textContent='＋';thumb.append(mark);
+        }
+        const name=document.createElement('span');name.className='frame-choice-name';name.textContent=o.textContent;b.append(thumb,name);b.setAttribute('aria-label',o.textContent);
+      }else b.textContent=o.textContent;
       /* 原生 <option disabled> 這裡才有作用 —— 之前完全沒讀過，個別選項灰掉/不能點
          （例如片格之間鎖住比例的橫式選項）都要靠這裡才能生效 */
       b.disabled=o.disabled;b.setAttribute('aria-disabled',String(o.disabled));
@@ -4313,7 +4619,7 @@ document.querySelectorAll('aside select, .expanel select').forEach(enhanceSelect
 /* ================= 區塊摺疊 ================= */
 (()=>{
   const KEY='isaw.collapsed';
-  const DEFAULT_COLLAPSED=['字幕'];          /* 預設收起的區塊 */
+  const DEFAULT_COLLAPSED=['字幕','設定檔'];          /* 預設收起的區塊 */
   let saved=null;
   try{saved=JSON.parse(localStorage.getItem(KEY))}catch(e){}
   const set=new Set(Array.isArray(saved)?saved:DEFAULT_COLLAPSED);
@@ -5390,6 +5696,125 @@ let drawPreview=null;
   $('#rec').onclick=()=>busy==='video'?askCancel('video'):(busy?null:exportVideoFrames());
   $('#recImg').onclick=()=>busy==='still'?askCancel('still'):(busy?null:exportStills());
   setBusyUI(null);
+})();
+
+/* ================= 可攜式設定檔 v1 ================= */
+(()=>{
+ const MAX=12*1024*1024,kind='i-saw-settings',msg=$('#settingsStatus');
+ const obj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+ const fail=s=>{throw new Error(s)};
+ const num=(v,a,b,label)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<a||v>b)fail(label+'超出範圍');return v};
+ const hex=v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
+ const choice=(v,sel)=>{if(typeof v!=='string'||![...$(sel).options].some(o=>o.value===v))fail('不支援的選項：'+sel);return v};
+ const range=(v,sel)=>num(v,+$(sel).min,+$(sel).max,sel);
+ const json=v=>JSON.parse(JSON.stringify(v));
+ const notice=s=>{msg.textContent=s};
+ let working=false;
+ function controls(on){working=on;$('#saveSettings').disabled=on;$('#loadSettings').disabled=on}
+ function validate(v){
+  if(!obj(v)||v.type!==kind)fail('這不是 I SAW 設定檔');
+  if(v.version!==1)fail('不支援這個設定檔版本，請使用版本 1');
+  if(typeof v.name!=='string'||v.name.length>80)fail('設定名稱格式不正確');
+  const s=v.settings;if(!obj(s)||!Object.hasOwn(PRESETS,s.preset)||!obj(s.params))fail('濾鏡設定不正確');
+  const params={};
+  for(const [id,p] of Object.entries(s.params)){
+   if(!Object.hasOwn(PRESETS,id)||!obj(p))fail('包含不支援的濾鏡');
+   const clean={};for(const [k,,min,max] of PRESETS[id].params){
+    if(Array.isArray(min)){
+     if(!Array.isArray(p[k])||p[k].length!==3||!hex(p[k][0])||!hex(p[k][1])||typeof p[k][2]!=='string'||p[k][2].length>80)fail('濾鏡色票不正確');
+     clean[k]=p[k].slice();
+    }else clean[k]=num(p[k],min,max,'濾鏡參數 '+k);
+   }params[id]=clean;
+  }
+  if(!Object.hasOwn(params,s.preset))fail('缺少目前濾鏡參數');
+  const aspect=choice(s.aspect,'#aspect');if(!obj(s.frame))fail('缺少載體設定');
+  const frameID=choice(s.frame.id,'#maskSel');if(!hex(s.frame.starColor))fail('星星顏色不正確');
+  for(const key of ['customImage','starMask']){const a=s.frame[key];if(a!==null&&(typeof a!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a)||a.length>MAX))fail('框素材必須為內嵌 PNG');}
+  if(frameID==='custom'&&!s.frame.customImage)fail('缺少自訂框圖片');
+  if(FRAMES[frameID]?.noSquareOnly&&aspect==='1')fail('這個載體不支援正方形');
+  const L=PRESETS[s.preset].lock;if(L&&((L.aspect!==undefined&&aspect!==L.aspect)||(L.mask!==undefined&&frameID!==L.mask)))fail('設定與濾鏡的固定比例／載體不符');
+  let unlocked=null;if(s.unlocked!==null){if(!obj(s.unlocked))fail('鎖定前設定不正確');unlocked={};if(s.unlocked.aspect!==undefined)unlocked.aspect=choice(s.unlocked.aspect,'#aspect');if(s.unlocked.mask!==undefined)unlocked.mask=choice(s.unlocked.mask,'#maskSel');if(unlocked.mask==='custom'&&!s.frame.customImage)fail('缺少原自訂框');}
+  if(!Array.isArray(s.captions)||s.captions.length>100)fail('字幕最多 100 段');
+  const captions=s.captions.map(c=>{
+   if(!obj(c)||typeof c.text!=='string'||c.text.length>5000||!hex(c.color)||!CAPTION_WEIGHTS.some(x=>x[0]===c.weight)||!CAPTION_FONTS.some(x=>x[0]===c.font))fail('字幕格式不正確');
+   const start=num(c.startSlot,0,9999,'字幕開始'),end=num(c.endSlot,start+1,10000,'字幕結束');if(!Number.isInteger(start)||!Number.isInteger(end))fail('字幕範圍必須是整格');
+   const out={text:c.text,color:c.color,weight:c.weight,font:c.font,size:num(c.size,1.5,10,'字幕大小'),x:num(c.x,0,100,'字幕位置'),y:num(c.y,0,100,'字幕位置'),startSlot:start,endSlot:end};
+   if(c.customColor!==undefined){if(!hex(c.customColor))fail('字幕自訂色不正確');out.customColor=c.customColor}return out;
+  });
+  if(!obj(s.playback))fail('缺少播放設定');const p=s.playback;
+  if(typeof p.autoFade!=='boolean'||typeof p.keepAudio!=='boolean')fail('播放開關格式不正確');
+  const playback={dwell:range(p.dwell,'#dwell'),flicker:range(p.flicker,'#flicker'),fadeSecs:range(p.fadeSecs,'#fadeSecs'),introStyle:choice(p.introStyle,'#introStyle'),transStyle:choice(p.transStyle,'#transStyle'),endStyle:choice(p.endStyle,'#endStyle'),autoFade:p.autoFade,keepAudio:p.keepAudio};
+  return {name:v.name,settings:{preset:s.preset,params,aspect,frame:{id:frameID,starColor:s.frame.starColor,customImage:s.frame.customImage,starMask:s.frame.starMask},unlocked,captions,playback}};
+ }
+ async function image(src){if(!src)return null;const im=new Image();im.src=src;await im.decode();if(im.naturalWidth>4096||im.naturalHeight>4096||im.naturalWidth*im.naturalHeight>16e6)fail('框圖片最多 4096px、1600 萬像素');return im}
+ function png(im){if(!im)return null;const c=document.createElement('canvas');c.width=im.naturalWidth||im.width;c.height=im.naturalHeight||im.height;c.getContext('2d').drawImage(im,0,0);return c.toDataURL('image/png')}
+ async function capture(){
+  const custom=maskState.customSrc?png(await image(maskState.customSrc)):null;
+  return {type:kind,version:1,name:$('#settingsName').value.trim()||'我的風格',settings:{preset:state.preset,params:json(state.params),aspect:$('#aspect').value,unlocked:lockSaved?json(lockSaved):null,frame:{id:maskState.id,starColor,customImage:custom,starMask:png(randomStarMask)},captions:state.captions.map(c=>({...json(c),font:c.font||'serif',startSlot:c.startSlot??0,endSlot:c.endSlot??1})),playback:{...Object.fromEntries(Object.keys(PROJ_DEFAULTS).filter(k=>k!=='dwell').map(k=>[k,proj[k]])),dwell:state.dwell}}};
+ }
+ function apply(pack,starImage){
+  const s=pack.settings,p=s.playback;
+  clearTimeout(sceneTimer);closeCaptionEditor();
+  // 先解除舊濾鏡鎖，再以設定檔的原始選項建立新的鎖；不觸發轉場試播事件。
+  if(lockSaved){if(lockSaved.aspect!==undefined)$('#aspect').value=lockSaved.aspect;if(lockSaved.mask!==undefined){maskState.id=lockSaved.mask;$('#maskSel').value=lockSaved.mask}}
+  lockSaved=null;for(const sel of ['#aspect','#maskSel']){$(sel).disabled=false;$(sel).closest('.rowline').classList.remove('locked')}
+  state.preset=s.preset;state.params=json(s.params);state.captions=json(s.captions);selectedCaption=0;
+  $('#aspect').value=s.unlocked?.aspect??s.aspect;maskState.id=s.unlocked?.mask??s.frame.id;$('#maskSel').value=maskState.id;
+  const oldSrc=maskState.customSrc;maskState.customSrc=s.frame.customImage;if(oldSrc?.startsWith('blob:'))URL.revokeObjectURL(oldSrc);
+  starColor=s.frame.starColor;randomStarMask=starImage;starCache.clear();applyPresetLock(s.preset);
+  state.dwell=p.dwell;Object.keys(PROJ_DEFAULTS).filter(k=>k!=='dwell').forEach(k=>proj[k]=p[k]);
+  for(const [id,val] of [['dwell',p.dwell],['flicker',p.flicker],['fadeSecs',p.fadeSecs],['introStyle',p.introStyle],['transStyle',p.transStyle],['endStyle',p.endStyle]])$('#'+id).value=val;
+  $('#vDwell').textContent=p.dwell+' 秒';$('#vFlicker').textContent=p.flicker;$('#vFadeSecs').textContent=p.fadeSecs+' 秒';
+  for(const k of ['autoFade','keepAudio'])$('#'+k).setAttribute('aria-checked',String(p[k]));
+  $('#settingsName').value=pack.name;proj.ended=false;proj.fading=false;state.index=0;
+  [...presetsBox.children].forEach(b=>b.classList.toggle('on',b.dataset.id===s.preset));
+  updateAspectAvailability();renderStarControls();clampIndex();renderItems();renderCaptionsPanel();renderParams();build();syncResetBtns();
+ }
+ $('#saveSettings').onclick=async()=>{
+  if(working||proj.exporting)return;controls(true);notice('正在整理設定…');
+  try{const pack=await capture();validate(pack);const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});if(blob.size>MAX)fail('設定檔超過 12MB，請縮小自訂框圖片');const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=pack.name.replace(/[\\/:*?"<>|\x00-\x1f]/g,'_')+'.isaw.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),10000);notice('已匯出設定（不含照片與影片）。')}catch(e){notice('無法匯出：'+e.message)}finally{controls(false)}
+ };
+ $('#loadSettings').onclick=()=>{if(!working&&!proj.exporting)$('#settingsFile').click()};
+ async function readPack(raw){
+  const pack=validate(raw);
+  await image(pack.settings.frame.customImage);const star=await image(pack.settings.frame.starMask);
+  if(star&&!await loadStarMask())fail('星星素材載入失敗，請重試');
+  if(proj.exporting)fail('請等影片輸出完成再讀取設定');
+  apply(pack,star);
+  const need=Math.max(0,...pack.settings.captions.map(c=>c.endSlot));
+  notice('已套用「'+pack.name+'」。'+(state.items.length?'原有素材保留。':'加入照片或影片，開始創作。')+(need>state.items.length?'字幕使用到第 '+need+' 格，補齊素材後完整顯示。':''));
+ }
+ $('#settingsFile').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file||working||proj.exporting)return;controls(true);notice('正在檢查設定檔…');
+  try{if(file.size>MAX)fail('設定檔超過 12MB');await readPack(JSON.parse(await file.text()))}
+  catch(e){notice('無法讀取：'+(e instanceof SyntaxError?'JSON 格式不正確':e.message))}finally{controls(false)}
+ };
+ const galleryStyle=new URLSearchParams(location.search).get('style');
+ if(galleryStyle){
+  controls(true);notice('正在載入 Gallery 風格…');
+  (async()=>{
+   try{
+    const catalogResponse=await fetch('gallery-styles.json',{cache:'no-store'});if(!catalogResponse.ok)fail('風格清單暫時無法載入');
+    const catalog=await catalogResponse.json(),entry=catalog.find(x=>x.id===galleryStyle);
+    if(!entry||!/^styles\/[a-z0-9-]+\.isaw\.json$/.test(entry.settings))fail('找不到這個 Gallery 風格');
+    const response=await fetch(entry.settings);if(!response.ok)fail('風格設定暫時無法載入');
+    const blob=await response.blob();if(blob.size>MAX)fail('設定檔超過 12MB');
+    await readPack(JSON.parse(await blob.text()));
+    if(entry.sample&&!state.items.length){
+     try{
+      if(!/^assets\/[a-zA-Z0-9_-]+\.(webp|png|jpe?g)$/.test(entry.sample))fail('示範照片路徑不正確');
+      const sampleResponse=await fetch(entry.sample);if(!sampleResponse.ok)fail('示範照片暫時無法載入');
+      const sample=await sampleResponse.blob();if(!sample.type.startsWith('image/')||sample.size>MAX)fail('示範照片格式不正確');
+      addFiles([new File([sample],'日常放映室.webp',{type:sample.type})]);
+      notice('已套用「'+entry.name+'」並加入預設照片。');
+     }catch(e){notice('風格已套用，'+e.message+'。你也可以直接加入自己的照片。')}
+    }
+    const url=new URL(location.href);url.searchParams.delete('style');history.replaceState(null,'',url);
+   }catch(e){notice('無法套用 Gallery 風格：'+e.message+'。請回 Gallery 重試。')}
+   finally{controls(false)}
+  })();
+ }
+
 })();
 
 </script>

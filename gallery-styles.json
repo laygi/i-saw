@@ -1,0 +1,31 @@
+[
+  {
+    "id": "daily-screening",
+    "name": "日常放映室",
+    "description": "青綠褪色、輕柔顆粒，與偶爾閃過的光。把平凡的一天，放映成一小段記憶。",
+    "settings": "styles/daily-screening.isaw.json",
+    "poster": "assets/preset-sample.webp",
+    "video": null,
+    "details": "Super 8 · 4:5 直式 · 觀景窗一格",
+    "sample": "assets/preset-sample.webp",
+    "updated": "2026-10-21",
+    "filter": "Super 8",
+    "aspect": "4:5 直式",
+    "dimensions": "1080 × 1350",
+    "frame": "觀景窗一格",
+    "tags": [
+      "日常",
+      "復古",
+      "青綠",
+      "底片",
+      "顆粒"
+    ],
+    "keywords": [
+      "super8",
+      "8mm",
+      "直式",
+      "1080x1350",
+      "1080×1350"
+    ]
+  }
+]
