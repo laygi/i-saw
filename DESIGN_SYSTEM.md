@@ -1,7 +1,7 @@
 # I SAW 共用設計系統
 
 正式來源：`assets/design-tokens.css` 與 `assets/design-components.css`。
-編輯器與 Gallery 使用相對連結；私人元件庫引用 GitHub Pages 上相同的兩份檔案。
+編輯器與 Gallery 使用相對連結；公開元件庫位於 `design-system/`，以相對路徑引用相同樣式；原私人 Sites 展示引用 GitHub Pages 的相同檔案。
 
 - Tokens：品牌色、紙色、字族、分隔線、紙材。
 - Components：現有按鈕、設定列、輸入欄、滑桿與共用頁首。
@@ -34,3 +34,9 @@ Gallery 共用選擇器以 `:where(.isaw-gallery)` 限定範圍，避免干擾�
 有意保留於正式頁：影像濾鏡引擎、影片裁切／轉檔、字幕時間軸、Our Story 描圖紙動畫、銀盒、蕾絲定位與各頁響應式構圖。這些是產品流程與場景，元件庫的覆蓋清單已列出，並提供正式編輯器入口。
 
 本次驗證：兩頁 JavaScript 與前版逐字相同；node 語法檢查；CSS 素材路徑；共用基礎宣告不再重複留於 inline；Gallery 詳情與套用、編輯器原有選單／縮圖；元件庫開關、色票、色碼、鍵盤選單、範圍錯誤、進度狀態。未重新執行 MP4 匯出。
+
+## 公開展示網頁
+
+公開網址：https://laygi.github.io/i-saw/design-system/
+
+展示頁原始碼位於 `design-system/`，與正式網站使用相同 `assets/`。後續更新公開展示請修改此目錄；原 Sites 網址仍是獨立部署，若需同步需另行發布。

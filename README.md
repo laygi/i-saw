@@ -75,3 +75,9 @@
 ## 不要外流
 
 `my-media/` 是 Lily 自己的照片和影片，不要上傳、不要做成 Artifact。
+
+## Design System
+
+[公開互動元件庫](https://laygi.github.io/i-saw/design-system/) · [設計系統維護說明](DESIGN_SYSTEM.md)
+
+展示頁原始碼位於 [`design-system/`](design-system/)，與編輯器、Gallery 共用 `assets/` 下的設計樣式與素材。
