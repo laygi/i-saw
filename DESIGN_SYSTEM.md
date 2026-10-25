@@ -40,3 +40,19 @@ Gallery 共用選擇器以 `:where(.isaw-gallery)` 限定範圍，避免干擾�
 公開網址：https://laygi.github.io/i-saw/design-system/
 
 展示頁原始碼位於 `design-system/`，與正式網站使用相同 `assets/`。後續更新公開展示請修改此目錄；原 Sites 網址仍是獨立部署，若需同步需另行發布。
+
+## v1.2 — OKLCH UI 色階
+
+四個色系均含 50、100、200、300、400、500、600、700、800、900、950：
+- `--red-*`：品牌主色。
+- `--beige-*`：輔助米色、紙材表面與暖色文字。
+- `--blue-*`：備用資訊輔助色。
+- `--neutral-*`：無彩色，C = 0。
+
+來源為 `tools/build-color-tokens.py` 內的 OKLCH 數值。執行 `python3 tools/build-color-tokens.py` 產生 `assets/design-tokens.css` 與 `assets/design-colors.json`；`--check` 可檢查輸出一致性、各色系 L 遞減、sRGB 色域、品牌錨點與文字配對的對比。改色時改生成器再重新產生，勿分別修改生成檔。
+
+既有品牌錨點保留：red-600 = #AC242E、red-900 = #5C131A、beige-100 = #EBE7DD、beige-200 = #E2DDD1、beige-600 = #6F6A60、beige-900 = #1A1917、beige-950 = #141412。米色深階帶微量暖色彩度；純無彩請使用 neutral。
+
+新增 UI 優先使用 `--ui-*` 語意變數。舊別名保留原外觀；新次要文字使用 ui-text-muted（beige-700），搭配 ui-bg（beige-100）為 6.60:1。舊 muted（beige-600）與紙底約 4.35:1，不推薦為新增的一般小字配色。品牌操作為 red-600、懸停 red-700、按下 red-800，文字 neutral-50。藍色以 ui-info、ui-info-bg、ui-info-border 提供備用搭配。
+
+公開色彩頁支援 44 色選取、OKLCH／HEX／Token 複製、語意用途表、配色預覽、文字對比與 CSS／JSON 下載。值皆來自同一份生成資料；HEX 是 sRGB 對照，不是第二套來源。目前只定義淺色 UI，未新增深色主題。
