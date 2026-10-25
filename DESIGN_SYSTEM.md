@@ -56,3 +56,7 @@ Gallery 共用選擇器以 `:where(.isaw-gallery)` 限定範圍，避免干擾�
 新增 UI 優先使用 `--ui-*` 語意變數。舊別名保留原外觀；新次要文字使用 ui-text-muted（beige-700），搭配 ui-bg（beige-100）為 6.60:1。舊 muted（beige-600）與紙底約 4.35:1，不推薦為新增的一般小字配色。品牌操作為 red-600、懸停 red-700、按下 red-800，文字 neutral-50。藍色以 ui-info、ui-info-bg、ui-info-border 提供備用搭配。
 
 公開色彩頁支援 44 色選取、OKLCH／HEX／Token 複製、語意用途表、配色預覽、文字對比與 CSS／JSON 下載。值皆來自同一份生成資料；HEX 是 sRGB 對照，不是第二套來源。目前只定義淺色 UI，未新增深色主題。
+
+## 導覽入口
+
+畫畫編輯器不放 Design System 入口。Gallery 等有 footer 的內容頁在頁尾提供連結；Design System 頁首保留「回到主站」。後續新增內容頁沿用此位置。

@@ -25,3 +25,6 @@ nav a[hidden]{display:none}
 @media(max-width:1100px){.color-inspector{grid-template-columns:90px 1fr;gap:16px}.inspect-chip{width:90px}.inspect-actions{grid-column:2;max-width:none}.inspect-actions .btn{width:auto;padding:0 18px}.color-ui-demo{grid-template-columns:1fr}.palette-family-heading{display:block}.palette-family-heading>span{display:block;margin-top:5px}}
 @media(max-width:760px){.color-toolbar{align-items:flex-start;flex-wrap:wrap}.palette-family-heading h3 em{font-size:14px}.color-inspector{padding:15px;grid-template-columns:60px 1fr;gap:14px}.inspect-chip{width:60px;height:100%}.inspect-details h3{font-size:17px}.inspect-details code{font-size:9px}.color-subheading{align-items:flex-start;flex-direction:column;gap:8px}.color-subheading h3 em{font-size:15px}.scale-chip{min-height:75px}.palette-scale{min-width:640px}.color-ui-surface{padding:20px}.color-ui-surface h3{font-size:23px}}
 @media(prefers-reduced-motion:reduce){.scale-chip,.color-brand-action{transition:none}}
+
+.return-home{white-space:nowrap}.head-right .return-home{font-family:var(--mono)}
+@media(max-width:600px){header .brand>span{display:none}.head-right{gap:14px}header .head-right .top-link{font-size:10px}}
