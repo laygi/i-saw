@@ -1,0 +1,66 @@
+/* I SAW v1.0.0 — shared existing button, field, slider and header styles.
+   Page-specific layout, states and responsive rules remain in each page. */
+  .btn{display:block;width:100%;height:38px;margin:0;padding:0;
+    border-radius:0;text-align:center;text-transform:uppercase;cursor:pointer;
+    font:11px/36px var(--mono);letter-spacing:.16em;
+    transition:background-color .18s,color .18s,border-color .18s}
+  .expanel .btn+.btn{margin-top:8px}                    /* 只有堆疊時才需要間距 */
+  .btn-primary{background:var(--ink);color:var(--paper);border:1px solid var(--ink)}
+  .btn-primary:hover:not(:disabled){background:var(--red);border-color:var(--red)}
+  .btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--hair)}
+  .btn-secondary:hover:not(:disabled){border-color:var(--rule);color:var(--ink)}
+  .btn-text{background:transparent;border:0;border-bottom:var(--bw) solid var(--hair);
+    height:36px;line-height:34px;text-align:left;text-transform:none;letter-spacing:.06em;
+    color:var(--muted)}
+  .btn-text:hover:not(:disabled){color:var(--ink)}
+  .btn:disabled{opacity:.42;cursor:default}
+
+  .rowline{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:40px;padding:3px 0;border-bottom:var(--bw) solid var(--hair)}
+  .rowline:focus-within{border-bottom-color:var(--ink)}
+  /* 被濾鏡鎖住的設定列：仍看得到目前的值，但不能改 */
+  .rowline.locked .v{opacity:.42}
+  .rowline.locked .v::after{content:"▾";visibility:hidden}
+  select:disabled{cursor:default}
+  .k{flex:none;display:block;margin:0;font:11px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+  .rowline .v{flex:1;min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:8px;font:11px var(--mono);color:var(--ink)}
+  .rowline .v:has(.csel)::after{content:"▾";font-size:9px;color:var(--muted);margin-left:-4px}
+  .rowline.locked .v:has(.csel)::after{visibility:hidden}
+
+  /* 輸入：無框，只留字；可點高 36px */
+  input[type=text],select{-webkit-appearance:none;appearance:none;height:29px;margin:0;padding:0;border:0;border-radius:0;
+    /* 淺淺的底色，讓可輸入的欄位有明確範圍（無邊框） */
+    background:rgba(20,20,18,.05);padding:0 10px;
+    color:var(--ink);font:11px/29px var(--mono);letter-spacing:.04em;text-align:right;text-align-last:right;outline:none;
+    transition:background-color .15s}
+  input[type=text]:hover,select:hover{background:rgba(20,20,18,.075)}
+  input[type=text]:focus,select:focus{background:rgba(20,20,18,.095)}
+  input[type=text]{width:100%}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;margin:0 0 -1px;padding:0;background:transparent;outline:none}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;margin-top:-4.5px;border:0;border-radius:50%;background:var(--red)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--ink)}
+  input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:var(--red)}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--ink)}
+
+
+  .hd{display:flex;justify-content:space-between;align-items:center;gap:18px;
+    height:var(--hdh);padding:0 2px 7px;margin:0}
+  .hd-left{display:flex;align-items:center;gap:16px;flex:1 1 auto;min-width:0}
+  .hd h1,.hd .sub{white-space:nowrap}
+  .hd .sub{overflow:hidden;text-overflow:ellipsis}
+  .hd svg{display:block;width:10px;height:10px;color:var(--paper);align-self:center}
+  .hd h1,.hd .no{margin:0;font:italic 400 22px/1 Georgia,"Times New Roman","Songti TC",serif;letter-spacing:0;color:var(--paper)}
+  .hd h1{margin:0;line-height:0;flex:0 0 auto}
+  .hd .mark{display:block;height:34px;width:auto;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.30)) drop-shadow(0 5px 12px rgba(0,0,0,.22))}
+  .hd-story{appearance:none;background:none;border:0;cursor:pointer;
+    display:inline-block;width:auto;height:auto;flex:0 0 auto;padding:2px 0;
+    text-transform:none;text-align:right;white-space:nowrap;
+    /* 與「Look what I saw today.」同一套等寬字 */
+    font:normal 300 13px/1 var(--mono);letter-spacing:.06em;
+    color:var(--paper);opacity:.82;transition:opacity .2s,border-color .2s;
+    border-bottom:1px solid rgba(235,231,221,.35)}
+  .hd-nav{display:flex;align-items:center;gap:22px;flex:0 0 auto;position:relative;z-index:50}
+  .hd-nav a{text-decoration:none}
+  .hd-story:hover{opacity:1;border-bottom-color:var(--paper)}

@@ -3412,3 +3412,9 @@ Photo/
 ├── my-media/              Lily 自己的照片與影片
 └── experiments/           film_light_leak.html、super8_film.html
 ```
+
+## 2026-10-25 — 共用 Design System v1.0
+- 抽出 assets/design-tokens.css：色彩、字族、分隔線與紙材，由編輯器與 Gallery 共用。
+- 抽出 assets/design-components.css：既有按鈕、設定列、輸入、滑桿與相同頁首規則，保留頁面版面與響應式覆寫。
+- 私人 Design System 網頁改引用正式 GitHub Pages 上相同 CSS，JSON 色彩匯出讀取實際生效 Tokens。
+- 驗證兩頁 JavaScript 保持原樣且語法通過；本機 Gallery 詳細彈窗、套用預設照片／Super 8 風格、編輯器設定檔展開已實測；未重新測試影片輸出。

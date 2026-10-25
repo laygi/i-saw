@@ -7,9 +7,11 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
+<link rel="stylesheet" href="assets/design-tokens.css?v=1.0.0">
+<link rel="stylesheet" href="assets/design-components.css?v=1.0.0">
 <style>
-  :root{--ar:0.8;--red:#ac242e;--red-deep:#5c131a;--paper:#ebe7dd;--paper-2:#e2ddd1;--ink:#141412;--rule:#1a1917;--muted:#6f6a60;
-    --hdh:54px;--padt:11px;--red-tex:.5;--mono:"SF Mono",Menlo,"Courier New",monospace;--num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;--sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif}
+  :root{--ar:0.8;
+    --hdh:54px;--padt:11px;--red-tex:.5;}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--red);color:var(--ink);font-family:var(--sans);font-size:12px}
   /* 參考圖的紅不是平塗：中上偏亮，往四周與底部漸暗 */
@@ -545,13 +547,10 @@
   .masklayer{position:absolute;inset:0;pointer-events:none;z-index:45;object-fit:fill;width:100%;height:100%}
 
   /* ============ 面板：格線版 — 1px 格線切成兩欄大格子，內容靠左上，其餘留白 ============ */
-  :root{--grid:rgba(20,20,18,.18);--hair:rgba(20,20,18,.22);--bw:1px;--hover:rgba(20,20,18,.04)}
+  
   /* 紙質：取自 augustine-wong 的紙材照片，高通去掉大範圍明暗後做成無縫平鋪的
      灰階小圖（2000px 取樣 → 360px tile，顯示 220px；41.6 KB）。用 soft-light 疊加，只影響明暗不改變底色 */
-  :root{
-    --paper-tex:url("assets/paper.webp");
-    --paper-tex-size:220px 220px;
-    --paper-tex-blend:soft-light}
+  
   .panel{background-color:var(--paper);background-image:var(--paper-tex);
     background-size:var(--paper-tex-size);background-blend-mode:var(--paper-tex-blend);
     color:var(--ink);overflow:auto;max-height:calc(100vh - 24px - var(--padt) - var(--hdh));padding:32px;border-left:1px solid var(--grid);
@@ -562,31 +561,23 @@
   .panel button,.panel select,.panel input,.panel .item,.panel .sw{cursor:pointer;transition:background-color .12s,color .12s,border-color .12s}
 
   /* 頁首：站在最外圍的深紅底上，紙張之外 */
-  .hd{display:flex;justify-content:space-between;align-items:center;gap:18px;
-    height:var(--hdh);padding:0 2px 7px;margin:0}
-  .hd-left{display:flex;align-items:center;gap:16px;flex:1 1 auto;min-width:0}
-  .hd h1,.hd .sub{white-space:nowrap}
-  .hd .sub{overflow:hidden;text-overflow:ellipsis}
-  .hd svg{display:block;width:10px;height:10px;color:var(--paper);align-self:center}
-  .hd h1,.hd .no{margin:0;font:italic 400 22px/1 Georgia,"Times New Roman","Songti TC",serif;letter-spacing:0;color:var(--paper)}
+
+
+
+
+
+
   .hd .sub{margin:0;font:11px/1.5 var(--mono);color:rgba(235,231,221,.62);letter-spacing:.06em}
-  .hd h1{margin:0;line-height:0;flex:0 0 auto}
+
   /* 圖檔已去掉烘焙的陰影並裁掉留白，所以邊框即布標本身，對齊好抓；
      陰影改由 CSS 給，兩層才不會疊在一起 */
-  .hd .mark{display:block;height:34px;width:auto;
-    filter:drop-shadow(0 2px 3px rgba(0,0,0,.30)) drop-shadow(0 5px 12px rgba(0,0,0,.22))}
+
   /* 右側 Our Story：正體襯線，與左側斜體成對比 */
-  .hd-story{appearance:none;background:none;border:0;cursor:pointer;
-    display:inline-block;width:auto;height:auto;flex:0 0 auto;padding:2px 0;
-    text-transform:none;text-align:right;white-space:nowrap;
-    /* 與「Look what I saw today.」同一套等寬字 */
-    font:normal 300 13px/1 var(--mono);letter-spacing:.06em;
-    color:var(--paper);opacity:.82;transition:opacity .2s,border-color .2s;
-    border-bottom:1px solid rgba(235,231,221,.35)}
-  .hd-nav{display:flex;align-items:center;gap:22px;flex:0 0 auto;position:relative;z-index:50}
-  .hd-nav a{text-decoration:none}
+
+
+
   @media(max-width:480px){.hd-nav{gap:14px}}
-  .hd-story:hover{opacity:1;border-bottom-color:var(--paper)}
+
   @media (max-width:860px){.hd{padding:0 2px 12px}.hd .mark{height:30px}.hd .sub{display:none}.hd-story{font-size:12px}}
 
   /* ============ 描圖紙 Our Story ============ */
@@ -772,20 +763,6 @@
   /* ============ 按鈕 ============
      primary  ：黑底，滑過轉主色紅
      secondary：外框，滑過加深 */
-  .btn{display:block;width:100%;height:38px;margin:0;padding:0;
-    border-radius:0;text-align:center;text-transform:uppercase;cursor:pointer;
-    font:11px/36px var(--mono);letter-spacing:.16em;
-    transition:background-color .18s,color .18s,border-color .18s}
-  .expanel .btn+.btn{margin-top:8px}                    /* 只有堆疊時才需要間距 */
-  .btn-primary{background:var(--ink);color:var(--paper);border:1px solid var(--ink)}
-  .btn-primary:hover:not(:disabled){background:var(--red);border-color:var(--red)}
-  .btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--hair)}
-  .btn-secondary:hover:not(:disabled){border-color:var(--rule);color:var(--ink)}
-  .btn-text{background:transparent;border:0;border-bottom:var(--bw) solid var(--hair);
-    height:36px;line-height:34px;text-align:left;text-transform:none;letter-spacing:.06em;
-    color:var(--muted)}
-  .btn-text:hover:not(:disabled){color:var(--ink)}
-  .btn:disabled{opacity:.42;cursor:default}
   /* 輸出中：那顆按鈕變成「取消輸出」，用紅框跟正常狀態分開 */
   .btn.cancelling{background:transparent;color:var(--red);border-color:var(--red)}
   .btn.cancelling:hover:not(:disabled){background:var(--red);color:var(--paper)}
@@ -849,26 +826,6 @@
   .rowline:last-child{border-bottom:0}
 
   /* 列：左標籤、右值，對齊同一條右邊界，底下一條髮絲線 */
-  .rowline{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:40px;padding:3px 0;border-bottom:var(--bw) solid var(--hair)}
-  .rowline:focus-within{border-bottom-color:var(--ink)}
-  /* 被濾鏡鎖住的設定列：仍看得到目前的值，但不能改 */
-  .rowline.locked .v{opacity:.42}
-  .rowline.locked .v::after{content:"▾";visibility:hidden}
-  select:disabled{cursor:default}
-  .k{flex:none;display:block;margin:0;font:11px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
-  .rowline .v{flex:1;min-width:0;display:flex;justify-content:flex-end;align-items:center;gap:8px;font:11px var(--mono);color:var(--ink)}
-  .rowline .v:has(.csel)::after{content:"▾";font-size:9px;color:var(--muted);margin-left:-4px}
-  .rowline.locked .v:has(.csel)::after{visibility:hidden}
-
-  /* 輸入：無框，只留字；可點高 36px */
-  input[type=text],select{-webkit-appearance:none;appearance:none;height:29px;margin:0;padding:0;border:0;border-radius:0;
-    /* 淺淺的底色，讓可輸入的欄位有明確範圍（無邊框） */
-    background:rgba(20,20,18,.05);padding:0 10px;
-    color:var(--ink);font:11px/29px var(--mono);letter-spacing:.04em;text-align:right;text-align-last:right;outline:none;
-    transition:background-color .15s}
-  input[type=text]:hover,select:hover{background:rgba(20,20,18,.075)}
-  input[type=text]:focus,select:focus{background:rgba(20,20,18,.095)}
-  input[type=text]{width:100%}
   /* 全站下拉選單同寬（142px 可容納最長的「4:5 直式 1080×1350」）*/
   select{width:var(--sel-w,142px);max-width:100%;text-overflow:ellipsis}
   /* 例外：同一列有兩個選單時（字幕的顏色／粗細），兩者均分該列寬度、彼此同寬 */
@@ -983,13 +940,6 @@
   .trimquick button:hover{border-color:var(--rule);color:var(--ink)}
   .trimquick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
   @media (max-width:640px){.trimprev{height:150px}.trimprev canvas{max-height:150px}}
-  input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:16px;margin:0 0 -1px;padding:0;background:transparent;outline:none}
-  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--ink)}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;margin-top:-4.5px;border:0;border-radius:50%;background:var(--red)}
-  input[type=range]::-moz-range-track{height:1px;background:var(--ink)}
-  input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:var(--red)}
-  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--ink)}
-
   /* 色票（光漏色）：12px 方塊、髮絲邊；選中墨黑邊 */
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
   .sw{width:12px;height:12px;border:1px solid var(--hair);background:var(--ink)}

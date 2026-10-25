@@ -1,0 +1,14 @@
+/* I SAW Design System v1.0.0 — canonical shared tokens. */
+:root {
+  --red:#ac242e; --red-deep:#5c131a;
+  --paper:#ebe7dd; --paper-2:#e2ddd1;
+  --ink:#141412; --rule:#1a1917; --muted:#6f6a60;
+  --grid:rgba(20,20,18,.18); --hair:rgba(20,20,18,.22);
+  --bw:1px; --hover:rgba(20,20,18,.04);
+  --mono:"SF Mono",Menlo,"Courier New",monospace;
+  --num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif;
+  --serif:Georgia,"Times New Roman","Songti TC",serif;
+  --paper-tex:url("paper.webp"); --paper-tex-size:220px 220px;
+  --paper-tex-blend:soft-light;
+}
