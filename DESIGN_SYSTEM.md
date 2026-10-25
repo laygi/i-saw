@@ -60,3 +60,14 @@ Gallery 共用選擇器以 `:where(.isaw-gallery)` 限定範圍，避免干擾�
 ## 導覽入口
 
 畫畫編輯器不放 Design System 入口。Gallery 等有 footer 的內容頁在頁尾提供連結；Design System 頁首保留「回到主站」。後續新增內容頁沿用此位置。
+
+## 共用黑色 Footer
+
+Gallery 與公開元件庫使用同一個 Footer，畫畫編輯器仍不放 Footer。
+
+- 模板：`components/site-footer.html`。
+- 樣式：`assets/site-footer.css`（neutral-950 黑底、beige-100 文字）。
+- 互動：`assets/site-footer.js`（回到頁首、Our Story 入口）。
+- 產生：`python3 tools/build-footer.py`；以 `--check` 確認兩頁與模板同步。
+
+模板分為品牌、Discover、Design、Resources，底部保留版權與品牌短句。沒有正式目的頁的社群、聯絡或法律連結先不放。新內容頁可沿用相同模板與資產；請不要在各頁獨立改生成的 Footer HTML。

@@ -3439,3 +3439,9 @@ Photo/
 ## 2026-10-26 — Gallery 頁尾與 Design System 雙向入口
 - 元件庫頁首增加「回到主站」；Gallery 在 footer 加入 Design System 入口。
 - 畫畫編輯器與主站頁首不加入口，保持創作區專注；頁尾在窄螢幕可換行。
+
+## 2026-10-26 — 共用黑色 Footer
+- 依參考圖採分欄與留白，建立黑底的品牌／Discover／Design／Resources Footer、底部版權列與回到頁首入口。
+- 套用 Gallery 與 Design System；畫畫編輯器維持不放 Footer。
+- 以一份模板與產生器同步 HTML，共用 CSS／互動；元件庫收錄 Footer 並將搜尋導覽限定為側欄，避免頁尾導覽受搜尋影響。
+- 驗證模板同步、連結與 ID、Our Story、跨頁導覽及元件搜尋；Gallery 內容高度改隨頁面分配，頁尾不覆蓋內容。
