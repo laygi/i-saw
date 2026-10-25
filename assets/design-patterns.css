@@ -1,0 +1,222 @@
+/* I SAW v1.1 — production interaction patterns.
+   Layout and media-rendering rules remain local to each page. */
+  .cell>h2{cursor:pointer;user-select:none}
+  .cell>h2::before{content:"−";flex:none;width:13px;margin-right:2px;
+    font:12px/1 var(--mono);color:var(--muted);transition:color .15s}
+  .cell.collapsed>h2::before{content:"+"}
+  .cell>h2:hover::before{color:var(--ink)}
+  .cell.collapsed>:not(h2){display:none}
+  .cell.collapsed{flex:none}
+  .cell.collapsed>h2{margin-bottom:0}
+  .cell>h2{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;height:24px;
+    font:11px/1 var(--mono);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+  .cell>h2 span{color:var(--muted);margin-left:auto}
+  /* 區塊標題旁邊的「重設」：沒改過任何東西時是停用的（壓淡、點不下去） */
+  .hreset{flex:0 0 auto;width:auto;height:auto;display:inline-block;margin-left:10px;padding:3px 7px;
+    background:transparent;border:1px solid var(--hair);border-radius:0;
+    font:10px/1 var(--mono);font-weight:400;letter-spacing:.08em;color:var(--muted);
+    text-transform:none;cursor:pointer;transition:border-color .12s,color .12s}
+  .hreset:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+  .hreset:disabled{opacity:.3;cursor:default}
+  .cell>h2+*{border-top:var(--bw) solid var(--hair)}
+  /* 區塊最後一項不要下框線 —— 否則會和 .cell 自己的分隔線疊成兩條 */
+  .cell>:last-child{border-bottom:0}
+  .rowline:last-child{border-bottom:0}
+
+
+  .csel{position:relative;display:inline-flex;width:var(--sel-w,142px);max-width:100%}
+  .v select:has(~ .csel),.v .csel~.csel{width:auto;flex:1 1 0;min-width:0}
+  .csel>select{position:absolute;inset:0;opacity:0;pointer-events:none;width:100%}
+  .csel-btn{display:block;width:100%;height:29px;margin:0;padding:0 10px;border:0;border-radius:0;
+    background:rgba(20,20,18,.05);color:var(--ink);
+    font:11px/29px var(--mono);letter-spacing:.04em;text-align:left;cursor:pointer;
+    text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
+    transition:background-color .15s}
+  .csel-btn:hover{background:rgba(20,20,18,.075)}
+  .csel.open .csel-btn,.csel-btn:focus-visible{background:rgba(20,20,18,.095);outline:none}
+  .csel.disabled .csel-btn{cursor:default;opacity:.42}
+  .csel-list{position:fixed;z-index:40;width:max-content;
+    max-width:min(340px,calc(100vw - 16px));padding:3px 0;
+    background:var(--paper);border:1px solid var(--rule);
+    box-shadow:0 14px 34px rgba(30,8,10,.28);
+    max-height:min(340px,60vh);overflow-y:auto;overscroll-behavior:contain}
+  .csel-opt{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 11px;
+    border:0;background:none;color:var(--ink);cursor:pointer;
+    font:11px/30px var(--mono);letter-spacing:.04em;text-align:left;text-transform:none;
+    white-space:nowrap}
+  .csel-opt:hover{background:var(--hover)}
+  .csel-opt::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:transparent}
+  .csel-opt[aria-selected="true"]{color:var(--red)}
+  .csel-opt[aria-selected="true"]::before{background:var(--red)}
+  .csel-opt.cursor{background:var(--hover)}
+  .csel-opt:disabled{color:var(--muted);opacity:.42;cursor:default}
+  .csel-opt:disabled:hover{background:none}
+  input[type=text]::placeholder{color:var(--muted)}
+
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px;padding:12px 0 4px}
+  .preset{display:block;width:100%;height:auto;min-height:0;padding:0;border:0;
+    background:transparent;color:var(--ink);text-align:left;text-transform:none;letter-spacing:.04em}
+  .preset:hover{background:transparent}
+  /* 樣張框：鎖 4:5，跟預設輸出比例一致 */
+  .pv{position:relative;display:block;aspect-ratio:4/5;overflow:hidden;background:#000;
+    border:1px solid var(--hair);transition:border-color .12s,box-shadow .12s}
+  .preset:hover .pv{border-color:var(--muted)}
+  .preset:focus-visible .pv{border-color:var(--ink)}
+  .preset.on .pv{border:2px solid var(--red);box-shadow:0 0 0 1px var(--red)}
+  /* 濾鏡實際長出來的那層。container-type 一定要有 —— 濾鏡內部全用 cqw 當單位 */
+  .thumb{position:absolute;inset:0;container-type:size;overflow:hidden;isolation:isolate;background:#000}
+  /* 說明：壓在樣張下緣，滑過才浮出來，不會把格線撐開 */
+  .preset .cap{position:absolute;left:0;right:0;bottom:0;z-index:60;padding:14px 7px 6px;
+    opacity:0;pointer-events:none;
+    background:linear-gradient(to top,rgba(18,12,8,.88),rgba(18,12,8,.55) 55%,rgba(18,12,8,0));
+    color:#efe9dd;font:9.5px/1.45 var(--mono);letter-spacing:0;
+    transition:opacity .16s ease}
+  .preset:hover .cap,.preset:focus-visible .cap{opacity:1}
+  .preset b{display:block;margin-top:6px;font:10px/1.5 var(--mono);font-weight:400;
+    text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+  .preset.on b{color:var(--red)}
+  @media (prefers-reduced-motion:reduce){.preset .cap{transition:none}}
+  /* 一路兩欄到手機版為止。面板窄的時候縮圖會小到 90px 左右，但兩欄看得到比較、
+     一欄反而變成一張超大圖 + 要一直捲，更難挑 */
+  @media (max-width:1280px){.presets{gap:12px 8px}}
+
+
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+  .sw{width:12px;height:12px;border:1px solid var(--hair);background:var(--ink)}
+  .sw:hover{border-color:var(--muted)}
+  .sw.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--paper)}
+
+  /* 開關：方形，沿用面板既有的底色與格線色 */
+  .toggle{position:relative;flex:none;width:38px;height:18px;padding:0;margin:0;
+    background:rgba(20,20,18,.05);border:1px solid var(--hair);border-radius:0;
+    cursor:pointer;transition:background-color .15s,border-color .15s}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;
+    background:var(--muted);
+    transition:transform .2s cubic-bezier(.22,.61,.36,1),background-color .2s}
+  .toggle:hover{background:rgba(20,20,18,.08)}
+  .toggle[aria-checked="true"]{border-color:var(--rule)}
+  .toggle[aria-checked="true"]::after{transform:translateX(18px);background:var(--red)}
+  /* 字幕顏色：色票排成一列，最後一格是自訂色（斜線圖示） */
+  .sws{display:flex;gap:6px;align-items:center}
+  .sws .sw{width:14px;height:14px}
+  .sw-custom.sw-empty{background:conic-gradient(#e0a23a,#8fd0b8,#8a1414,#f0b8c8,#e0a23a)}
+  .sws input[type=color]{position:absolute;width:0;height:0;opacity:0;pointer-events:none}
+
+  /* 自訂取色器：取代 macOS 系統面板，沿用紙張與格線的調性 */
+  .cpick{position:fixed;z-index:400;width:190px;padding:10px;background:var(--paper);
+    border:1px solid var(--rule);box-shadow:0 14px 34px rgba(30,8,10,.30);
+    font:11px var(--mono);color:var(--ink)}
+  .cpick .sv{position:relative;height:112px;cursor:crosshair;border:1px solid var(--hair)}
+  .cpick .sv b{position:absolute;width:11px;height:11px;border:1.5px solid #fff;border-radius:50%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.45);transform:translate(-50%,-50%);pointer-events:none}
+  .cpick .hue{position:relative;height:10px;margin-top:9px;cursor:ew-resize;border:1px solid var(--hair);
+    background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+  .cpick .hue b{position:absolute;top:-3px;width:4px;height:14px;background:#fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translateX(-50%);pointer-events:none}
+  .cpick .bot{display:flex;align-items:center;gap:8px;margin-top:9px}
+  .cpick .prev{flex:none;width:22px;height:22px;border:1px solid var(--hair)}
+  .cpick input{flex:1;min-width:0;height:24px;padding:0 8px;border:0;outline:none;
+    background:rgba(20,20,18,.05);font:11px/24px var(--mono);letter-spacing:.06em;
+    text-align:left;text-transform:uppercase;color:var(--ink)}
+  input[type=color]{-webkit-appearance:none;appearance:none;flex:none;width:12px;height:12px;margin:0;padding:0;border:1px solid var(--hair);border-radius:0;background:transparent}
+  input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+  input[type=color]::-webkit-color-swatch{border:0;border-radius:0}
+  input[type=color]::-moz-color-swatch{border:0}
+
+
+  .items{display:block;padding:0 0 12px;border-bottom:var(--bw) solid var(--hair)}
+  .items:empty{display:none}
+  /* 最後一格：點了就選檔案 */
+  /* 「＋」外面包一層 sticky 容器承載漸層 —— .item 有 overflow:hidden，
+     漸層做在 .item 上會被裁掉 */
+  /* 「＋」釘在右端。左內距必須是 0 —— 否則它會跟 flex 的 gap 疊加，
+     變成「縮圖之間 8px、縮圖到＋ 16px」，一張素材的時候特別明顯 */
+  .items .addwrap{position:sticky;right:0;z-index:2;flex:0 0 auto;
+    display:flex;align-items:center;padding-left:0;background:var(--paper)}
+  .item.add{display:grid;place-items:center;cursor:pointer;border-style:dashed;
+    color:var(--muted);font:17px/1 var(--mono);transition:border-color .12s,color .12s;
+    background:var(--paper)}
+  .item.add:hover{border-color:var(--ink);color:var(--ink)}
+  .item.add.disabled{cursor:not-allowed;opacity:.4}
+  .item.add.disabled:hover{border-color:var(--hair);color:var(--muted)}
+  /* 片格之間這種只用得到目前這張的載體：沒被用到的縮圖壓淡，示意「加了也不會顯示」 */
+  .item.dim{opacity:.42}
+  .items:empty{display:none}
+  /* 單排、可橫向捲動；「＋」釘在右端，縮圖會從它底下滑過去 */
+  .items .list{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+    scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+  .items .list::-webkit-scrollbar{display:none}
+  .items .item{flex:0 0 56px}
+  .item{position:relative;width:56px;height:56px;overflow:hidden;border:1px solid var(--hair);background:var(--paper-2)}
+  .item:hover{border-color:var(--muted)}
+  .item.on{border-color:var(--ink)}
+  .item img,.item video{width:100%;height:100%;object-fit:cover;display:block}
+  .item .x{position:absolute;top:0;right:0;width:16px;height:16px;text-align:center;background:var(--paper);color:var(--ink);font:11px/16px var(--mono);opacity:0;transition:opacity .12s;z-index:2}
+  .item:hover .x{opacity:1}
+  .item .drag-handle{position:absolute;top:0;left:0;z-index:3;width:22px;height:22px;padding:3px;border:0;background:var(--paper);color:var(--ink);cursor:grab;opacity:0;touch-action:none;line-height:0}
+  .item:hover .drag-handle,.item:focus-within .drag-handle{opacity:1}
+  .item .drag-handle svg{width:100%;height:100%;pointer-events:none}
+  .item.reordering{opacity:.55;outline:1px dashed var(--red)}
+  .media-drag-ghost{position:fixed;z-index:1000;pointer-events:none;object-fit:cover;opacity:.94;transform:scale(1.08) rotate(-3deg);box-shadow:0 8px 18px rgba(0,0,0,.3);border:1px solid var(--paper)}
+  .media-insert-line{position:fixed;z-index:999;pointer-events:none;background:var(--red);border-radius:2px}
+  .item .drag-handle:active{cursor:grabbing}
+  @media(hover:none){.item .drag-handle{opacity:1}}
+
+  .item .vid{position:absolute;left:3px;bottom:1px;font:9px/1.4 var(--mono);color:#fff;text-shadow:0 0 3px #000}
+  /* 每個素材停多久：直接標在縮圖右下角。手動調過的會反白，一眼看得出哪幾個被動過。
+     滑鼠移到縮圖上時，這個標籤會變成「編輯」——點它打開裁切／秒數對話框；
+     點縮圖其他地方還是原本的「切到這個素材預覽」，兩件事分開不打架。
+     z-index 2 壓在刪除鈕同層，確保 hover 時點得到 */
+  .item .sec{position:absolute;right:2px;bottom:1px;z-index:2;padding:0 2px;font:9px/1.4 var(--mono);
+    color:#fff;text-shadow:0 0 3px #000;letter-spacing:-.02em;cursor:pointer;
+    transition:background-color .12s,color .12s,padding .12s}
+  .item .sec i{font-style:normal}                     /* <i> 預設是斜體，秒數要正體 */
+  .item .sec b{display:none;font-weight:400;letter-spacing:.06em}
+  .item:hover .sec{background:var(--paper);color:var(--ink);text-shadow:none;padding:2px 4px;font-size:10px}
+  .item:hover .sec i{display:none}
+  .item:hover .sec b{display:inline}
+  .item .sec.own{background:var(--red);color:var(--paper);text-shadow:none}
+  .item:hover .sec.own{background:var(--ink);color:var(--paper)}
+
+  /* 狀態、備註、頁尾 */
+
+  .pickrange{display:flex;align-items:center;gap:12px;margin:0 0 8px;
+    font:11px/1 var(--mono);color:var(--ink)}
+  .pickrange .who{flex:0 0 auto;color:var(--muted);white-space:nowrap}
+  .pickrange label{display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
+  .pickrange input[type=radio]{width:auto;height:auto;margin:0;accent-color:var(--red);cursor:pointer}
+  .pickrange input[type=text]{flex:1 1 auto;min-width:0;width:auto;height:26px;padding:0 7px;
+    background:var(--paper-2);border:1px solid var(--hair);border-radius:0;
+    /* 全域的 input[type=text] 是靠右對齊（給那些數值欄用的），這裡是一般文字要靠左 */
+    font:11px/26px var(--mono);color:var(--ink);text-align:left;text-align-last:left}
+  .pickrange input[type=text]:disabled{opacity:.4}
+  .pickrange input[type=text].bad{border-color:var(--red)}
+  .rangehint{margin:0 0 10px;font:10px/1.7 var(--mono);color:var(--muted)}
+  .rangehint:empty{display:none}                 /* 沒話講就不要佔位子 */
+  .rangehint b{color:var(--ink);font-weight:400}
+  .expprogress{display:none;height:3px;background:var(--hair);margin-top:10px;overflow:hidden}
+  .expprogress[data-show]{display:block}
+  .expprogress-bar{height:100%;width:0%;background:var(--red);transition:width .15s linear}
+
+  .btn.cancelling{background:transparent;color:var(--red);border-color:var(--red)}
+  .btn.cancelling:hover:not(:disabled){background:var(--red);color:var(--paper)}
+
+  .dlgx,.dlgx:hover{background:url(close-button.webp) center/contain no-repeat}
+  .dlgx{position:absolute;top:10px;right:10px;z-index:3;
+    width:34px;height:34px;padding:0;border:0;border-radius:50%;cursor:pointer;
+    appearance:none;
+    font-size:0;line-height:0;color:transparent;
+    filter:drop-shadow(0 1px 2px rgba(30,8,10,.28));
+    transition:transform .15s ease}
+  .dlgx:hover{transform:scale(1.1)}
+  .dlgx:active{transform:scale(1.02)}
+  .dlgx:focus-visible{outline:1px solid var(--ink);outline-offset:3px}
+  .dialog-stitch{position:absolute;inset:-2px;pointer-events:none;z-index:2;border:22px solid transparent;border-image:url(dialog-whipstitch.png) 100 / 22px / 0 round;filter:saturate(.65) brightness(.95)}
+  .dialog-stitch.bottom,.dialog-stitch.left,.dialog-stitch.right{display:none}
+
+.isaw-dialog-surface{background:linear-gradient(rgba(244,241,232,.35),rgba(244,241,232,.35)),url(dialog-linen.png) center/420px 420px; border:0;}
+input[type=text]::placeholder{color:var(--muted)}
+
+  .cell{padding:24px;border-bottom:1px solid var(--grid)}
+
+@media (prefers-reduced-motion:reduce){.dlgx{transition:none}}

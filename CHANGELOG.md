@@ -3418,3 +3418,9 @@ Photo/
 - 抽出 assets/design-components.css：既有按鈕、設定列、輸入、滑桿與相同頁首規則，保留頁面版面與響應式覆寫。
 - 私人 Design System 網頁改引用正式 GitHub Pages 上相同 CSS，JSON 色彩匯出讀取實際生效 Tokens。
 - 驗證兩頁 JavaScript 保持原樣且語法通過；本機 Gallery 詳細彈窗、套用預設照片／Super 8 風格、編輯器設定檔展開已實測；未重新測試影片輸出。
+
+## 2026-10-25 — Design System v1.1 元件覆蓋檢查
+- 新增 design-patterns.css 與具命名範圍的 design-gallery.css，抽出剩餘通用控制、濾鏡卡片、面板、素材縮圖、輸出狀態、縫線彈窗材質，以及 Gallery 卡片／詳細視窗。
+- 元件庫以正式 class 展示濾鏡卡片與面板；補上開關、色票／取色器、自製選單、素材／秒數、範圍／進度／取消及 Gallery 詳細視窗。
+- 新增 14 項覆蓋清單，區分已共用與產品專用流程；色票及 JSON 匯出改讀生效中的 tokens，減少漂移。
+- 正式頁 JavaScript 保持原樣；完成語法、素材路徑及主要互動／視覺檢查。未重新執行 MP4 匯出。
