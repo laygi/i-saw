@@ -78,6 +78,6 @@
   --num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
   --sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif;
   --serif:Georgia,"Times New Roman","Songti TC",serif;
-  --paper-tex:url("paper.webp"); --paper-tex-size:220px 220px;
+  --paper-tex:url("https://laygi.github.io/i-saw/assets/paper.webp"); --paper-tex-size:220px 220px;
   --paper-tex-blend:soft-light;
 }

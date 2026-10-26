@@ -67,7 +67,7 @@ def build():
  for key,target in ALIASES.items():css.append(f'  --{key}: var(--{target});')
  css+=['','  /* Semantic UI roles; blue is reserved for optional information UI. */']
  for key,target in SEMANTIC.items():css.append(f'  --{key}: var(--{target});')
- css+=['  --grid:rgba(20,20,18,.18); --hair:rgba(20,20,18,.22);','  --bw:1px; --hover:rgba(20,20,18,.04);','  --mono:"SF Mono",Menlo,"Courier New",monospace;','  --num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;','  --sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif;','  --serif:Georgia,"Times New Roman","Songti TC",serif;','  --paper-tex:url("paper.webp"); --paper-tex-size:220px 220px;','  --paper-tex-blend:soft-light;','}']
+ css+=['  --grid:rgba(20,20,18,.18); --hair:rgba(20,20,18,.22);','  --bw:1px; --hover:rgba(20,20,18,.04);','  --mono:"SF Mono",Menlo,"Courier New",monospace;','  --num:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;','  --sans:"Helvetica Neue",Helvetica,Arial,"PingFang TC",sans-serif;','  --serif:Georgia,"Times New Roman","Songti TC",serif;','  --paper-tex:url("https://laygi.github.io/i-saw/assets/paper.webp"); --paper-tex-size:220px 220px;','  --paper-tex-blend:soft-light;','}']
  flat={f'{f}-{s}':v['hex'] for f,p in data['palettes'].items() for s,v in p['shades'].items()}
  for key,expected in {'red':'#ac242e','red-deep':'#5c131a','paper':'#ebe7dd','paper-2':'#e2ddd1','ink':'#141412','rule':'#1a1917','muted':'#6f6a60'}.items():assert flat[ALIASES[key]]==expected,(key,flat[ALIASES[key]])
  pairs=[('ui-text','ui-bg'),('ui-text-muted','ui-bg'),('ui-on-action','ui-action'),('ui-info','ui-info-bg'),('ui-disabled-text','ui-disabled-bg')]
