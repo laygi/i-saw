@@ -1,0 +1,11 @@
+/* I SAW motion: opt-in content entrances. Never attach to the editor or header. */
+:root{--motion-reveal-duration:850ms;--motion-note-duration:950ms;--motion-reveal-blur:8px;--motion-enter-ease:cubic-bezier(.16,1,.3,1)}
+@keyframes isaw-content-reveal{from{opacity:0;filter:blur(var(--motion-reveal-blur))}to{opacity:1;filter:none}}
+@keyframes isaw-note-drop{from{opacity:0;translate:0 -110px}to{opacity:1;translate:0 0}}
+.isaw-motion-pending{opacity:0;filter:blur(var(--motion-reveal-blur))}
+.isaw-motion-enter{animation:isaw-content-reveal var(--motion-reveal-duration) var(--motion-enter-ease) both}
+[data-isaw-note]{animation:isaw-note-drop var(--motion-note-duration) var(--motion-enter-ease) 100ms backwards}
+[data-isaw-note].open{animation:none}
+/* Keyboard focus must remain immediately visible, including during entry. */
+.isaw-motion-pending:focus-within,.isaw-motion-enter:focus-within{opacity:1;filter:none;animation:none}
+@media(prefers-reduced-motion:reduce){.isaw-motion-pending,.isaw-motion-enter,[data-isaw-note]{opacity:1;filter:none;translate:none;animation:none!important}}

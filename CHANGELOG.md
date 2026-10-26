@@ -3462,3 +3462,7 @@ Gallery 移除外側紅色留白及畫板陰影，改為滿版米色內容；共
 ## 2026-10-26 · 留白與直角頁尾
 
 共用 Footer 移除圓角；Gallery 增加內容內距、標題與搜尋及作品間距，讓滿版米色區域更舒展。
+
+## 2026-10-26 · Gallery 動態試行
+
+建立共用 motion CSS／JS 與 Design System 重播展示。Gallery 內容首次進入視窗時由透明、模糊淡入至清晰；Header 靜止，A Note for You 自上方滑入。創作區域不套用。減少動態效果、鍵盤焦點、返回快取及無 JavaScript 時內容保持可見。
