@@ -3447,3 +3447,6 @@ Photo/
 - 驗證模板同步、連結與 ID、Our Story、跨頁導覽及元件搜尋；Gallery 內容高度改隨頁面分配，頁尾不覆蓋內容。
 
 - 最後檢查修正共用紙材變數的 URL：使用正式素材絕對網址，避免在 inline CSS 使用變數時被解析成錯誤的根目錄相對路徑。
+
+## 2026-10-26 — Footer 連結精簡
+- Design 欄僅保留 System；Resources 改為聯絡我們，下面只顯示停用的 Instagram。

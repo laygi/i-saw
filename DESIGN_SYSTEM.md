@@ -70,4 +70,6 @@ Gallery 與公開元件庫使用同一個 Footer，畫畫編輯器仍不放 Foot
 - 互動：`assets/site-footer.js`（回到頁首、Our Story 入口）。
 - 產生：`python3 tools/build-footer.py`；以 `--check` 確認兩頁與模板同步。
 
-模板分為品牌、Discover、Design、Resources，底部保留版權與品牌短句。沒有正式目的頁的社群、聯絡或法律連結先不放。新內容頁可沿用相同模板與資產；請不要在各頁獨立改生成的 Footer HTML。
+模板分為品牌、Discover、Design、聯絡我們，底部保留版權與品牌短句。沒有正式目的頁的社群、聯絡或法律連結先不放。新內容頁可沿用相同模板與資產；請不要在各頁獨立改生成的 Footer HTML。
+
+頁尾精簡：Design 僅保留 System 入口；聯絡我們暫列 Instagram，使用無 href 的 aria-disabled 連結角色，不可點擊且不加入 Tab 順序。
