@@ -2,10 +2,14 @@
 (()=>{
  const preference=matchMedia('(prefers-reduced-motion: reduce)');
  const seen=new WeakSet();
+ const started=performance.now();
  const finish=element=>{element.classList.remove('isaw-motion-pending','isaw-motion-enter');observer?.unobserve(element)};
  const enter=element=>{
   observer?.unobserve(element);element.classList.remove('isaw-motion-pending');
   if(preference.matches)return;
+  // Initial offsets share a page timeline; later scroll entries have no stale delay.
+  const offset=Number(element.dataset.isawDelay)||0;
+  element.style.setProperty('--motion-reveal-delay',Math.max(0,offset-(performance.now()-started))+'ms');
   element.classList.add('isaw-motion-enter');
   element.addEventListener('animationend',event=>{if(event.target===element)element.classList.remove('isaw-motion-enter')},{once:true});
  };

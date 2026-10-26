@@ -3466,3 +3466,7 @@ Gallery 移除外側紅色留白及畫板陰影，改為滿版米色內容；共
 ## 2026-10-26 · Gallery 動態試行
 
 建立共用 motion CSS／JS 與 Design System 重播展示。Gallery 內容首次進入視窗時由透明、模糊淡入至清晰；Header 靜止，A Note for You 自上方滑入。創作區域不套用。減少動態效果、鍵盤焦點、返回快取及無 JavaScript 時內容保持可見。
+
+## 2026-10-26 · 確認入場動畫節奏
+
+A Note for You 立即滑入，持續 450ms；標題／搜尋／作品於 450／520／590ms 開始，以 550ms 由模糊透明淡入至清晰，多張作品錯開 60ms。使用共同時間軸，稍後捲入的內容不重等初始延遲。同步 Design System Motion 示範；經 Lily 確認發布。

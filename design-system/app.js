@@ -41,7 +41,8 @@ const coverage=[['全站內容頁 Footer','site-footer.css / 共用模板','分�
 // Replay the shared CSS entrances without animating the documentation header.
 document.querySelector('#motion-replay').addEventListener('click',()=>{
  const content=document.querySelector('#motion-content-demo'),note=document.querySelector('#motion-note-demo');
- content.classList.remove('isaw-motion-enter');note.removeAttribute('data-isaw-note');
+ const steps=content.querySelectorAll('[data-motion-demo-step]');
+ steps.forEach(step=>step.classList.remove('isaw-motion-enter'));note.removeAttribute('data-isaw-note');
  void content.offsetWidth;
- content.classList.add('isaw-motion-enter');note.setAttribute('data-isaw-note','');
+ steps.forEach(step=>step.classList.add('isaw-motion-enter'));note.setAttribute('data-isaw-note','');
 });
