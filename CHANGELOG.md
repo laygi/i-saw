@@ -3450,3 +3450,7 @@ Photo/
 
 ## 2026-10-26 — Footer 連結精簡
 - Design 欄僅保留 System；Resources 改為聯絡我們，下面只顯示停用的 Instagram。
+
+## 2026-10-26 · Gallery 同分頁導覽
+
+編輯器頁首的 Gallery 改為同一分頁直接跳轉。
