@@ -1,6 +1,6 @@
 /* I SAW — shared content-page footer. The creation workspace stays footer-free. */
 .isaw-footer-backdrop{position:relative;z-index:2;padding:24px 24px 140px;background:linear-gradient(115deg,#66141c99,#a12531bb 48%,#59131bdd),url("dialog-linen.png") center/720px;background-color:var(--red,#ac242e)}
-.isaw-footer{box-sizing:border-box;display:block;position:relative;z-index:2;margin:0;padding:58px 44px 22px;background:var(--neutral-950,#0d0d0d);color:var(--beige-100,#ebe7dd);border:0;font:12px/1.6 var(--sans);letter-spacing:0;text-align:left;border-radius:6px;box-shadow:0 12px 40px #24080c26}
+.isaw-footer{box-sizing:border-box;display:block;position:relative;z-index:2;margin:0;padding:58px 44px 22px;background:var(--neutral-950,#0d0d0d);color:var(--beige-100,#ebe7dd);border:0;font:12px/1.6 var(--sans);letter-spacing:0;text-align:left;border-radius:0;box-shadow:0 12px 40px #24080c26}
 .isaw-footer *{box-sizing:border-box}
 .isaw-footer .isaw-footer-upper{display:grid;grid-template-columns:minmax(200px,1.6fr) repeat(3,minmax(100px,1fr)) 38px;align-items:start;gap:32px;min-height:182px}
 .isaw-footer .isaw-footer-brand{display:block;justify-self:start;text-decoration:none;color:inherit}
@@ -28,4 +28,4 @@ body:has(.shell)>.isaw-footer-backdrop{margin-top:0}
 .isaw-footer .isaw-footer-disabled{display:block;margin:0;padding:4px 0;color:var(--beige-400,#b3a993);opacity:.5;font:11px/1.6 var(--sans);letter-spacing:.015em;cursor:default}
 @media(max-width:700px){.isaw-footer .isaw-footer-disabled{font-size:10px;min-height:30px;padding:6px 0}}
 
-@media(max-width:700px){.isaw-footer-backdrop{padding:16px 12px 80px}.isaw-footer{border-radius:4px}}
+@media(max-width:700px){.isaw-footer-backdrop{padding:16px 12px 80px}.isaw-footer{border-radius:0}}
