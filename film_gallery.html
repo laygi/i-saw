@@ -7,9 +7,9 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="48x48" href="assets/favicon-48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-180.png">
-<link rel="stylesheet" href="assets/design-tokens.css?v=1.2.1">
-<link rel="stylesheet" href="assets/design-components.css?v=1.0.0">
-<link rel="stylesheet" href="assets/design-patterns.css?v=1.1.0">
+<link rel="stylesheet" href="assets/design-tokens.css?v=1.3.0">
+<link rel="stylesheet" href="assets/design-components.css?v=1.1.0">
+<link rel="stylesheet" href="assets/design-patterns.css?v=1.2.0">
 <style>
   :root{--ar:0.8;
     --hdh:54px;--padt:11px;--red-tex:.5;}
@@ -17,7 +17,7 @@
   html,body{margin:0;height:100%;background:var(--red);color:var(--ink);font-family:var(--sans);font-size:12px}
   /* 參考圖的紅不是平塗：中上偏亮，往四周與底部漸暗 */
   body{background-image:radial-gradient(ellipse 120% 95% at 46% 30%,
-    var(--red) 0%,#96202a 38%,#7a1a22 74%,#5c131a 100%)}
+    var(--red) 0%,var(--red-700) 38%,var(--red-800) 74%,var(--red-900) 100%)}
   /* 紅底的紙材獨立成一層，才能用 opacity 單獨調濃淡
      （background-blend-mode 沒有強度參數，米白面板則維持原本的做法） */
   body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
@@ -29,18 +29,18 @@
   .app{display:grid;grid-template-columns:clamp(260px,23%,340px) 1fr clamp(300px,27%,400px);min-height:calc(100vh - 22px - var(--padt) - var(--hdh));background:var(--paper);border:0;
     /* 自然陰影：多層疊加、模糊逐層加倍、透明度遞減，模擬真實光線衰減 */
     box-shadow:
-      0 1px 1px   rgba(28,6,6,.07),
-      0 2px 4px   rgba(28,6,6,.06),
-      0 6px 10px  rgba(28,6,6,.055),
-      0 12px 22px rgba(28,6,6,.05),
-      0 24px 44px rgba(28,6,6,.045),
-      0 44px 80px rgba(28,6,6,.04)}
+      0 1px 1px   color-mix(in oklch,var(--neutral-950) 7%,transparent),
+      0 2px 4px   color-mix(in oklch,var(--neutral-950) 6%,transparent),
+      0 6px 10px  color-mix(in oklch,var(--neutral-950) 5.5%,transparent),
+      0 12px 22px color-mix(in oklch,var(--neutral-950) 5%,transparent),
+      0 24px 44px color-mix(in oklch,var(--neutral-950) 4.5%,transparent),
+      0 44px 80px color-mix(in oklch,var(--neutral-950) 4%,transparent)}
   @media (max-width:860px){body{padding:12px}.app{grid-template-columns:1fr;min-height:calc(100vh - 24px - var(--hdh))}}
 
   /* ============ 舞台 ============ */
   .stage{position:relative;display:flex;align-items:center;justify-content:center;padding:28px;overflow:hidden;
     background-color:var(--paper);
-    background-image:radial-gradient(rgba(0,0,0,.06) .6px,transparent .7px),var(--paper-tex);
+    background-image:radial-gradient(color-mix(in oklch,var(--ui-shadow) 6%,transparent) .6px,transparent .7px),var(--paper-tex);
     background-size:14px 14px,var(--paper-tex-size);
     background-blend-mode:multiply,var(--paper-tex-blend)}
   /* 偽全螢幕：不依賴 Fullscreen API。實測有些瀏覽器／內嵌環境會直接忽略
@@ -75,7 +75,7 @@
     text-align:center;padding:24px;cursor:pointer;z-index:50;
     color:var(--ink);font:13px/1.9 var(--mono);background:var(--paper);letter-spacing:.5px}
   .placeholder::before{display:none}
-  .placeholder small{display:block;font:11px/1.7 var(--mono);color:var(--muted)}
+  .placeholder small{display:block;font:11px/1.7 var(--mono);color:var(--ui-text-muted)}
   .frame.dragover .placeholder{background:var(--paper-2)}
   .frame.dragover{outline:2px dashed var(--paper);outline-offset:-10px}
   /* 字幕與拖曳輔助線在外框（45）上方；畫布輸出沿用相同層級。 */
@@ -101,13 +101,13 @@
   /* 拖曳字幕時的對齊輔助線。只有拖的當下存在（放開就整個移除），
      所以不可能被畫進輸出 —— 輸出期間也不會有人在拖 */
   .snapline{position:absolute;z-index:47;pointer-events:none;background:var(--red);
-    box-shadow:0 0 4px rgba(0,0,0,.5)}
+    box-shadow:0 0 4px color-mix(in oklch,var(--ui-shadow) 50%,transparent)}
   .snapline.v{top:0;bottom:0;width:1px;margin-left:-.5px}
   .snapline.h{left:0;right:0;height:1px;margin-top:-.5px}
   .caption:empty{display:none}
   .capblock{padding:6px 0 2px;border-bottom:var(--bw) solid var(--hair)}
   .capblock .rowline{border-bottom:0;min-height:32px}
-  .capblock .del{color:var(--muted);cursor:pointer}
+  .capblock .del{color:var(--ui-text-muted);cursor:pointer}
   .capblock .del:hover{color:var(--ink)}
 
   .slot{position:absolute;overflow:hidden;isolation:isolate;background:#000}
@@ -568,7 +568,7 @@
 
 
 
-  .hd .sub{margin:0;font:11px/1.5 var(--mono);color:rgba(235,231,221,.62);letter-spacing:.06em}
+  .hd .sub{margin:0;font:11px/1.5 var(--mono);color:color-mix(in oklch,var(--beige-100) 62%,transparent);letter-spacing:.06em}
 
   /* 圖檔已去掉烘焙的陰影並裁掉留白，所以邊框即布標本身，對齊好抓；
      陰影改由 CSS 給，兩層才不會疊在一起 */
@@ -585,7 +585,7 @@
   /* 紙外的背景保持清晰，只用徑向漸層在中心壓出紙的陰影 */
   .ov{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:4vh 4vw;
     background:radial-gradient(ellipse 58% 54% at 50% 51%,
-      rgba(26,23,19,.32) 0%,rgba(26,23,19,.25) 38%,rgba(26,23,19,.12) 62%,rgba(26,23,19,.03) 80%,transparent 92%);
+      color-mix(in oklch,var(--beige-900) 32%,transparent) 0%,color-mix(in oklch,var(--beige-900) 25%,transparent) 38%,color-mix(in oklch,var(--beige-900) 12%,transparent) 62%,color-mix(in oklch,var(--beige-900) 3%,transparent) 80%,transparent 92%);
     opacity:0;pointer-events:none;transition:opacity .26s ease}
   .ov[data-open]{opacity:1;pointer-events:auto}
 
@@ -600,7 +600,7 @@
   .pf{position:absolute;left:50%;top:50%;width:auto;display:block;opacity:0;
     transform:translate(-50%,-50%);
     transition:opacity .16s linear;
-    filter:drop-shadow(0 16px 30px rgba(38,34,28,.32))}
+    filter:drop-shadow(0 16px 30px color-mix(in oklch,var(--neutral-900) 32%,transparent))}
   .pf1,.pf2{height:70.7%}
   .pf3{height:100%}
   .pf.on{opacity:1}
@@ -623,15 +623,15 @@
     /* 頭尾各留一段空白，讓第一行與最後一行不會落在漸層裡被吃掉 */
     padding:24px 0;
     opacity:0;transition:opacity .4s ease;pointer-events:none;
-    color:#4a453c;font:13.5px/2.25 "Songti TC","Georgia","Times New Roman",serif;
+    color:var(--neutral-700);font:13.5px/2.25 "Songti TC","Georgia","Times New Roman",serif;
     letter-spacing:.04em;text-align:justify;
-    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);
-    mask-image:linear-gradient(180deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,var(--ui-shadow) 18px,var(--ui-shadow) calc(100% - 18px),transparent 100%);
+    mask-image:linear-gradient(180deg,transparent 0,var(--ui-shadow) 18px,var(--ui-shadow) calc(100% - 18px),transparent 100%)}
   .story.on{opacity:1;pointer-events:auto}   /* 第三張攤平後才由 JS 開啟 */
   .story p{margin:0 0 1.5em}
   .story p:last-child{margin-bottom:0}
   .story::-webkit-scrollbar{width:3px}
-  .story::-webkit-scrollbar-thumb{background:rgba(74,69,60,.22);border-radius:2px}
+  .story::-webkit-scrollbar-thumb{background:color-mix(in oklch,var(--neutral-700) 22%,transparent);border-radius:2px}
   .story::-webkit-scrollbar-track{background:transparent}
   @media (max-width:860px){.story{width:64%;font-size:12px;line-height:2.1}}
 
@@ -663,7 +663,7 @@
     transform-origin:100% 100%;
     pointer-events:none;   /* 事件用幾何判定處理，見下方 onIron() */
     transform:translate(13.87%,85.01%) rotate(9deg);   /* 收起：角度放平、只露盒蓋一角，不擋面板 */
-    filter:drop-shadow(0 10px 24px rgba(40,6,10,.40));
+    filter:drop-shadow(0 10px 24px color-mix(in oklch,var(--red-950) 40%,transparent));
     transition:transform .45s cubic-bezier(.22,.61,.36,1),filter .45s ease;
     user-select:none;-webkit-user-drag:none}
   .iron.hov,.iron.open{transform:translate(-6.7%,14%) rotate(0deg)}   /* 展開：露更多，陰影不變 */
@@ -675,11 +675,11 @@
   .ironhint{position:fixed;right:250px;bottom:132px;z-index:6;pointer-events:none;
     display:flex;align-items:baseline;gap:8px;padding:6px 11px;white-space:nowrap;
     background:var(--ink);border:0;border-radius:2px;
-    box-shadow:0 8px 22px rgba(10,6,4,.34);
+    box-shadow:0 8px 22px color-mix(in oklch,var(--neutral-950) 34%,transparent);
     font:11.5px/1 var(--sans,inherit);letter-spacing:.06em;color:var(--paper);
     opacity:0;transform:translate(8px,8px);
     transition:opacity .2s ease,transform .2s cubic-bezier(.22,.61,.36,1)}
-  .ironhint span{font:9.5px/1 var(--mono);letter-spacing:.16em;color:rgba(235,231,221,.55)}
+  .ironhint span{font:9.5px/1 var(--mono);letter-spacing:.16em;color:color-mix(in oklch,var(--beige-100) 55%,transparent)}
   .iron.hov ~ .ironhint{opacity:1;transform:none}
   .iron.open ~ .ironhint{opacity:0;transform:translate(8px,8px)}
 
@@ -689,7 +689,7 @@
   .exportbar{display:none}
   /* 遮罩：跟面板共用 data-open 開關（見 open()），蓋住鐵盒跟底下的操作面板，
      讓「正在輸出」這件事更明確、也順便擋掉輸出中誤觸背後控制項 */
-  .expbackdrop{position:fixed;inset:0;z-index:6;background:rgba(0,0,0,.48);
+  .expbackdrop{position:fixed;inset:0;z-index:6;background:color-mix(in oklch,var(--ui-shadow) 48%,transparent);
     opacity:0;pointer-events:none;transition:opacity .3s ease}
   .expbackdrop[data-open]{opacity:1;pointer-events:auto}
   /* 面板改成螢幕正中間的對話框（原本是釘在右下角）——
@@ -699,7 +699,7 @@
      改左右兩欄後整個放寬，見下面 .expbody */
   .expanel{position:fixed;left:50%;top:50%;z-index:7;width:min(616px,94vw);padding:56px 32px 24px;
 
-    box-shadow:0 18px 44px rgba(30,8,10,.34);
+    box-shadow:0 18px 44px color-mix(in oklch,var(--neutral-950) 34%,transparent);
     opacity:0;transform:translate(-50%,-50%) translateY(10px) scale(.98);pointer-events:none;
     transition:opacity .3s ease,transform .3s cubic-bezier(.22,.61,.36,1)}
   /* 整幅手縫包邊保留自然轉角；九宮格避免邊角拉伸。 */
@@ -715,7 +715,7 @@
      上面留白、下面貼齊「下載圖片」，一看就知道這排是管圖片的，不是管影片的 */
   /* 預覽圖：用輸出影片時同一套 canvas 渲染器畫的，所以看到什麼就會下載到什麼。
      固定寬度、不吃 flex 的伸縮，長邊跟著素材比例自己變 */
-  .expanel .prevbox{flex:0 0 300px;width:300px;margin:0;background:#000;display:flex;
+  .expanel .prevbox{flex:0 0 300px;width:300px;margin:0;background:var(--ui-media-bg);display:flex;
     justify-content:center;align-items:center;min-height:60px}
   .expanel .prevbox canvas{display:block;max-width:100%;max-height:420px}
   @media (max-width:640px){.expanel .prevbox{flex-basis:auto;width:100%;margin:0 0 12px}}
@@ -727,21 +727,21 @@
   .expgroup:last-of-type{margin-bottom:0}
   .expgroup h4{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;height:24px;
     font:11px/1 var(--mono);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
-  .expgroup h4 span{color:var(--muted);margin-left:auto;font-weight:400}
+  .expgroup h4 span{color:var(--ui-text-muted);margin-left:auto;font-weight:400}
   .expgroup h4+*{border-top:var(--bw) solid var(--hair);padding-top:9px}
   .expanel .spec{margin:0 0 12px;display:grid;grid-template-columns:auto 1fr;gap:5px 10px;
     font:11px/1.5 var(--mono);color:var(--ink)}
   /* 影片、照片都適用的共用資訊，放在兩組之上 */
   .expanel .spec-shared{margin:0 0 16px;padding-bottom:12px;
     border-bottom:var(--bw) solid var(--hair)}
-  .expanel .spec dt{color:var(--muted);letter-spacing:.06em}
+  .expanel .spec dt{color:var(--ui-text-muted);letter-spacing:.06em}
   .expanel .spec dd{margin:0;text-align:right;font-family:var(--num);
     font-variant-numeric:tabular-nums;font-size:12px}
   /* ============ 按鈕 ============
      primary  ：黑底，滑過轉主色紅
      secondary：外框，滑過加深 */
   /* 輸出中：那顆按鈕變成「取消輸出」，用紅框跟正常狀態分開 */
-  .expanel .status{border-bottom:0;min-height:26px;padding-top:6px;color:var(--muted)}
+  .expanel .status{border-bottom:0;min-height:26px;padding-top:6px;color:var(--ui-text-muted)}
   @media (max-width:860px){.iron{width:46vw}.ironhint{display:none}}
 
   /* ============ 蕾絲裝飾 ============ */
@@ -749,11 +749,11 @@
   .lace{position:fixed;left:50%;top:0;width:480px;height:480px;z-index:4;
     transform:translate(-48px,-398px) rotate(18deg);
     cursor:pointer;user-select:none;-webkit-user-drag:none;
-    filter:drop-shadow(0 8px 18px rgba(50,8,12,.30));
+    filter:drop-shadow(0 8px 18px color-mix(in oklch,var(--red-950) 30%,transparent));
     transition:transform .62s cubic-bezier(.22,.61,.36,1),filter .62s ease}
   .lace:hover:not(.open){transform:translate(-48px,-368px) rotate(18deg)}   /* 滑過多露一點 */
   .lace.open{transform:translate(-240px,calc(50vh - 240px)) rotate(0deg);
-    filter:drop-shadow(0 18px 40px rgba(50,8,12,.38))}
+    filter:drop-shadow(0 18px 40px color-mix(in oklch,var(--red-950) 38%,transparent))}
   /* 窄螢幕：縮小並往左移，避免蓋到右上角的 Our Story */
   @media (max-width:1400px){
     .lace{width:360px;height:360px;transform:translate(-145px,-300px) rotate(18deg)}
@@ -807,40 +807,40 @@
     letter-spacing:0;color:var(--ink);text-align:right;min-width:48px}
   /* 「這一張」的秒數：沒單獨調過（照片跟著全域、影片用自己的長度）時壓淡，
      調過就是正常的墨色 —— 一眼看得出這個數字是自動來的還是她自己設的 */
-  .num.auto{color:var(--muted)}
+  .num.auto{color:var(--ui-text-muted)}
 
   /* ============ 裁切／秒數對話框 ============
      點縮圖右下角的秒數標籤打開。影片是「選哪一段」（像相簿的影片剪輯），照片是「停幾秒」。
      外框沿用輸出面板同一套（.expanel），只換裡面的內容 */
   .trimpanel{width:min(560px,94vw)}
-  .trimprev{background:#000;display:flex;justify-content:center;align-items:center;
+  .trimprev{background:var(--ui-media-bg);display:flex;justify-content:center;align-items:center;
     height:220px;margin:0 0 12px}
   .trimprev canvas,.trimprev video{display:block;max-width:100%;max-height:220px}
   /* 照片的裁切框：框本身就是「會出現在畫面上的那一塊」，比例跟輸出一樣。
      照片用 object-fit:cover 填滿，再用 transform 平移／放大 —— 跟實際上畫面時同一套算法，
      所以這裡看到什麼、成品就是什麼 */
-  .cropbox{position:relative;overflow:hidden;background:#000;max-height:220px;
+  .cropbox{position:relative;overflow:hidden;background:var(--ui-media-bg);max-height:220px;
     touch-action:none;user-select:none;cursor:grab;outline:1px solid var(--hair)}
   .cropbox:active{cursor:grabbing}
   .cropbox img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
   /* 三分線：只是輔助構圖，不會進成品 */
   .cropbox::after{content:"";position:absolute;inset:0;pointer-events:none;
     background:
-      linear-gradient(90deg,transparent calc(33.333% - .5px),rgba(255,255,255,.35) calc(33.333% - .5px) calc(33.333% + .5px),transparent calc(33.333% + .5px)),
-      linear-gradient(90deg,transparent calc(66.666% - .5px),rgba(255,255,255,.35) calc(66.666% - .5px) calc(66.666% + .5px),transparent calc(66.666% + .5px)),
-      linear-gradient(180deg,transparent calc(33.333% - .5px),rgba(255,255,255,.35) calc(33.333% - .5px) calc(33.333% + .5px),transparent calc(33.333% + .5px)),
-      linear-gradient(180deg,transparent calc(66.666% - .5px),rgba(255,255,255,.35) calc(66.666% - .5px) calc(66.666% + .5px),transparent calc(66.666% + .5px))}
+      linear-gradient(90deg,transparent calc(33.333% - .5px),color-mix(in oklch,var(--neutral-50) 35%,transparent) calc(33.333% - .5px) calc(33.333% + .5px),transparent calc(33.333% + .5px)),
+      linear-gradient(90deg,transparent calc(66.666% - .5px),color-mix(in oklch,var(--neutral-50) 35%,transparent) calc(66.666% - .5px) calc(66.666% + .5px),transparent calc(66.666% + .5px)),
+      linear-gradient(180deg,transparent calc(33.333% - .5px),color-mix(in oklch,var(--neutral-50) 35%,transparent) calc(33.333% - .5px) calc(33.333% + .5px),transparent calc(33.333% + .5px)),
+      linear-gradient(180deg,transparent calc(66.666% - .5px),color-mix(in oklch,var(--neutral-50) 35%,transparent) calc(66.666% - .5px) calc(66.666% + .5px),transparent calc(66.666% + .5px))}
   .croprow{display:flex;align-items:center;gap:12px;margin:12px 0 0}
   .croprow .k{flex:0 0 auto;font:11px/1 var(--mono);color:var(--ink)}
   .croprow input[type=range]{flex:1 1 auto;min-width:0}
   .croprow button{flex:0 0 auto;width:auto;height:auto;display:inline-block;padding:6px 10px;
-    background:transparent;border:1px solid var(--hair);font:11px/1 var(--mono);color:var(--muted);cursor:pointer}
+    background:transparent;border:1px solid var(--hair);font:11px/1 var(--mono);color:var(--ui-text-muted);cursor:pointer}
   .croprow button:hover{border-color:var(--rule);color:var(--ink)}
   /* 膠卷：底圖是從影片抓出來的一排畫面，上面疊一個可以拖的選取範圍 */
   .trimstrip{position:relative;height:54px;margin:0 0 10px;background:var(--paper-2);
     border:1px solid var(--hair);overflow:hidden;touch-action:none;user-select:none}
   .trimstrip canvas{display:block;width:100%;height:100%}
-  .trimstrip .shade{position:absolute;top:0;bottom:0;background:rgba(20,8,10,.62);pointer-events:none}
+  .trimstrip .shade{position:absolute;top:0;bottom:0;background:color-mix(in oklch,var(--neutral-950) 62%,transparent);pointer-events:none}
   .trimsel{position:absolute;top:0;bottom:0;border:2px solid var(--red);cursor:grab}
   .trimsel:active{cursor:grabbing}
   .trimh{position:absolute;top:-2px;bottom:-2px;width:14px;background:var(--red);cursor:ew-resize;
@@ -849,9 +849,9 @@
   .trimh.l{left:0}
   .trimh.r{right:0}
   .trimplay{position:absolute;top:0;bottom:0;width:2px;background:var(--paper);
-    box-shadow:0 0 4px rgba(0,0,0,.8);pointer-events:none;display:none}
+    box-shadow:0 0 4px color-mix(in oklch,var(--ui-shadow) 80%,transparent);pointer-events:none;display:none}
   .trimnums{display:flex;justify-content:space-between;align-items:baseline;
-    font:11px/1.6 var(--mono);color:var(--muted);margin:0 0 14px}
+    font:11px/1.6 var(--mono);color:var(--ui-text-muted);margin:0 0 14px}
   .trimnums b{font:14px/1.4 var(--num);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:400}
   /* 照片：沒有時間軸，只要選幾秒 */
   .trimquick{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
@@ -859,7 +859,7 @@
      所以這裡要把寬高明確搶回來 */
   .trimquick button{flex:0 0 auto;width:auto;height:auto;display:inline-block;
     padding:7px 12px;background:transparent;border:1px solid var(--hair);
-    font:11px/1 var(--mono);color:var(--muted);cursor:pointer;
+    font:11px/1 var(--mono);color:var(--ui-text-muted);cursor:pointer;
     transition:border-color .12s,color .12s,background-color .12s}
   .trimquick button:hover{border-color:var(--rule);color:var(--ink)}
   .trimquick button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
@@ -879,12 +879,12 @@
   /* 素材縮圖：56px、髮絲邊；選中墨黑框；叉叉 hover 才出現 */
   .status{display:flex;align-items:center;min-height:36px;font:11px/1.5 var(--mono);color:var(--ink);border-bottom:var(--bw) solid var(--hair)}
   .status:empty{display:none}
-  .hint p{margin:0 0 8px;font:10px/1.7 var(--mono);letter-spacing:.02em;color:var(--muted)}
+  .hint p{margin:0 0 8px;font:10px/1.7 var(--mono);letter-spacing:.02em;color:var(--ui-text-muted)}
   .hint>h2+p{border-top:0}
   .stamp{margin-top:20px;height:36px;display:flex;justify-content:space-between;align-items:center;
-    font:11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    font:11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ui-text-muted)}
   .stamp i{display:block;width:6px;height:6px;border-radius:50%;background:var(--ink)}
-  .cell p.hint{margin:12px 0 0;font-size:10px;line-height:1.7;color:var(--muted,#7d7461)}
+  .cell p.hint{margin:12px 0 0;font-size:10px;line-height:1.7;color:var(--ui-text-muted)}
   /* 三欄：左選、中畫板、右調 */
   .panel .grid{grid-template-columns:1fr}
   .panel-l{border-left:0;border-right:1px solid var(--grid)}
@@ -988,7 +988,7 @@
       margin:0;padding:0;border:1px solid var(--ink);border-radius:0;
       background:var(--ink);color:var(--paper);
       font:12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;text-align:center;
-      box-shadow:0 8px 24px rgba(30,8,10,.34)}
+      box-shadow:0 8px 24px color-mix(in oklch,var(--neutral-950) 34%,transparent)}
     .exportbar span{font-size:9.5px;letter-spacing:.22em;opacity:.55}
     /* 手機沒有 hover，:hover 會在點完之後殘留成反白，所以壓掉它、只留按下去的回饋 */
     .exportbar:hover{background:var(--ink)}
@@ -1005,11 +1005,11 @@
 .stagebar .items{overflow:auto;max-height:190px;padding:0 3px 6px}
 .stagebar .items .list{overflow:visible;width:max-content;min-width:100%;height:58px}
 .caption-tracks{width:max-content;min-width:100%;padding-top:6px}
-.caption-track{height:30px;position:relative;margin-bottom:4px;background:repeating-linear-gradient(90deg,rgba(238,230,215,.6) 0 55px,rgba(110,90,70,.22) 55px 56px,transparent 56px 64px)}
-.caption-clip{position:absolute;top:2px;height:26px;border:1px solid #9b7569;border-radius:3px;background:#cfb4a1;color:#382824;cursor:grab;touch-action:none;user-select:none;font:10px/24px var(--mono);overflow:hidden}
-.caption-clip.selected{background:#a04a4b;color:var(--paper)}
+.caption-track{height:30px;position:relative;margin-bottom:4px;background:repeating-linear-gradient(90deg,color-mix(in oklch,var(--ui-timeline-bg) 60%,transparent) 0 55px,color-mix(in oklch,var(--neutral-600) 22%,transparent) 55px 56px,transparent 56px 64px)}
+.caption-clip{position:absolute;top:2px;height:26px;border:1px solid var(--ui-timeline-border);border-radius:3px;background:var(--ui-timeline-clip);color:var(--ui-text);cursor:grab;touch-action:none;user-select:none;font:10px/24px var(--mono);overflow:hidden}
+.caption-clip.selected{background:var(--ui-timeline-selected);color:var(--ui-on-selected)}
 .caption-clip .clip-label{display:block;padding:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-.caption-clip .clip-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;background:#0001}
+.caption-clip .clip-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;background:color-mix(in oklch,var(--ui-shadow) 6.667%,transparent)}
 .clip-handle.left{left:0}.clip-handle.right{right:0}
 .clip-handle:after{content:'';position:absolute;left:3px;top:7px;bottom:7px;border-left:1px solid currentColor}
 .timeline-add{font:10px var(--mono);padding:4px 6px;margin-top:3px;border:1px solid var(--hair);background:var(--paper);cursor:pointer}
@@ -1026,7 +1026,7 @@
 .caption-editor[hidden]{display:none}
 .caption-editor .capblock{margin:0;border:0;padding:0}
 .caption-editor input[type=text]{text-align:left;text-align-last:left}
-.caption-range-note{font:10px/1.6 var(--mono);color:var(--muted);margin:12px 0 0}
+.caption-range-note{font:10px/1.6 var(--mono);color:var(--ui-text-muted);margin:12px 0 0}
 #captionButtons{display:grid;gap:8px;margin-bottom:8px}
 #captionButtons button{display:block;width:100%;padding:10px 12px;text-align:left;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink);cursor:pointer;font:11px/1.5 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #captionButtons button:hover{background:var(--hover);border-color:var(--red)}
@@ -1035,7 +1035,7 @@
 #addCaption:hover:not(:disabled){border-bottom-color:var(--rule)}
 #captionButtons .caption-button-row{position:relative;display:flex;gap:0;min-width:0}
 #captionButtons .caption-button-row>button:first-child{flex:1;min-width:0;padding-right:30px}
-#captionButtons .caption-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:22px;height:22px;padding:0;text-align:center;font-size:14px;line-height:1;letter-spacing:0;border:0;background:transparent;color:var(--muted);opacity:.45}
+#captionButtons .caption-delete{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:22px;height:22px;padding:0;text-align:center;font-size:14px;line-height:1;letter-spacing:0;border:0;background:transparent;color:var(--ui-text-muted);opacity:.45}
 #captionButtons .caption-delete:hover,#captionButtons .caption-delete:focus-visible{color:var(--ink);opacity:.85;background:transparent}
 @media(min-width:861px){
  .stage>.board{--barh:170px;position:relative;top:20px}
@@ -1045,14 +1045,14 @@
 .frame-picker .csel-opt{display:block;height:auto;min-width:0;padding:5px;border:1px solid transparent;text-align:left;white-space:normal}
 .frame-picker .csel-opt::before{display:none}
 .frame-picker .csel-opt[aria-selected="true"]{border-color:var(--red);background:var(--paper-2)}
-.frame-choice-preview{position:relative;display:block;width:100%;aspect-ratio:4/5;overflow:hidden;background:#26221f}
+.frame-choice-preview{position:relative;display:block;width:100%;aspect-ratio:4/5;overflow:hidden;background:var(--beige-900)}
 .frame-choice-preview>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.frame-choice-preview>.frame-choice-card{inset:19%;width:62%;height:62%;border:4px solid #fff}
+.frame-choice-preview>.frame-choice-card{inset:19%;width:62%;height:62%;border:4px solid var(--neutral-50)}
 .frame-choice-preview>.frame-choice-line{height:auto;bottom:auto;transform:translateY(-50%)}
 .frame-choice-preview>.frame-choice-star{height:50%;bottom:auto}
-.frame-choice-upload{position:absolute;inset:15%;display:grid;place-items:center;border:1px dashed #fff;background:#0004;color:white;font-size:30px}
+.frame-choice-upload{position:absolute;inset:15%;display:grid;place-items:center;border:1px dashed var(--neutral-50);background:color-mix(in oklch,var(--ui-shadow) 26.67%,transparent);color:white;font-size:30px}
 .frame-choice-name{display:block;margin-top:6px;font:11px/1.5 var(--mono)}
-.settings-actions{display:flex;gap:8px;padding-top:12px}.settings-actions .btn{flex:1;min-width:0}#settingsStatus{font:11px/1.7 var(--sans);color:var(--muted);margin:10px 0 0;overflow-wrap:anywhere}#settingsName{font:inherit;background:var(--paper-2);border:0;padding:8px;color:var(--ink)}
+.settings-actions{display:flex;gap:8px;padding-top:12px}.settings-actions .btn{flex:1;min-width:0}#settingsStatus{font:11px/1.7 var(--sans);color:var(--ui-text-muted);margin:10px 0 0;overflow-wrap:anywhere}#settingsName{font:inherit;background:var(--paper-2);border:0;padding:8px;color:var(--ink)}
 
 /* Underline marks the current page or the open story only. */
 .hd-nav .hd-story{border-bottom-color:transparent}

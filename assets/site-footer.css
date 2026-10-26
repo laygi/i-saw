@@ -1,20 +1,20 @@
 /* I SAW — shared content-page footer. The creation workspace stays footer-free. */
-.isaw-footer-backdrop{position:relative;z-index:2;padding:24px 24px 140px;background:linear-gradient(115deg,#66141c99,#a12531bb 48%,#59131bdd),url("dialog-linen.png") center/720px;background-color:var(--red,#ac242e)}
-.isaw-footer{box-sizing:border-box;display:block;position:relative;z-index:2;margin:0;padding:58px 44px 22px;background:var(--neutral-950,#0d0d0d);color:var(--beige-100,#ebe7dd);border:0;font:12px/1.6 var(--sans);letter-spacing:0;text-align:left;border-radius:0;box-shadow:0 12px 40px #24080c26}
+.isaw-footer-backdrop{position:relative;z-index:2;padding:24px 24px 140px;background:linear-gradient(115deg,color-mix(in oklch,var(--red-800) 60%,transparent),color-mix(in oklch,var(--red-600) 73.33%,transparent) 48%,color-mix(in oklch,var(--red-900) 86.67%,transparent)),url("dialog-linen.png") center/720px;background-color:var(--red)}
+.isaw-footer{box-sizing:border-box;display:block;position:relative;z-index:2;margin:0;padding:58px 44px 22px;background:var(--neutral-950);color:var(--beige-100);border:0;font:12px/1.6 var(--sans);letter-spacing:0;text-align:left;border-radius:0;box-shadow:0 12px 40px color-mix(in oklch,var(--beige-950) 14.9%,transparent)}
 .isaw-footer *{box-sizing:border-box}
 .isaw-footer .isaw-footer-upper{display:grid;grid-template-columns:minmax(200px,1.6fr) repeat(3,minmax(100px,1fr)) 38px;align-items:start;gap:32px;min-height:182px}
 .isaw-footer .isaw-footer-brand{display:block;justify-self:start;text-decoration:none;color:inherit}
 .isaw-footer .isaw-footer-brand img{display:block;width:174px;height:auto;max-width:100%}
 .isaw-footer .isaw-footer-brand>span{display:block;margin-top:22px;font:italic 24px/1.25 var(--serif);letter-spacing:.015em}
 .isaw-footer nav.isaw-footer-column{display:flex;flex-direction:column;align-items:flex-start;justify-self:stretch;gap:0;white-space:normal;margin:0;padding:0;border:0}
-.isaw-footer .isaw-footer-column h2{margin:0 0 18px;padding:0;font:normal 13px/1.4 var(--serif);letter-spacing:0;color:var(--beige-400,#b3a993);text-transform:none}
-.isaw-footer .isaw-footer-column a{display:block;position:relative;width:auto;max-width:100%;margin:0;padding:4px 0;border:0;background:none;color:var(--beige-100,#ebe7dd);text-decoration:none;font:11px/1.6 var(--sans);letter-spacing:.015em;text-transform:none;transition:color .15s}
-.isaw-footer .isaw-footer-column a:hover{text-decoration:underline;text-underline-offset:4px;color:var(--beige-50,#fbf9f3)}
-.isaw-footer .isaw-footer-top{display:grid;place-items:center;justify-self:end;width:38px;height:38px;border:1px solid #ebe7dd40;border-radius:50%;background:none;color:var(--beige-100,#ebe7dd);font:17px/1 var(--sans);text-decoration:none;transition:background-color .15s}
-.isaw-footer .isaw-footer-top:hover{background:#ebe7dd15}
-.isaw-footer .isaw-footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px 24px;border-top:1px solid #ebe7dd22;margin-top:34px;padding-top:20px;color:var(--beige-400,#b3a993);font:9px/1.6 var(--sans)}
+.isaw-footer .isaw-footer-column h2{margin:0 0 18px;padding:0;font:normal 13px/1.4 var(--serif);letter-spacing:0;color:var(--beige-400);text-transform:none}
+.isaw-footer .isaw-footer-column a{display:block;position:relative;width:auto;max-width:100%;margin:0;padding:4px 0;border:0;background:none;color:var(--beige-100);text-decoration:none;font:11px/1.6 var(--sans);letter-spacing:.015em;text-transform:none;transition:color .15s}
+.isaw-footer .isaw-footer-column a:hover{text-decoration:underline;text-underline-offset:4px;color:var(--beige-50)}
+.isaw-footer .isaw-footer-top{display:grid;place-items:center;justify-self:end;width:38px;height:38px;border:1px solid color-mix(in oklch,var(--beige-100) 25.1%,transparent);border-radius:50%;background:none;color:var(--beige-100);font:17px/1 var(--sans);text-decoration:none;transition:background-color .15s}
+.isaw-footer .isaw-footer-top:hover{background:color-mix(in oklch,var(--beige-100) 8.235%,transparent)}
+.isaw-footer .isaw-footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px 24px;border-top:1px solid color-mix(in oklch,var(--beige-100) 13.33%,transparent);margin-top:34px;padding-top:20px;color:var(--beige-400);font:9px/1.6 var(--sans)}
 .isaw-footer .isaw-footer-bottom small{font:inherit}
-.isaw-footer a:focus-visible{outline:1px solid var(--beige-100,#ebe7dd);outline-offset:5px}
+.isaw-footer a:focus-visible{outline:1px solid var(--beige-100);outline-offset:5px}
 /* Content pages use an edge-to-edge surface above the framed footer. */
 body.isaw-gallery{display:flex;flex-direction:column;min-height:100svh}
 body.isaw-gallery>main{min-height:0;flex:1}
@@ -25,7 +25,7 @@ body:has(.shell)>.isaw-footer-backdrop{margin-top:0}
 @media(max-width:360px){.isaw-footer{padding-left:18px;padding-right:18px}.isaw-footer .isaw-footer-upper{gap:28px 12px}.isaw-footer .isaw-footer-column a{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.isaw-footer a{transition:none!important}}
 
-.isaw-footer .isaw-footer-disabled{display:block;margin:0;padding:4px 0;color:var(--beige-400,#b3a993);opacity:.5;font:11px/1.6 var(--sans);letter-spacing:.015em;cursor:default}
+.isaw-footer .isaw-footer-disabled{display:block;margin:0;padding:4px 0;color:var(--beige-400);opacity:.5;font:11px/1.6 var(--sans);letter-spacing:.015em;cursor:default}
 @media(max-width:700px){.isaw-footer .isaw-footer-disabled{font-size:10px;min-height:30px;padding:6px 0}}
 
 @media(max-width:700px){.isaw-footer-backdrop{padding:16px 12px 80px}.isaw-footer{border-radius:0}}
